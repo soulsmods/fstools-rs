@@ -1,8 +1,7 @@
-[package]
-name = "flver"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-byteorder = "1"
-bevy = "0.12"
+[workspace]
+members = [
+    "format",
+    "viewer",
+    "cli",
+    "util",
+]

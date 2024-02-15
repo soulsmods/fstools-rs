@@ -1,0 +1,11 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+format = { path = "../format" }
+indicatif = { version = "0.17", features = ["rayon"] }
+rayon = "1"
+util = { path = "../util" }
