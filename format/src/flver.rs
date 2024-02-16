@@ -1,6 +1,6 @@
 use byteorder::{ReadBytesExt, LE};
-use std::io::{self, SeekFrom};
-use crate::read_utf16;
+use std::{io::{self, SeekFrom}, marker::ConstParamTy};
+use crate::{bnd4::FromBnd4File, read_utf16};
 
 const ALLOWED_VERSIONS: [u32; 1] = [
     0x2001A, // Elden Ring
@@ -70,22 +70,22 @@ impl FLVER {
         let total_face_count = r.read_u32::<LE>()?;
         let vertex_index_size = r.read_u8()?;
 
-        let unicode = r.read_u8()?;
-        let unk4a = r.read_u8()?;
-        let unk4b = r.read_u8()?;
-        let unk4c = r.read_u32::<LE>()?;
+        let _unicode = r.read_u8()?;
+        let _unk4a = r.read_u8()?;
+        let _unk4b = r.read_u8()?;
+        let _unk4c = r.read_u32::<LE>()?;
 
         let face_set_count = r.read_u32::<LE>()?;
         let buffer_layout_count = r.read_u32::<LE>()?;
         let texture_count = r.read_u32::<LE>()?;
 
-        let unk5c = r.read_u8()?;
-        let unk5d = r.read_u8()?;
+        let _unk5c = r.read_u8()?;
+        let _unk5d = r.read_u8()?;
         r.read_u8()?;
         r.read_u8()?;
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
-        let unk68 = r.read_u32::<LE>()?;
+        let _unk68 = r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
@@ -519,22 +519,23 @@ impl FLVERBufferLayout {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[repr(u32)]
+#[derive(Debug, PartialEq, Eq, ConstParamTy)]
 pub enum FLVERStorageType {
-    Float2,
-    Float3,
-    Float4,
-    Byte4A,
-    Byte4B,
-    Short2ToFloat2,
-    Byte4C,
-    UV,
-    UVPair,
-    ShortBoneIndices,
-    Short4ToFloat4A,
-    Short4ToFloat4B,
-    Byte4E,
-    EdgeCompressed,
+    Float2 = 0x1,
+    Float3 = 0x2,
+    Float4 = 0x3,
+    Byte4A = 0x10,
+    Byte4B = 0x11,
+    Short2ToFloat2 = 0x12,
+    Byte4C = 0x13,
+    UV = 0x15,
+    UVPair = 0x16,
+    ShortBoneIndices = 0x18,
+    Short4ToFloat4A = 0x1A,
+    Short4ToFloat4B = 0x2E,
+    Byte4E = 0x2F,
+    EdgeCompressed =  0xF0,
 }
 
 impl From<u32> for FLVERStorageType {
@@ -687,3 +688,11 @@ fn read_vec<T: FLVERPartReader>(
 
     Ok(results)
 }
+
+impl FromBnd4File for FLVER {
+    fn from_bnd4(bytes: &[u8]) -> Self {
+        let mut cursor = io::Cursor::new(bytes);
+        Self::from_reader(&mut cursor).expect("Fuck lmao")
+    }
+}
+

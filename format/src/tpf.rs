@@ -1,4 +1,4 @@
-use crate::read_utf16;
+use crate::{bnd4::FromBnd4File, read_utf16};
 use std::io::{self, SeekFrom};
 use byteorder::{ReadBytesExt, LE};
 
@@ -77,4 +77,12 @@ impl Texture {
         Ok(buffer)
     }
 }
+
+impl FromBnd4File for TPF {
+    fn from_bnd4(bytes: &[u8]) -> Self {
+        let mut cursor = io::Cursor::new(bytes);
+        Self::from_reader(&mut cursor).expect("Fuck lmao")
+    }
+}
+
 

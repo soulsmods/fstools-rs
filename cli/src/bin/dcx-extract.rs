@@ -26,9 +26,8 @@ fn main() -> Result<(), std::io::Error> {
         path.file_stem().unwrap().to_str().unwrap(),
     );
 
-    for entry in bnd4.file_descriptors.iter() {
-        let trimmed_path = entry.name.replace("N:\\", "").replace("\\", "/");
-
+    for entry in bnd4.files.iter() {
+        let trimmed_path = entry.path.replace("N:\\", "").replace("\\", "/");
         let output_path = std::path::PathBuf::from(folder.clone())
             .join(trimmed_path.as_str());
 

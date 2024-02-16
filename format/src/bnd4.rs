@@ -17,8 +17,8 @@ pub struct BND4 {
     pub raw_format: u8,
     pub extended: u8,
     pub buckets_offset: u64,
-
-    pub file_descriptors: Vec<FileDescriptor>,
+    pub files: Vec<File>,
+    pub data: Vec<u8>,
 }
 
 impl BND4 {
@@ -51,10 +51,14 @@ impl BND4 {
 
         let buckets_offset = r.read_u64::<LE>()?;
 
-        let mut file_descriptors = vec![];
+        let mut files = vec![];
         for _ in 0..file_count {
-            file_descriptors.push(FileDescriptor::from_reader(r)?);
+            files.push(File::from_reader(r)?);
         }
+
+        let mut data = vec![];
+        r.seek(SeekFrom::Start(0))?;
+        r.read_to_end(&mut data)?;
 
         Ok(Self {
             unk04,
@@ -69,43 +73,42 @@ impl BND4 {
             raw_format,
             extended,
             buckets_offset,
-            file_descriptors,
+            files,
+            data,
         })
     }
 
-    pub fn file_descriptor_by_path_material(&self, path: &str) -> Option<&FileDescriptor> {
-        let normalized_lookup_path = path.to_string()
-            .replace("N:\\", "")
-            .to_lowercase()
-            .replace("\\", "/");
+    pub fn file_descriptor_by_stem(&self, path: &str) -> Option<&File> {
+        let lookup = std::path::PathBuf::from(Self::normalize_path(path));
 
-        let lookup_filestem = std::path::PathBuf::from(normalized_lookup_path);
-
-        self.file_descriptors.iter()
+        self.files.iter()
             .find(|f| {
-                let normalized_dcx_path = f.name.clone()
-                    .replace("N:\\", "")
-                    .to_lowercase()
-                    .replace("\\", "/");
+                let path = std::path::PathBuf::from(
+                    Self::normalize_path(&f.path)
+                );
 
-                let filestem = std::path::PathBuf::from(normalized_dcx_path);
-
-                filestem.file_stem() == lookup_filestem.file_stem()
+                path.file_stem() == lookup.file_stem()
             })
+    }
+
+    fn normalize_path(path: &str) -> String {
+        path.replace("N:\\", "")
+            .to_lowercase()
+            .replace("\\", "/")
     }
 }
 
-#[derive(Debug)]
-pub struct FileDescriptor {
+#[derive(Debug, PartialEq)]
+pub struct File {
     pub flags: u8,
     pub compressed_size: u64,
     pub uncompressed_size: u64,
     pub data_offset: u32,
     pub id: u32,
-    pub name: String,
+    pub path: String,
 }
 
-impl FileDescriptor {
+impl File {
     pub fn from_reader(r: &mut BND4Reader) -> Result<Self, io::Error> {
         let flags = r.read_u8()?;
         assert!(r.read_u8()? == 0x0);
@@ -124,7 +127,7 @@ impl FileDescriptor {
 
         let current = r.seek(SeekFrom::Current(0))?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
-        let name = read_utf16(r)?;
+        let path = read_utf16(r)?;
         r.seek(SeekFrom::Start(current))?;
 
         assert!(
@@ -138,7 +141,7 @@ impl FileDescriptor {
             uncompressed_size,
             data_offset,
             id,
-            name,
+            path,
         })
     }
 
@@ -146,8 +149,13 @@ impl FileDescriptor {
         let mut buffer = vec![0x0u8; self.compressed_size as usize];
         r.seek(SeekFrom::Start(self.data_offset as u64))?;
         r.read_exact(&mut buffer)?;
+
         Ok(buffer)
     }
+}
+
+pub trait FromBnd4File {
+    fn from_bnd4(bytes: &[u8]) -> Self;
 }
 
 fn read_utf16(r: &mut BND4Reader) -> Result<String, io::Error> {
