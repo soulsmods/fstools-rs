@@ -1,4 +1,3 @@
-use bevy::pbr::DirectionalLightShadowMap;
 use bevy::render::texture::{
     CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor, ImageType
 };
@@ -36,7 +35,6 @@ use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 fn main() {
     // Prepare archives and shit 
@@ -68,7 +66,7 @@ fn main() {
 
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(WorldInspectorPlugin::new())
+        //.add_plugins(WorldInspectorPlugin::new())
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, draw_dummies)
@@ -172,8 +170,8 @@ fn setup(
                 base_color_texture: base_albedo_texture.cloned(),
 
                 // TODO: normal maps are weird rn, not sure what is up
-                // normal_map_texture: normal_map_texture.cloned(),
-                // flip_normal_map_y: true,
+                //normal_map_texture: normal_map_texture.cloned(),
+                //flip_normal_map_y: true,
 
                 ..default()
             }),
@@ -191,29 +189,17 @@ fn setup(
         });
     }
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(2.0, 8.0, 2.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
-            illuminance: 8000.0,
+    commands.spawn(SpotLightBundle {
+        spot_light: SpotLight {
+            intensity: 150.0,
             shadows_enabled: true,
             ..default()
         },
+        transform: Transform::from_xyz(2.0, 2.0, 2.0)
+            .looking_at(Vec3::ZERO, Vec3::Y),
+
         ..default()
     });
-
-    // commands.spawn(SpotLightBundle {
-    //     spot_light: SpotLight {
-    //         intensity: 1500.0,
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //
-    //     transform: Transform::from_xyz(2.0, 8.0, 2.0)
-    //         .looking_at(Vec3::ZERO, Vec3::Y),
-    //
-    //     ..default()
-    // });
 
     // Draw some floor
     let floor = flver.bounding_box_min;
@@ -230,7 +216,8 @@ fn setup(
 
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(2.0, 2.0, 2.0)
+                .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         PanOrbitCamera::default(),

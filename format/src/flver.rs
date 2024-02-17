@@ -521,6 +521,8 @@ impl FLVERBufferLayout {
 
 #[repr(u32)]
 #[derive(Debug, PartialEq, Eq, ConstParamTy)]
+// TODO: these come from soulsformats and probably have documented
+// names in dx12
 pub enum FLVERStorageType {
     Float2 = 0x1,
     Float3 = 0x2,
@@ -555,7 +557,7 @@ impl From<u32> for FLVERStorageType {
             0x2E => Self::Short4ToFloat4B,
             0x2F => Self::Byte4E,
             0xF0 => Self::EdgeCompressed,
-            _ => panic!("Unknown layout type {}", value),
+            _ => panic!("Unknown storage type {}", value),
         }
     }
 }
@@ -583,7 +585,7 @@ impl From<u32> for FLVERMemberType {
             0x6 => Self::Tangent,
             0x7 => Self::Bitangent,
             0xA => Self::VertexColor,
-            _ => panic!("Unknown layout semantic {}", value),
+            _ => panic!("Unknown member type {}", value),
         }
     }
 }

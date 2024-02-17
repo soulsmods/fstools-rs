@@ -45,7 +45,7 @@ impl<'a> FLVERMeshBuilder<'a> {
         debug_assert!(position_member.storage_type == FLVERStorageType::Float3);
 
         let normal_member = layout.member_by_type(FLVERMemberType::Normal);
-        let uv_member = layout.member_by_type(FLVERMemberType::UV);
+        let uv_member = dbg!(layout.member_by_type(FLVERMemberType::UV));
         let tangent_member = layout.member_by_type(FLVERMemberType::Tangent);
 
         let vec_capacity = buffer.vertex_count as usize;
@@ -84,7 +84,7 @@ impl<'a> FLVERMeshBuilder<'a> {
                 ).expect("Could not read normals");
 
                 // Cursed mapping since FS stores these with an extra channel
-                normals.push([normal[0], normal[1], normal[2] * -1.0]);
+                normals.push([normal[0], normal[1], normal[2]]);
             } else {
                 normals.push([0.0, 0.0, 0.0]);
             }
@@ -186,10 +186,10 @@ impl PropertyAccessor<{FLVERStorageType::Byte4B}> {
         r.seek(SeekFrom::Start(offset as u64))?;
 
         Ok([
-           (r.read_u8()? as i32 - 127) as f32 / 127.0,
-           (r.read_u8()? as i32 - 127) as f32 / 127.0,
-           (r.read_u8()? as i32 - 127) as f32 / 127.0,
-           (r.read_u8()? as i32 - 127) as f32 / 127.0,
+           (r.read_u8()? as u8 - 127) as f32 / 127.0,
+           (r.read_u8()? as u8 - 127) as f32 / 127.0,
+           (r.read_u8()? as u8 - 127) as f32 / 127.0,
+           (r.read_u8()? as u8 - 127) as f32 / 127.0,
         ])
     }
 }
