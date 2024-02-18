@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use std::io;
 use std::io::Read;
 use std::sync;
+use std::sync::RwLock;
 
 use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::render::render_asset::RenderAssetUsages;
@@ -20,25 +21,13 @@ use steamlocate::SteamDir;
 
 use format::flver::FLVER;
 use format::tpf::TPF;
-use util::{AssetArchiveError, AssetRepository, FLVERMeshBuilder};
+use souls_vfs::Vfs;
+use util::{AssetArchiveError, AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
 
 mod keys;
 
-static ASSET_REPOSITORY: sync::OnceLock<sync::RwLock<AssetRepository>> = sync::OnceLock::new();
-
-fn asset_repository_mut() -> sync::RwLockWriteGuard<'static, AssetRepository> {
-    ASSET_REPOSITORY
-        .get_or_init(default)
-        .write()
-        .expect("Couldn't obtain write lock")
-}
-
-fn asset_repository() -> sync::RwLockReadGuard<'static, AssetRepository> {
-    ASSET_REPOSITORY
-        .get_or_init(default)
-        .read()
-        .expect("Couldn't obtain read lock")
-}
+#[derive(Deref, DerefMut, Resource)]
+pub struct AssetRepository(RwLock<AssetRepositoryImpl>);
 
 #[derive(Component)]
 struct Dummy {
@@ -49,49 +38,31 @@ const ER_APPID: u32 = 1245620;
 
 fn main() {
     let args = Args::parse();
-    ASSET_REPOSITORY.get_or_init(default);
+    let mut steamdir = SteamDir::locate().expect("steam installation not found");
+    let er_path = match steamdir.app(&ER_APPID) {
+        Some(app) => app.path.join("Game"),
+        None => panic!("couldn't find elden ring installation"),
+    };
+    let keys = keys::eldenring_keys();
+    let archives = [
+        er_path.join("Data0"),
+        er_path.join("Data1"),
+        er_path.join("Data2"),
+        er_path.join("Data3"),
+        er_path.join("sd/sd"),
+    ];
+    let vfs = Vfs::create(&archives, &keys).expect("unable to create vfs");
+    let mut repository = AssetRepositoryImpl::new(vfs);
 
-    {
-        let mut steamdir = SteamDir::locate().expect("steam installation not found");
-        let er_path = match steamdir.app(&ER_APPID) {
-            Some(app) => app.path.join("Game"),
-            None => panic!("couldn't find elden ring installation"),
-        };
-
-        let mut repository = asset_repository_mut();
-        let keys = keys::eldenring_keys();
-        let archives = [
-            er_path.join("Data0"),
-            er_path.join("Data1"),
-            er_path.join("Data2"),
-            er_path.join("Data3"),
-            er_path.join("sd/sd"),
-        ];
-
-        for archive in archives {
-            let archive_name = archive
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .expect("invalid archive path");
-
-            repository
-                .mount_archive(archive.to_str().unwrap(), &keys[archive_name][..])
-                .expect("Could not mount game archive");
-        }
-
-        // Load material bnd
-        // repository.mount_dcx_bnd4("/material/allmaterial.matbinbnd.dcx")
-        //     .expect("Could not mount material defs DCX");
-
-        // Load specified bnd4
-        repository
-            .mount_dcx_bnd4(&args.dcx)
-            .expect("Could not load specified DCX");
-    }
+    // Load specified bnd4
+    repository
+        .mount_dcx_bnd4(&args.dcx)
+        .expect("Could not load specified DCX");
 
     App::new()
         .add_plugins(DefaultPlugins)
         //.add_plugins(WorldInspectorPlugin::new())
+        .insert_resource(AssetRepository(RwLock::new(repository)))
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, draw_dummies)
@@ -117,9 +88,9 @@ fn setup(
     mut textures: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    repository: Res<AssetRepository>,
 ) {
-    let repository = asset_repository();
-
+    let repository = repository.read().expect("unable to acquire read lock");
     // Attempt to find any flvers
     let flvers = repository.paths_by_extension("flver");
     let handle = flvers.iter().next().expect("No FLVERs found in DCX");

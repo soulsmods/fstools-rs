@@ -1,6 +1,7 @@
 use byteorder::{ReadBytesExt, LE};
 use format::flver::{
-    FLVERBufferLayout, FLVERFaceSet, FLVERFaceSetIndices, FLVERMemberType, FLVERMesh, FLVERStorageType, FLVERVertexBuffer, FLVER
+    FLVERBufferLayout, FLVERFaceSet, FLVERFaceSetIndices, FLVERMemberType, FLVERMesh,
+    FLVERStorageType, FLVERVertexBuffer, FLVER,
 };
 use std::io::{self, Read, Seek, SeekFrom};
 

@@ -10,6 +10,7 @@ clap = { version = "4", features = ["derive"] }
 byteorder = "1"
 bevy = { version = "0.13", features = ["dds"] }
 format = { path = "../format" }
+souls_vfs = { path = "../vfs" }
 util = { path = "../util" }
 bevy_panorbit_camera = { git = "https://github.com/Plonq/bevy_panorbit_camera", branch = "bevy-0.13" }
 steamlocate = "1.2.1"

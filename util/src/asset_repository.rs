@@ -1,26 +1,24 @@
 use std::collections;
+use std::io::Read;
 use format::{bnd4::{File, FromBnd4File, BND4}, dcx::DCX};
+use souls_vfs::Vfs;
 use crate::{AssetArchive, AssetArchiveError};
 
-#[derive(Default, Debug)]
 pub struct AssetRepository {
-    archives: collections::HashMap<String, AssetArchive>,
+    vfs: Vfs,
     binders: collections::HashMap<String, BND4>,
     file_handles: collections::HashMap<String, FileHandle>,
 }
 
-impl AssetRepository {
-    pub fn mount_archive(
-        &mut self,
-        path: &str,
-        key: &[u8],
-    ) -> Result<(), AssetArchiveError> {
-        self.archives.insert(
-            path.to_string(),
-            AssetArchive::new(path, key)?
-        );
 
-        Ok(())
+
+impl AssetRepository {
+    pub fn new(vfs: Vfs) -> Self {
+        Self {
+            vfs,
+            binders: Default::default(),
+            file_handles: Default::default()
+        }
     }
 
     pub fn mount_dcx_bnd4(&mut self, path: &str) -> Result<(), AssetArchiveError> {
@@ -70,16 +68,12 @@ impl AssetRepository {
     }
 
     fn file_bytes_by_path(&self, path: &str) -> Result<Vec<u8>, AssetArchiveError> {
-        for archive in self.archives.values() {
-            match archive.file_bytes_by_path(path) {
-                Ok(b) => return Ok(b),
-                Err(e) => match e {
-                    AssetArchiveError::FileNotFound => {},
-                    _ => return Err(e),
-                },
-            }
-        }
-        Err(AssetArchiveError::FileNotFound)
+        let mut file_reader = self.vfs.open(path).map_err(AssetArchiveError::IO)?;
+        let mut file_data = Vec::new();
+
+        file_reader.read_to_end(&mut file_data).map_err(AssetArchiveError::IO)?;
+
+        Ok(file_data)
     }
 }
 
