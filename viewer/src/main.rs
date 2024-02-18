@@ -20,7 +20,7 @@ use steamlocate::SteamDir;
 use format::flver::FLVER;
 use format::tpf::TPF;
 use souls_vfs::{FileKeyProvider, Vfs};
-use util::{AssetArchiveError, AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
+use util::{AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
 
 
 #[derive(Deref, DerefMut, Resource)]
@@ -48,7 +48,7 @@ fn main() {
         er_path.join("Data3"),
         er_path.join("sd/sd"),
     ];
-    let vfs = Vfs::create(&archives, &keys).expect("unable to create vfs");
+    let vfs = Vfs::create(archives, &keys).expect("unable to create vfs");
     let mut repository = AssetRepositoryImpl::new(vfs);
 
     // Load specified bnd4
@@ -76,7 +76,6 @@ struct Args {
 #[derive(Debug)]
 pub enum AssetLoadError {
     Io(io::Error),
-    AssetArchive(AssetArchiveError),
     NotFound,
 }
 
@@ -90,7 +89,7 @@ fn setup(
     let repository = repository.read().expect("unable to acquire read lock");
     // Attempt to find any flvers
     let flvers = repository.paths_by_extension("flver");
-    let handle = flvers.iter().next().expect("No FLVERs found in DCX");
+    let handle = flvers.first().expect("No FLVERs found in DCX");
 
     let flver = repository.file::<FLVER>(handle);
     let flver_bytes = io::Cursor::new(repository.file_bytes(handle));
@@ -100,7 +99,7 @@ fn setup(
     let mut texture_handles = HashMap::<String, Handle<Image>>::new();
     let tpfs = repository.paths_by_extension("tpf");
 
-    if let Some(handle) = tpfs.iter().next() {
+    if let Some(handle) = tpfs.first() {
         let tpf = repository.file::<TPF>(handle);
         let mut tpf_bytes = io::Cursor::new(repository.file_bytes(handle));
 

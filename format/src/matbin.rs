@@ -31,10 +31,10 @@ impl Matbin {
         let param_count = r.read_u32::<LE>()?;
         let sampler_count = r.read_u32::<LE>()?;
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
-        r.seek(SeekFrom::Start(shader_path_offset as u64))?;
+        let current_pos = r.stream_position()?;
+        r.seek(SeekFrom::Start(shader_path_offset))?;
         let shader_path = read_utf16(r)?;
-        r.seek(SeekFrom::Start(source_path_offset as u64))?;
+        r.seek(SeekFrom::Start(source_path_offset))?;
         let source_path = read_utf16(r)?;
         r.seek(SeekFrom::Start(current_pos))?;
 
@@ -84,8 +84,8 @@ impl MatbinParam {
         assert!(r.read_u64::<LE>()? == 0x0);
         assert!(r.read_u64::<LE>()? == 0x0);
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
-        r.seek(SeekFrom::Start(name_offset as u64))?;
+        let current_pos = r.stream_position()?;
+        r.seek(SeekFrom::Start(name_offset))?;
         let name = read_utf16(r)?;
         r.seek(SeekFrom::Start(current_pos))?;
 
@@ -120,10 +120,10 @@ impl MatbinSampler {
         assert!(r.read_u64::<LE>()? == 0x0);
         assert!(r.read_u32::<LE>()? == 0x0);
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
-        r.seek(SeekFrom::Start(type_offset as u64))?;
+        let current_pos = r.stream_position()?;
+        r.seek(SeekFrom::Start(type_offset))?;
         let sampler_type = read_utf16(r)?;
-        r.seek(SeekFrom::Start(path_offset as u64))?;
+        r.seek(SeekFrom::Start(path_offset))?;
         let path = read_utf16(r)?;
         r.seek(SeekFrom::Start(current_pos))?;
 

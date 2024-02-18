@@ -55,7 +55,7 @@ impl Texture {
         let name_offset = r.read_u32::<LE>()?;
         let unk10 = r.read_u32::<LE>()?;
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
         let name = read_utf16(r)?;
         r.seek(SeekFrom::Start(current))?;

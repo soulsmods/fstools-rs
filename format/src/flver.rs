@@ -235,7 +235,7 @@ impl FLVERPartReader for FLVERMaterial {
         let name_offset = r.read_u32::<LE>()?;
         let mtd_offset = r.read_u32::<LE>()?;
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
+        let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
         let name = read_utf16(r)?;
         r.seek(SeekFrom::Start(mtd_offset as u64))?;
@@ -295,7 +295,7 @@ impl FLVERPartReader for FLVERBone {
         // Deal with FS garbage zeroes
         r.seek(SeekFrom::Current(0x34))?;
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
+        let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
         let name = read_utf16(r)?;
         r.seek(SeekFrom::Start(current_pos))?;
@@ -346,7 +346,7 @@ impl FLVERPartReader for FLVERMesh {
         let vertex_buffer_count = r.read_u32::<LE>()?;
         let vertex_buffer_offset = r.read_u32::<LE>()?;
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
 
         r.seek(SeekFrom::Start(bone_offset as u64))?;
         let bone_indices = read_vec::<u32>(r, c, bone_count as usize)?;
@@ -422,7 +422,7 @@ impl FLVERPartReader for FLVERFaceSet {
         let index_size = r.read_u32::<LE>()?;
         assert!(r.read_u32::<LE>()? == 0x0);
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
         r.seek(SeekFrom::Start(index_offset as u64 + c.data_offset as u64))?;
         let indices = match index_size {
             0 => FLVERFaceSetIndices::Byte0,
@@ -499,7 +499,7 @@ impl FLVERPartReader for FLVERBufferLayout {
         assert!(r.read_u32::<LE>()? == 0x0);
         let member_offset = r.read_u32::<LE>()?;
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
 
         r.seek(SeekFrom::Start(member_offset as u64))?;
         let members = read_vec::<FLVERBufferLayoutMember>(r, c, member_count as usize)?;
@@ -640,7 +640,7 @@ impl FLVERPartReader for FLVERTexture {
         let unk18 = r.read_f32::<LE>()?;
         let unk1c = r.read_f32::<LE>()?;
 
-        let current_pos = r.seek(SeekFrom::Current(0))?;
+        let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(path_offset as u64))?;
         let path = read_utf16(r)?;
         r.seek(SeekFrom::Start(type_offset as u64))?;

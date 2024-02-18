@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::io::{Cursor, Error, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Error, Read, Write};
 use std::ops::Range;
 
 use aes::cipher::generic_array::GenericArray;
