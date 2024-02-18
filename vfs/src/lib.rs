@@ -4,14 +4,14 @@ use std::ops::Range;
 use std::{fs::File, path::Path};
 
 use crate::reader::VfsEntryReader;
-use memmap2::{Advice, Mmap, MmapOptions};
 use format::bhd2::Bhd;
+use memmap2::{Advice, Mmap, MmapOptions};
 
 mod key_provider;
 mod name;
 mod reader;
 
-pub use self::{key_provider::ArchiveKeyProvider, name::Name};
+pub use self::{key_provider::ArchiveKeyProvider, key_provider::FileKeyProvider, name::Name};
 
 /// A read-only virtual filesystem layered over the BHD/BDT archives of a FROMSOFTWARE game.
 pub struct Vfs {
@@ -33,9 +33,7 @@ impl Vfs {
             .and_then(|stem| stem.to_str())
             .ok_or(Error::other("invalid archive path given"))?;
 
-        let key = key_provider
-            .get_key(name)
-            .ok_or(Error::other("unable to locate decryption key"))?;
+        let key = key_provider.get_key(name)?;
         let bhd = Bhd::read(bhd_file, key)?;
 
         Ok((data, bhd))

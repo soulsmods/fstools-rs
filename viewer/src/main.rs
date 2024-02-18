@@ -2,18 +2,16 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::io;
 use std::io::Read;
-use std::sync;
 use std::sync::RwLock;
 
-use bevy::pbr::CascadeShadowConfigBuilder;
+use bevy::{
+    prelude::*,
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
+};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::texture::{
     CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor,
     ImageType,
-};
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
@@ -21,10 +19,9 @@ use steamlocate::SteamDir;
 
 use format::flver::FLVER;
 use format::tpf::TPF;
-use souls_vfs::Vfs;
+use souls_vfs::{FileKeyProvider, Vfs};
 use util::{AssetArchiveError, AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
 
-mod keys;
 
 #[derive(Deref, DerefMut, Resource)]
 pub struct AssetRepository(RwLock<AssetRepositoryImpl>);
@@ -43,7 +40,7 @@ fn main() {
         Some(app) => app.path.join("Game"),
         None => panic!("couldn't find elden ring installation"),
     };
-    let keys = keys::eldenring_keys();
+    let keys = FileKeyProvider::new("keys");
     let archives = [
         er_path.join("Data0"),
         er_path.join("Data1"),
