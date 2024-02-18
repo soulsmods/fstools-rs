@@ -12,3 +12,4 @@ bevy = { version = "0.13", features = ["dds"] }
 format = { path = "../format" }
 util = { path = "../util" }
 bevy_panorbit_camera = { git = "https://github.com/Plonq/bevy_panorbit_camera", branch = "bevy-0.13" }
+steamlocate = "1.2.1"
