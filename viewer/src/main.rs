@@ -1,27 +1,34 @@
+mod render;
+
+use bevy::{
+    pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
+    prelude::*,
+    render::render_resource::*,
+};
 use std::collections::HashMap;
 use std::f32::consts::PI;
 use std::io;
-use std::io::Read;
 use std::sync::RwLock;
 
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::texture::{
     CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor,
     ImageType,
 };
+use bevy::utils::info;
+use bevy::{
+    prelude::*,
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
+};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
 use steamlocate::SteamDir;
 
+use crate::render::material::FlverMaterial;
 use format::flver::FLVER;
 use format::tpf::TPF;
 use souls_vfs::{FileKeyProvider, Vfs};
 use util::{AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
-
 
 #[derive(Deref, DerefMut, Resource)]
 pub struct AssetRepository(RwLock<AssetRepositoryImpl>);
@@ -60,6 +67,9 @@ fn main() {
         .add_plugins(DefaultPlugins)
         //.add_plugins(WorldInspectorPlugin::new())
         .insert_resource(AssetRepository(RwLock::new(repository)))
+        .add_plugins(MaterialPlugin::<
+            ExtendedMaterial<StandardMaterial, FlverMaterial>,
+        >::default())
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, draw_dummies)
@@ -84,6 +94,7 @@ fn setup(
     mut textures: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut flver_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, FlverMaterial>>>,
     repository: Res<AssetRepository>,
 ) {
     let repository = repository.read().expect("unable to acquire read lock");
@@ -107,7 +118,7 @@ fn setup(
             let dds = texture.bytes(&mut tpf_bytes).unwrap();
 
             let image = Image::from_buffer(
-                #[cfg(all(debug_assertions))]
+                #[cfg(debug_assertions)]
                 texture.name.clone(),
                 &dds,
                 ImageType::Format(ImageFormat::Dds),
@@ -148,23 +159,25 @@ fn setup(
             .find(|k| k.ends_with("_n"))
             .map(|k| &texture_handles[k]);
 
-        // let metallic_roughness_texture = texture_handles
-        //     .keys()
-        //     .find(|k| k.ends_with("_m"))
-        //     .map(|k| &texture_handles[k]);
-
-        commands.spawn((PbrBundle {
+        let metallic_roughness_texture = texture_handles
+            .keys()
+            .find(|k| k.ends_with("_m"))
+            .map(|k| &texture_handles[k]);
+        commands.spawn(MaterialMeshBundle {
             mesh: meshes.add(mesh),
-            material: materials.add(StandardMaterial {
-                base_color_texture: base_albedo_texture.cloned(),
-
-                // TODO: normal maps are weird rn, not sure what is up
-                //normal_map_texture: normal_map_texture.cloned(),
-                //flip_normal_map_y: true,
-                ..default()
+            material: flver_materials.add(ExtendedMaterial {
+                base: StandardMaterial {
+                    base_color_texture: base_albedo_texture.cloned(),
+                    metallic_roughness_texture: metallic_roughness_texture.cloned(),
+                    // TODO: normal maps are weird rn, not sure what is up
+                    //normal_map_texture: normal_map_texture.cloned(),
+                    //flip_normal_map_y: true,
+                    ..default()
+                },
+                extension: FlverMaterial { dummy: 0 },
             }),
             ..default()
-        },));
+        });
     }
 
     for dummy in flver.dummies.iter() {
