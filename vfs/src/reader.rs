@@ -138,11 +138,3 @@ impl<'a> Read for VfsEntryReader<'a> {
         Ok(read)
     }
 }
-
-#[cfg(test)]
-mod test {
-    fn create_test_data() {}
-
-    #[test]
-    fn decodes() {}
-}
