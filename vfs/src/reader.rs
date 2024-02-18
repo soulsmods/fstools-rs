@@ -49,15 +49,16 @@ impl<'a> VfsEntryReader<'a> {
             encrypted_block_offset: None,
             encrypted_data_range_index: 0,
             encrypted_data_ranges: &entry.aes_ranges,
-            encrypted_file_size: entry.file_size_with_padding as usize,
+            encrypted_file_size: data.len(),
         }
     }
 
     fn read_plaintext(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
-        buf.copy_from_slice(&self.data[self.data_pos..self.data_pos + buf.len()]);
-        self.data_pos += buf.len();
+        let length = min(self.encrypted_file_size - self.data_pos, buf.len());
+        buf[..length].copy_from_slice(&self.data[self.data_pos..self.data_pos + length]);
+        self.data_pos += length;
 
-        Ok(buf.len())
+        Ok(length)
     }
 
     fn read_ciphertext(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
@@ -72,6 +73,7 @@ impl<'a> VfsEntryReader<'a> {
 
         for _ in 0..blocks {
             let block_data = &self.data[self.data_pos..self.data_pos + block_len];
+
             self.encrypted_block.copy_from_slice(block_data);
             self.cipher.decrypt_block(&mut self.encrypted_block);
 
