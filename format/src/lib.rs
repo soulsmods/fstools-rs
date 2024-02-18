@@ -1,18 +1,20 @@
 #![feature(adt_const_params)]
 #![feature(generic_const_exprs)]
 
-use std::io;
+use std::io::{Error, Read};
 
 use byteorder::{ReadBytesExt, LE};
 
 pub mod bhd;
-pub mod dcx;
+pub mod bhd2;
 pub mod bnd4;
-pub mod tpf;
+pub mod dcx;
 pub mod flver;
+pub mod io_ext;
 pub mod matbin;
+pub mod tpf;
 
-pub fn read_utf16(r: &mut impl io::Read) -> Result<String, io::Error> {
+pub fn read_utf16(r: &mut impl Read) -> Result<String, Error> {
     let mut buffer = Vec::new();
 
     loop {

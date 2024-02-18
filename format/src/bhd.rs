@@ -79,7 +79,7 @@ impl BHD {
         // Move buffer into cursor
         let mut decrypted_reader = std::io::Cursor::new(buffer);
 
-        Ok(Self::from_reader(&mut decrypted_reader).map_err(BHDError::IO)?)
+        Self::from_reader(&mut decrypted_reader).map_err(BHDError::IO)
     }
 
     fn from_reader(r: &mut BHDReader) -> Result<Self, io::Error> {
@@ -134,7 +134,7 @@ impl Bucket {
         let count = r.read_u32::<LE>()?;
         let offset = r.read_u32::<LE>()?;
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
         r.seek(SeekFrom::Start(offset as u64))?;
 
         let mut files = vec![];
@@ -169,7 +169,7 @@ impl FileDescriptor {
         let aes_key_offset = r.read_u64::<LE>()?;
 
         let mut aes_ranges = Vec::new();
-        let current_position = r.seek(io::SeekFrom::Current(0))?;
+        let current_position = r.stream_position()?;
         r.seek(io::SeekFrom::Start(aes_key_offset))?;
 
         let mut aes_key = [0u8; 16];
@@ -195,7 +195,7 @@ impl FileDescriptor {
 
     pub fn decrypt_file(&self, data: &mut [u8]) {
         let key = GenericArray::from_slice(&self.aes_key);
-        let cipher = Aes128::new(&key);
+        let cipher = Aes128::new(key);
 
         for (start, end) in self.aes_ranges.iter() {
             if *start == -1 {
@@ -206,7 +206,7 @@ impl FileDescriptor {
 
             // Decrypt by chunks of key size.
             encrypted_range.chunks_mut(16)
-                .map(|c| GenericArray::from_mut_slice(c))
+                .map(GenericArray::from_mut_slice)
                 .for_each(|b| cipher.decrypt_block(b));
         }
     }

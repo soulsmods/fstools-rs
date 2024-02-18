@@ -94,7 +94,7 @@ impl BND4 {
     fn normalize_path(path: &str) -> String {
         path.replace("N:\\", "")
             .to_lowercase()
-            .replace("\\", "/")
+            .replace('\\', "/")
     }
 }
 
@@ -125,7 +125,7 @@ impl File {
         let id = r.read_u32::<LE>()?;
         let name_offset = r.read_u32::<LE>()?;
 
-        let current = r.seek(SeekFrom::Current(0))?;
+        let current = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
         let path = read_utf16(r)?;
         r.seek(SeekFrom::Start(current))?;

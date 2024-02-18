@@ -1,6 +1,7 @@
 use byteorder::{ReadBytesExt, LE};
 use format::flver::{
-    FLVERBufferLayout, FLVERFaceSet, FLVERFaceSetIndices, FLVERMemberType, FLVERMesh, FLVERStorageType, FLVERVertexBuffer, FLVER
+    FLVERBufferLayout, FLVERFaceSet, FLVERFaceSetIndices, FLVERMemberType, FLVERMesh,
+    FLVERStorageType, FLVERVertexBuffer, FLVER,
 };
 use std::io::{self, Read, Seek, SeekFrom};
 
@@ -126,7 +127,7 @@ impl<'a> FLVERMeshBuilder<'a> {
             FLVERFaceSetIndices::Byte0 => vec![],
             FLVERFaceSetIndices::Byte1(i) => i.iter().map(|i| *i as u32).collect(),
             FLVERFaceSetIndices::Byte2(i) => i.iter().map(|i| *i as u32).collect(),
-            FLVERFaceSetIndices::Byte4(i) => i.iter().map(|i| *i as u32).collect(),
+            FLVERFaceSetIndices::Byte4(i) => i.to_vec(),
         };
 
         FLVERMeshBuilderResult {
@@ -157,7 +158,7 @@ impl<'a> FLVERMeshBuilder<'a> {
             .find(|i| i.flags.is_main())
             .expect("Could not find a main face set for the mesh");
 
-        if face_set.triangle_strip == true {
+        if face_set.triangle_strip {
             panic!("Triangle strip indices not supported");
         }
 

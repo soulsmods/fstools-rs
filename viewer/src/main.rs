@@ -1,72 +1,72 @@
+use std::{collections::HashMap, path::PathBuf};
+use std::f32::consts::PI;
+use std::io;
+use std::io::Read;
+use std::sync::RwLock;
+
+use bevy::{
+    prelude::*,
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
+};
+use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::texture::{
-    CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor, ImageType
+    CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor,
+    ImageType,
 };
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use clap::Parser;
+use steamlocate::SteamDir;
+
 use format::flver::FLVER;
 use format::tpf::TPF;
-use std::collections;
-use std::io;
-use util::{AssetArchiveError, AssetRepository, FLVERMeshBuilder};
+use souls_vfs::{FileKeyProvider, Vfs};
+use util::{AssetRepository as AssetRepositoryImpl, FLVERMeshBuilder};
 
-use clap::Parser;
 
-use std::sync;
-
-static ASSET_REPOSITORY: sync::OnceLock<sync::RwLock<AssetRepository>> = sync::OnceLock::new();
-
-fn asset_repository_mut() -> sync::RwLockWriteGuard<'static, AssetRepository> {
-    ASSET_REPOSITORY.get_or_init(default)
-        .write()
-        .expect("Couldn't obtain write lock")
-}
-
-fn asset_repository() -> sync::RwLockReadGuard<'static, AssetRepository> {
-    ASSET_REPOSITORY.get_or_init(default)
-        .read()
-        .expect("Couldn't obtain read lock")
-}
+#[derive(Deref, DerefMut, Resource)]
+pub struct AssetRepository(RwLock<AssetRepositoryImpl>);
 
 #[derive(Component)]
 struct Dummy {
     position: Vec3,
 }
 
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-};
+const ER_APPID: u32 = 1245620;
+
+fn locate_er_dir() -> PathBuf {
+    let mut steamdir = SteamDir::locate().expect("steam installation not found");
+
+    match steamdir.app(&ER_APPID) {
+        Some(app) => app.path.join("Game"),
+        None => panic!("couldn't find elden ring installation"),
+    }
+}
 
 fn main() {
-    // Prepare archives and shit 
     let args = Args::parse();
+    let er_path = args.erpath
+        .unwrap_or_else(locate_er_dir);
 
-    let mut key_file = std::fs::File::open(args.key)
-        .expect("Could not open key fille");
+    let keys = FileKeyProvider::new("keys");
+    let archives = [
+        er_path.join("Data0"),
+        er_path.join("Data1"),
+        er_path.join("Data2"),
+        er_path.join("Data3"),
+        er_path.join("sd/sd"),
+    ];
+    let vfs = Vfs::create(archives, &keys).expect("unable to create vfs");
+    let mut repository = AssetRepositoryImpl::new(vfs);
 
-    let mut key = Vec::new();
-    key_file
-        .read_to_end(&mut key)
-        .expect("Key was not right size");
-
-    ASSET_REPOSITORY.get_or_init(default);
-
-    {
-        let mut repository = asset_repository_mut();
-        repository.mount_archive(&args.archive, &key)
-            .expect("Could not mount game archive");
-
-        // Load material bnd
-        // repository.mount_dcx_bnd4("/material/allmaterial.matbinbnd.dcx")
-        //     .expect("Could not mount material defs DCX");
-
-        // Load specified bnd4
-        repository.mount_dcx_bnd4(&args.dcx)
-            .expect("Could not load specified DCX");
-    }
+    // Load specified bnd4
+    repository
+        .mount_dcx_bnd4(&args.dcx)
+        .expect("Could not load specified DCX");
 
     App::new()
         .add_plugins(DefaultPlugins)
         //.add_plugins(WorldInspectorPlugin::new())
+        .insert_resource(AssetRepository(RwLock::new(repository)))
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, draw_dummies)
@@ -77,49 +77,39 @@ fn main() {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long)]
-    archive: String,
-    #[arg(long)]
-    key: String,
-    #[arg(long)]
     dcx: String,
+
+    #[arg(long)]
+    erpath: Option<PathBuf>,
 }
 
 #[derive(Debug)]
 pub enum AssetLoadError {
     Io(io::Error),
-    AssetArchive(AssetArchiveError),
     NotFound,
 }
-
-use std::io::Read;
-use bevy::render::mesh::PlaneMeshBuilder;
-use bevy::render::render_asset::RenderAssetUsages;
 
 fn setup(
     mut commands: Commands,
     mut textures: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    repository: Res<AssetRepository>,
 ) {
-    let repository = asset_repository();
-
+    let repository = repository.read().expect("unable to acquire read lock");
     // Attempt to find any flvers
     let flvers = repository.paths_by_extension("flver");
-    let handle = flvers.iter().next()
-        .expect("No FLVERs found in DCX");
+    let handle = flvers.first().expect("No FLVERs found in DCX");
 
     let flver = repository.file::<FLVER>(handle);
     let flver_bytes = io::Cursor::new(repository.file_bytes(handle));
 
-    let mut mesh_builder = FLVERMeshBuilder::new(
-        &flver,
-        flver_bytes,
-    );
+    let mut mesh_builder = FLVERMeshBuilder::new(&flver, flver_bytes);
 
-    let mut texture_handles = collections::HashMap::<String, Handle<Image>>::new();
+    let mut texture_handles = HashMap::<String, Handle<Image>>::new();
     let tpfs = repository.paths_by_extension("tpf");
 
-    if let Some(handle) = tpfs.iter().next() {
+    if let Some(handle) = tpfs.first() {
         let tpf = repository.file::<TPF>(handle);
         let mut tpf_bytes = io::Cursor::new(repository.file_bytes(handle));
 
@@ -127,6 +117,7 @@ fn setup(
             let dds = texture.bytes(&mut tpf_bytes).unwrap();
 
             let image = Image::from_buffer(
+                #[cfg(all(debug_assertions))]
                 texture.name.clone(),
                 &dds,
                 ImageType::Format(ImageFormat::Dds),
@@ -138,20 +129,24 @@ fn setup(
                     address_mode_v: ImageAddressMode::Repeat,
                     ..Default::default()
                 }),
-                RenderAssetUsages::RENDER_WORLD
-            ).expect("Could not load image from DDS");
+                RenderAssetUsages::RENDER_WORLD,
+            )
+            .expect("Could not load image from DDS");
 
             texture_handles.insert(texture.name.clone(), textures.add(image));
         }
     }
 
     for mesh in mesh_builder.build().into_iter() {
-        let mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uvs0)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, mesh.tangents)
-            .with_inserted_indices(Indices::U32(mesh.indices));
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uvs0)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, mesh.tangents)
+        .with_inserted_indices(Indices::U32(mesh.indices));
 
         let base_albedo_texture = texture_handles
             .keys()
@@ -176,7 +171,6 @@ fn setup(
                 // TODO: normal maps are weird rn, not sure what is up
                 //normal_map_texture: normal_map_texture.cloned(),
                 //flip_normal_map_y: true,
-
                 ..default()
             }),
             ..default()
@@ -185,23 +179,20 @@ fn setup(
 
     for dummy in flver.dummies.iter() {
         commands.spawn(Dummy {
-            position: Vec3::new(
-                dummy.position.x,
-                dummy.position.y,
-                dummy.position.z * -1.0
-            ),
+            position: Vec3::new(dummy.position.x, dummy.position.y, dummy.position.z * -1.0),
         });
     }
-
-    commands.spawn(SpotLightBundle {
-        spot_light: SpotLight {
-            intensity: 150.0,
-            shadows_enabled: true,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(2.0, 2.0, 2.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-
+        transform: Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
+        },
         ..default()
     });
 
@@ -209,19 +200,19 @@ fn setup(
     let floor = flver.bounding_box_min;
     const FLOOR_DISTANCE: f32 = 0.2;
     commands.spawn(PbrBundle {
-        mesh: meshes.add(PlaneMeshBuilder::default().size(2.0, 2.0).build()),
         transform: Transform {
             translation: Vec3::new(0.0, floor.y - FLOOR_DISTANCE, 0.0),
             ..default()
         },
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: materials.add(Color::ALICE_BLUE),
         ..default()
     });
 
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(2.0, 2.0, 2.0)
-                .looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 6., 12.0)
+                .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
         PanOrbitCamera::default(),
