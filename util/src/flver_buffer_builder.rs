@@ -69,19 +69,21 @@ impl<'a> FLVERMeshBuilder<'a> {
 
             let mut entry_cursor = io::Cursor::new(buffer);
 
-            let pos = PropertyAccessor::<{FLVERStorageType::Float3}>::read(
+            let pos = PropertyAccessor::<{ FLVERStorageType::Float3 }>::read(
                 &mut entry_cursor,
                 position_member.struct_offset,
-            ).expect("Could not read vertex positions");
+            )
+            .expect("Could not read vertex positions");
 
             positions.push([pos[0], pos[1], pos[2] * -1.0]);
 
             if let Some(normal_member) = normal_member {
                 debug_assert!(normal_member.storage_type == FLVERStorageType::Byte4B);
-                let normal = PropertyAccessor::<{FLVERStorageType::Byte4B}>::read(
+                let normal = PropertyAccessor::<{ FLVERStorageType::Byte4B }>::read(
                     &mut entry_cursor,
                     normal_member.struct_offset,
-                ).expect("Could not read normals");
+                )
+                .expect("Could not read normals");
 
                 // Cursed mapping since FS stores these with an extra channel
                 normals.push([normal[0], normal[1], normal[2]]);
@@ -92,10 +94,11 @@ impl<'a> FLVERMeshBuilder<'a> {
             if let Some(uv_member) = uv_member {
                 debug_assert!(uv_member.storage_type == FLVERStorageType::UVPair);
 
-                let uvs = PropertyAccessor::<{FLVERStorageType::UVPair}>::read(
+                let uvs = PropertyAccessor::<{ FLVERStorageType::UVPair }>::read(
                     &mut entry_cursor,
                     uv_member.struct_offset,
-                ).expect("Could not read UVs");
+                )
+                .expect("Could not read UVs");
 
                 uvs0.push([uvs[0], uvs[1]]);
                 uvs1.push([uvs[2], uvs[3]]);
@@ -108,10 +111,11 @@ impl<'a> FLVERMeshBuilder<'a> {
                 debug_assert!(tangent_member.storage_type == FLVERStorageType::Byte4B);
 
                 tangents.push(
-                    PropertyAccessor::<{FLVERStorageType::Byte4B}>::read(
+                    PropertyAccessor::<{ FLVERStorageType::Byte4B }>::read(
                         &mut entry_cursor,
                         tangent_member.struct_offset,
-                    ).expect("Could not read tangents")
+                    )
+                    .expect("Could not read tangents"),
                 );
             } else {
                 tangents.push([0.0, 0.0, 0.0, 0.0]);
@@ -163,11 +167,8 @@ impl<'a> FLVERMeshBuilder<'a> {
 
 struct PropertyAccessor<const T: FLVERStorageType>;
 
-impl PropertyAccessor<{FLVERStorageType::Float3}> {
-    fn read(
-        r: &mut (impl io::Read + io::Seek),
-        offset: u32,
-    ) -> Result<[f32; 3], io::Error> {
+impl PropertyAccessor<{ FLVERStorageType::Float3 }> {
+    fn read(r: &mut (impl io::Read + io::Seek), offset: u32) -> Result<[f32; 3], io::Error> {
         r.seek(SeekFrom::Start(offset as u64))?;
 
         Ok([
@@ -178,27 +179,26 @@ impl PropertyAccessor<{FLVERStorageType::Float3}> {
     }
 }
 
-impl PropertyAccessor<{FLVERStorageType::Byte4B}> {
-    fn read(
-        r: &mut (impl io::Read + io::Seek),
-        offset: u32,
-    ) -> Result<[f32; 4], io::Error> {
+impl PropertyAccessor<{ FLVERStorageType::Byte4B }> {
+    fn read(r: &mut (impl io::Read + io::Seek), offset: u32) -> Result<[f32; 4], io::Error> {
         r.seek(SeekFrom::Start(offset as u64))?;
 
+        let (x, _) = r.read_u8()?.overflowing_sub(127);
+        let (y, _) = r.read_u8()?.overflowing_sub(127);
+        let (z, _) = r.read_u8()?.overflowing_sub(127);
+        let (w, _) = r.read_u8()?.overflowing_sub(127);
+
         Ok([
-           (r.read_u8()? as u8 - 127) as f32 / 127.0,
-           (r.read_u8()? as u8 - 127) as f32 / 127.0,
-           (r.read_u8()? as u8 - 127) as f32 / 127.0,
-           (r.read_u8()? as u8 - 127) as f32 / 127.0,
+            x as f32 / 127.0,
+            y as f32 / 127.0,
+            z as f32 / 127.0,
+            w as f32 / 127.0,
         ])
     }
 }
 
-impl PropertyAccessor<{FLVERStorageType::UVPair}> {
-    fn read(
-        r: &mut (impl io::Read + io::Seek),
-        offset: u32,
-    ) -> Result<[f32; 4], io::Error> {
+impl PropertyAccessor<{ FLVERStorageType::UVPair }> {
+    fn read(r: &mut (impl io::Read + io::Seek), offset: u32) -> Result<[f32; 4], io::Error> {
         r.seek(SeekFrom::Start(offset as u64))?;
 
         Ok([
