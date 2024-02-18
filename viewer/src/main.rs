@@ -45,7 +45,7 @@ fn locate_er_dir() -> PathBuf {
 fn main() {
     let args = Args::parse();
     let er_path = args.erpath
-        .unwrap_or_else(|| locate_er_dir());
+        .unwrap_or_else(locate_er_dir);
 
     let keys = FileKeyProvider::new("keys");
     let archives = [
