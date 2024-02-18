@@ -92,6 +92,8 @@ pub enum AssetLoadError {
 }
 
 use std::io::Read;
+use bevy::render::mesh::PlaneMeshBuilder;
+use bevy::render::render_asset::RenderAssetUsages;
 
 fn setup(
     mut commands: Commands,
@@ -125,6 +127,7 @@ fn setup(
             let dds = texture.bytes(&mut tpf_bytes).unwrap();
 
             let image = Image::from_buffer(
+                texture.name.clone(),
                 &dds,
                 ImageType::Format(ImageFormat::Dds),
                 CompressedImageFormats::BC,
@@ -135,6 +138,7 @@ fn setup(
                     address_mode_v: ImageAddressMode::Repeat,
                     ..Default::default()
                 }),
+                RenderAssetUsages::RENDER_WORLD
             ).expect("Could not load image from DDS");
 
             texture_handles.insert(texture.name.clone(), textures.add(image));
@@ -142,12 +146,12 @@ fn setup(
     }
 
     for mesh in mesh_builder.build().into_iter() {
-        let mesh = Mesh::new(PrimitiveTopology::TriangleList)
+        let mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, mesh.uvs0)
             .with_inserted_attribute(Mesh::ATTRIBUTE_TANGENT, mesh.tangents)
-            .with_indices(Some(Indices::U32(mesh.indices)));
+            .with_inserted_indices(Indices::U32(mesh.indices));
 
         let base_albedo_texture = texture_handles
             .keys()
@@ -205,12 +209,12 @@ fn setup(
     let floor = flver.bounding_box_min;
     const FLOOR_DISTANCE: f32 = 0.2;
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0).into()),
+        mesh: meshes.add(PlaneMeshBuilder::default().size(2.0, 2.0).build()),
         transform: Transform {
             translation: Vec3::new(0.0, floor.y - FLOOR_DISTANCE, 0.0),
             ..default()
         },
-        material: materials.add(Color::ALICE_BLUE.into()),
+        material: materials.add(Color::ALICE_BLUE),
         ..default()
     });
 
