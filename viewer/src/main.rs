@@ -1,16 +1,18 @@
 use std::collections::HashMap;
+use std::f32::consts::PI;
 use std::io;
 use std::io::Read;
 use std::sync;
 
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-};
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::texture::{
     CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor,
     ImageType,
+};
+use bevy::{
+    prelude::*,
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
@@ -53,7 +55,7 @@ fn main() {
         let mut steamdir = SteamDir::locate().expect("steam installation not found");
         let er_path = match steamdir.app(&ER_APPID) {
             Some(app) => app.path.join("Game"),
-            None => panic!("couldn't find elden ring installation")
+            None => panic!("couldn't find elden ring installation"),
         };
 
         let mut repository = asset_repository_mut();
@@ -117,7 +119,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let repository = asset_repository();
-
 
     // Attempt to find any flvers
     let flvers = repository.paths_by_extension("flver");
@@ -193,7 +194,6 @@ fn setup(
                 // TODO: normal maps are weird rn, not sure what is up
                 //normal_map_texture: normal_map_texture.cloned(),
                 //flip_normal_map_y: true,
-
                 ..default()
             }),
             ..default()
@@ -205,16 +205,17 @@ fn setup(
             position: Vec3::new(dummy.position.x, dummy.position.y, dummy.position.z * -1.0),
         });
     }
-
-    commands.spawn(SpotLightBundle {
-        spot_light: SpotLight {
-            intensity: 150.0,
-            shadows_enabled: true,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(2.0, 2.0, 2.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-
+        transform: Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
+        },
         ..default()
     });
 
