@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use std::f32::consts::PI;
 use std::io;
 use std::io::Read;
@@ -33,13 +33,20 @@ struct Dummy {
 
 const ER_APPID: u32 = 1245620;
 
-fn main() {
-    let args = Args::parse();
+fn locate_er_dir() -> PathBuf {
     let mut steamdir = SteamDir::locate().expect("steam installation not found");
-    let er_path = match steamdir.app(&ER_APPID) {
+
+    match steamdir.app(&ER_APPID) {
         Some(app) => app.path.join("Game"),
         None => panic!("couldn't find elden ring installation"),
-    };
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+    let er_path = args.erpath
+        .unwrap_or_else(locate_er_dir);
+
     let keys = FileKeyProvider::new("keys");
     let archives = [
         er_path.join("Data0"),
@@ -71,6 +78,9 @@ fn main() {
 struct Args {
     #[arg(long)]
     dcx: String,
+
+    #[arg(long)]
+    erpath: Option<PathBuf>,
 }
 
 #[derive(Debug)]
