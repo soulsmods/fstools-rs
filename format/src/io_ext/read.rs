@@ -1,9 +1,12 @@
 use byteorder::ReadBytesExt;
+use std::io;
 use std::io::{ErrorKind, Read};
 
 pub trait ReadFormatsExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
     fn read_magic<const LENGTH: usize>(&mut self, expected: &[u8; LENGTH]) -> std::io::Result<()>;
+
+    fn read_padding(&mut self, length: usize) -> std::io::Result<()>;
 }
 
 impl<R: Read> ReadFormatsExt for R {
@@ -30,5 +33,23 @@ impl<R: Read> ReadFormatsExt for R {
                 ),
             ))
         }
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
+        io::copy(self.take(length), &mut io::sink());
+    }
+
+    #[cfg(debug_assertions)]
+    fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
+        for _ in 0..length {
+            if self.read_u8()? != 0 {
+                return Err(std::io::Error::other(
+                    "expected padding but found non-zero bytes",
+                ));
+            }
+        }
+
+        Ok(())
     }
 }
