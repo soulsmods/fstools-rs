@@ -1,0 +1,19 @@
+name: Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**/Cargo.*'
+      - '.github/workflows/**.yml'
+
+jobs:
+  test:
+    name: Test
+    runs-on: arc-runner-set
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all --all-features
