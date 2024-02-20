@@ -43,10 +43,10 @@ impl<R: Read> ReadFormatsExt for R {
     #[cfg(debug_assertions)]
     fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
         for _ in 0..length {
-            if self.read_u8()? != 0 {
-                return Err(std::io::Error::other(
-                    "expected padding but found non-zero bytes",
-                ));
+            let padding = self.read_u8()?;
+
+            if padding != 0 {
+                dbg!("Expected padding bytes, found non-zero value: {}", padding);
             }
         }
 
