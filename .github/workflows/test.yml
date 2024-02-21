@@ -15,5 +15,5 @@ jobs:
     runs-on: arc-runner-set
     steps:
       - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
       - run: cargo test --all --all-features
