@@ -5,7 +5,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
 use souls_vfs::{FileKeyProvider, Vfs};
-use steamlocate::SteamDir;
 use vfs::VfsAssetRepositoryPlugin;
 
 use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
@@ -16,18 +15,9 @@ mod vfs;
 
 const ER_APPID: u32 = 1245620;
 
-fn locate_er_dir() -> PathBuf {
-    let mut steamdir = SteamDir::locate().expect("steam installation not found");
-
-    match steamdir.app(&ER_APPID) {
-        Some(app) => app.path.join("Game"),
-        None => panic!("couldn't find elden ring installation"),
-    }
-}
-
 fn main() {
     let args = Args::parse();
-    let er_path = args.erpath.unwrap_or_else(locate_er_dir);
+    let er_path = args.erpath.expect("no path to Elden Ring game provided");
 
     let keys = FileKeyProvider::new("keys");
     let archives = [

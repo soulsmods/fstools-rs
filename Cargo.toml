@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+default-members = ["cli", "viewer"]
 members = [
     "format",
     "cli",
@@ -7,6 +8,10 @@ members = [
     "vfs",
     "util",
 ]
+
+[workspace.package]
+version = "0.1.0"
+license = "MIT AND Apache-2.0"
 
 [workspace.dependencies.thiserror]
 version = "1"
