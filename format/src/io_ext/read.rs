@@ -49,7 +49,11 @@ impl<R: Read> ReadFormatsExt for R {
             }
         }
 
-        Ok(String::from_utf16(buffer.as_slice()).unwrap())
+        String::from_utf16(buffer.as_slice())
+            .map_err(|e| std::io::Error::new(
+                ErrorKind::InvalidInput,
+                e.to_string(),
+            ))
     }
 
     #[cfg(not(debug_assertions))]
