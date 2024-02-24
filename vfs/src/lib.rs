@@ -1,22 +1,37 @@
 use std::collections::HashMap;
-use std::io::Error;
+use std::io::{Error, Read};
 use std::ops::Range;
 use std::{fs::File, path::Path};
 
-use crate::reader::VfsEntryReader;
-use format::bhd2::Bhd;
+use format::bhd::Bhd;
 use memmap2::{Advice, Mmap, MmapOptions};
+use thiserror::Error;
 
+mod bnd;
 mod key_provider;
 mod name;
 mod reader;
 
-pub use self::{key_provider::ArchiveKeyProvider, key_provider::FileKeyProvider, name::Name};
+pub use self::{
+    key_provider::ArchiveKeyProvider,
+    key_provider::FileKeyProvider,
+    name::Name,
+    reader::VfsEntryReader,
+    bnd::BndMountHost,
+    bnd::undo_container_compression,
+};
+
+#[derive(Debug, Error)]
+pub enum VfsOpenError {
+    #[error("Entry was not found")]
+    NotFound,
+}
 
 /// A read-only virtual filesystem layered over the BHD/BDT archives of a FROMSOFTWARE game.
 pub struct Vfs {
     archives: Vec<Mmap>,
     entries: HashMap<Name, VfsFileEntry>,
+    mount_host: BndMountHost,
 }
 
 impl Vfs {
@@ -80,23 +95,45 @@ impl Vfs {
                 Ok::<_, Error>(())
             })?;
 
-        Ok(Vfs { archives, entries })
+        Ok(Vfs { archives, entries, mount_host: Default::default(), })
     }
 
     /// Open a reader to the file identified by [name].
-    pub fn open<N: Into<Name>>(&self, name: N) -> Result<VfsEntryReader, Error> {
+    pub fn open<N: Into<Name>>(&self, name: N) -> Result<VfsEntryReader, VfsOpenError> {
         match self.entries.get(&name.into()) {
             Some(entry) => {
                 let mmap = &self.archives[entry.archive];
                 let offset = entry.file_offset as usize;
                 let size = entry.file_size_with_padding as usize;
 
-                mmap.advise_range(Advice::Sequential, offset, size)?;
+                // Since its an optimization we don't really care about the 
+                // result.
+                let _ = mmap.advise_range(Advice::Sequential, offset, size);
 
                 Ok(VfsEntryReader::new(&mmap[offset..offset + size], entry))
             }
-            None => Err(Error::other("file not found")),
+            None => Err(VfsOpenError::NotFound),
         }
+    }
+
+    /// Attaches a bnd4 to the mount host
+    pub fn mount<N: Into<Name>>(&mut self, name: N) -> Result<(), VfsOpenError> {
+        let name = name.into();
+
+        let mut reader = self.open(name.clone())?;
+        let mut buffer = Vec::new();
+        reader.read_to_end(&mut buffer).unwrap();
+
+        self.mount_host.mount(
+            name,
+            buffer.as_slice(),
+        ).unwrap();
+
+        Ok(())
+    }
+
+    pub fn open_from_mounts(&self, name: &str) -> Result<&[u8], VfsOpenError> {
+        self.mount_host.bytes_by_file_name(name)
     }
 }
 

@@ -7,3 +7,6 @@ edition = "2021"
 format = { path = "../format" }
 byteorder = "1"
 souls_vfs = { path = "../vfs" }
+
+[dependencies.thiserror]
+workspace = true

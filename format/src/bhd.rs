@@ -1,227 +1,179 @@
-use std::io::{self, Read, Seek, SeekFrom};
-use aes::{cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit}, Aes128};
-use byteorder::{ReadBytesExt, LE};
-use openssl::{error::ErrorStack, rsa::{Padding, Rsa}};
+use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::mem::{transmute, MaybeUninit};
 
-const KEY_SIZE: usize = 256;
+use byteorder::{BigEndian, LittleEndian};
+use openssl::pkey::Public;
+use openssl::rsa::{Padding, Rsa};
+use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 
-type BHDReader = std::io::Cursor<Vec<u8>>;
+pub type BhdKey = Rsa<Public>;
+pub struct Bhd {
+    pub toc: Vec<BhdTocEntry>,
+}
 
 #[derive(Debug)]
-pub struct BHD {
-    pub endianness: i8,
-    pub unk1: u8,
-    pub unk2: u8,
-    pub unk3: u8,
-    pub unk4: u32,
+pub struct BhdTocEntry {
+    pub hash: u64,
+    pub padded_size: u32,
+    pub size: u32,
+    pub offset: u64,
+    pub aes_key: [u8; 16],
+    pub encrypted_ranges: Vec<(i64, i64)>,
+}
+#[derive(Debug)]
+pub struct BhdHeader {
+    pub is_big_endian: bool,
     pub file_size: u32,
-    pub bucket_count: u32,
-    pub bucket_offset: u32,
+    pub buckets: u32,
+    pub buckets_offset: u32,
     pub salt_length: u32,
     pub salt: Vec<u8>,
-    pub buckets: Vec<Bucket>,
 }
 
-#[derive(Debug)]
-pub enum BHDError {
-    IO(io::Error),
-    Rsa(ErrorStack),
-}
+impl Bhd {
+    pub fn read<R: Read + Seek>(mut file: R, key: BhdKey) -> Result<Self, std::io::Error> {
+        let key_size = key.size() as usize;
 
-impl BHD {
-    pub fn from_reader_with_key(
-        r: &mut std::fs::File,
-        key: &[u8]
-    ) -> Result<Self, BHDError> {
-        let mut buffer = {
-            let mut b = Vec::new();
-            r.read_to_end(&mut b)
-                .map_err(BHDError::IO)?;
-            b
+        let file_len = file.seek(SeekFrom::End(0))? as usize;
+        let decrypted_file_len = file_len - file_len / key_size;
+        file.seek(SeekFrom::Start(0))?;
+
+        let mut decrypted_data = vec![MaybeUninit::uninit(); decrypted_file_len];
+        let mut encrypted_data = Vec::with_capacity(file_len);
+        file.read_to_end(&mut encrypted_data)?;
+
+        let decrypted_len = encrypted_data
+            .par_chunks(key_size)
+            .zip(decrypted_data.par_chunks_mut(key_size - 1))
+            .map(|(encrypted_block, decrypted_block)| {
+                let mut decrypted_with_padding = vec![MaybeUninit::<u8>::uninit(); key_size];
+
+                let len = key
+                    .public_decrypt(
+                        encrypted_block,
+                        unsafe { transmute(&mut decrypted_with_padding[..]) },
+                        Padding::NONE,
+                    )
+                    .map_err(std::io::Error::other)?;
+
+                decrypted_block.copy_from_slice(&decrypted_with_padding[1..len]);
+
+                Ok::<_, std::io::Error>(len)
+            })
+            .try_reduce(|| 0, |len, block_len| Ok(len + block_len))?;
+
+        // SAFETY: all elements from [0,decrypted_len) have been initialized.
+        let decrypted_data: Vec<u8> = unsafe {
+            decrypted_data.set_len(decrypted_len);
+            transmute(decrypted_data)
         };
 
-        let public_key = Rsa::public_key_from_pem_pkcs1(key)
-            .map_err(BHDError::Rsa)?;
+        let mut reader = Cursor::new(&decrypted_data[..]);
+        let header = read_header(&mut reader)?;
 
-        assert!(
-            public_key.size() as usize == KEY_SIZE,
-            "Wrong key size",
-        );
+        let toc = if header.is_big_endian {
+            read_toc::<_, BigEndian>(header.buckets as usize, reader)
+        } else {
+            read_toc::<_, LittleEndian>(header.buckets as usize, reader)
+        }?;
 
-        // Loop over the encrypted data and decrypt in-place
-        let mut decrypt_offset = 0;
-        let mut target_offset = 0;
-        while decrypt_offset < buffer.len() {
-            let mut decrypt_buffer: [u8; KEY_SIZE] = [0x0u8; KEY_SIZE];
-
-            // Grab a chunk of KEY_SIZE to decrypt
-            let chunk = &mut buffer[decrypt_offset..decrypt_offset+KEY_SIZE];
-
-            // Decrypt into temp buffer
-            let decrypted_length = public_key.public_decrypt(
-                chunk,
-                &mut decrypt_buffer,
-                Padding::NONE
-            ).map_err(BHDError::Rsa)?;
-
-            // Overwrite the original bytes with the decrypted ones
-            buffer[target_offset..(target_offset + KEY_SIZE) - 1]
-                .copy_from_slice(&decrypt_buffer[1..]);
-
-            // Move offsets
-            decrypt_offset += decrypted_length;
-            target_offset += decrypted_length - 1;
-        }
-
-        // Truncate the final buffer to the amount of decrypted bytes
-        buffer.truncate(target_offset);
-
-        // Move buffer into cursor
-        let mut decrypted_reader = std::io::Cursor::new(buffer);
-
-        Self::from_reader(&mut decrypted_reader).map_err(BHDError::IO)
-    }
-
-    fn from_reader(r: &mut BHDReader) -> Result<Self, io::Error> {
-        assert!(
-            r.read_u32::<LE>()? == 0x35444842,
-            "Magic was not correct",
-        );
-
-        let endianness = r.read_i8()?;
-        let unk1 = r.read_u8()?;
-        let unk2 = r.read_u8()?;
-        let unk3 = r.read_u8()?;
-        let unk4 = r.read_u32::<LE>()?;
-        let file_size = r.read_u32::<LE>()?;
-        let bucket_count = r.read_u32::<LE>()?;
-        let bucket_offset = r.read_u32::<LE>()?;
-        let salt_length = r.read_u32::<LE>()?;
-
-        let mut salt = vec![0u8; salt_length as usize];
-        r.read_exact(salt.as_mut_slice())?;
-
-        r.seek(SeekFrom::Start(bucket_offset as u64))?;
-
-        let mut buckets = vec![];
-        for _ in 0..bucket_count {
-            buckets.push(Bucket::from_reader(r)?);
-        }
-
-        Ok(Self {
-            endianness,
-            unk1,
-            unk2,
-            unk3,
-            unk4,
-            file_size,
-            bucket_count,
-            bucket_offset,
-            salt_length,
-            salt,
-            buckets,
-        })
+        Ok(Bhd { toc })
     }
 }
 
-#[derive(Debug)]
-pub struct Bucket {
-    pub files: Vec<FileDescriptor>,
+use byteorder::{ByteOrder, ReadBytesExt};
+use crate::io_ext::ReadFormatsExt;
+
+pub fn read_header_data<R: Read, O: ByteOrder>(
+    mut reader: R,
+    is_big_endian: bool,
+) -> Result<BhdHeader, std::io::Error> {
+    reader.read_padding(7)?;
+
+    let file_size = reader.read_u32::<O>()?;
+    let toc_buckets = reader.read_i32::<O>()?;
+    let toc_offset = reader.read_i32::<O>()?;
+    let salt_length = reader.read_u32::<O>()?;
+
+    let mut salt = vec![0u8; salt_length as usize];
+    reader.read_exact(&mut salt)?;
+
+    Ok(BhdHeader {
+        is_big_endian,
+        file_size,
+        buckets: toc_buckets as u32,
+        buckets_offset: toc_offset as u32,
+        salt_length,
+        salt,
+    })
 }
 
-impl Bucket {
-    pub fn from_reader(r: &mut BHDReader) -> Result<Self, io::Error> {
-        let count = r.read_u32::<LE>()?;
-        let offset = r.read_u32::<LE>()?;
+pub fn read_header<R: Read>(mut reader: R) -> Result<BhdHeader, std::io::Error> {
+    reader.read_magic(b"BHD5")?;
 
-        let current = r.stream_position()?;
-        r.seek(SeekFrom::Start(offset as u64))?;
-
-        let mut files = vec![];
-        for _ in 0..count {
-            files.push(FileDescriptor::from_reader(r)?);
-        }
-
-        r.seek(SeekFrom::Start(current))?;
-
-        Ok(Self { files })
+    let endianness = reader.read_i8()?;
+    if endianness == -1 {
+        read_header_data::<_, LittleEndian>(reader, false)
+    } else {
+        read_header_data::<_, BigEndian>(reader, true)
     }
 }
 
-#[derive(Debug)]
-pub struct FileDescriptor {
-    pub file_path_hash: u64,
-    pub padded_file_size: u32,
-    pub file_size: u32,
-    pub file_offset: u64,
-    pub sha_offset: u64,
-    pub aes_key: [u8; 16],
-    pub aes_ranges: Vec<(i64, i64)>,
-}
+pub fn read_toc<R: Read + Seek, O: ByteOrder>(
+    buckets: usize,
+    mut reader: R,
+) -> Result<Vec<BhdTocEntry>, std::io::Error> {
+    let mut entries = Vec::new();
 
-impl FileDescriptor {
-    pub fn from_reader(r: &mut BHDReader) -> Result<Self, io::Error> {
-        let file_path_hash = r.read_u64::<LE>()?;
-        let padded_file_size = r.read_u32::<LE>()?;
-        let file_size = r.read_u32::<LE>()?;
-        let file_offset = r.read_u64::<LE>()?;
-        let sha_offset = r.read_u64::<LE>()?;
-        let aes_key_offset = r.read_u64::<LE>()?;
+    // TODO: split some of this out
+    for _ in 0..buckets {
+        let entry_count = reader.read_u32::<O>()?;
+        let entry_data_offset = reader.read_u32::<O>()?;
 
-        let mut aes_ranges = Vec::new();
-        let current_position = r.stream_position()?;
-        r.seek(io::SeekFrom::Start(aes_key_offset))?;
+        let next_bucket_pos = reader.stream_position()?;
+        reader.seek(SeekFrom::Start(entry_data_offset as u64))?;
 
-        let mut aes_key = [0u8; 16];
-        r.read_exact(&mut aes_key)?;
+        for _ in 0..entry_count {
+            let hash = reader.read_u64::<O>()?;
+            let padded_size = reader.read_u32::<O>()?;
+            let size = reader.read_u32::<O>()?;
+            let offset = reader.read_u64::<O>()?;
 
-        let aes_range_count = r.read_u32::<LE>()?;
-        for _ in 0..aes_range_count {
-            aes_ranges.push((r.read_i64::<LE>()?, r.read_i64::<LE>()?));
-        }
+            let _digest_offset = reader.read_u64::<O>()?;
+            let encryption_offset = reader.read_u64::<O>()?;
 
-        r.seek(io::SeekFrom::Start(current_position))?;
+            let next_file_pos = reader.stream_position()?;
+            let mut aes_key = [0u8; 16];
 
-        Ok(Self {
-            file_path_hash,
-            padded_file_size,
-            file_size,
-            file_offset,
-            sha_offset,
-            aes_key,
-            aes_ranges,
-        })
-    }
+            let mut encrypted_ranges = Vec::new();
 
-    pub fn decrypt_file(&self, data: &mut [u8]) {
-        let key = GenericArray::from_slice(&self.aes_key);
-        let cipher = Aes128::new(key);
+            if encryption_offset != 0 {
+                reader.seek(SeekFrom::Start(encryption_offset))?;
 
-        for (start, end) in self.aes_ranges.iter() {
-            if *start == -1 {
-                continue;
+                reader.read_exact(&mut aes_key)?;
+
+                let encrypted_range_count = reader.read_u32::<O>()?;
+
+                for _ in 0..encrypted_range_count {
+                    encrypted_ranges.push((reader.read_i64::<O>()?, reader.read_i64::<O>()?));
+                }
             }
 
-            let encrypted_range = &mut data[*start as usize..*end as usize];
+            reader.seek(SeekFrom::Start(next_file_pos))?;
 
-            // Decrypt by chunks of key size.
-            encrypted_range.chunks_mut(16)
-                .map(GenericArray::from_mut_slice)
-                .for_each(|b| cipher.decrypt_block(b));
+            entries.push(BhdTocEntry {
+                hash,
+                padded_size,
+                size,
+                offset,
+                aes_key,
+                encrypted_ranges,
+            })
         }
-    }
-}
 
-use std::num::Wrapping;
-
-const HASH_PRIME: Wrapping<u64> = Wrapping(0x85);
-
-pub fn hash_path(input: &str) -> u64 {
-    let mut result = Wrapping(0);
-
-    for character in input.as_bytes() {
-        result = result * HASH_PRIME + Wrapping(*character as u64);
+        reader.seek(SeekFrom::Start(next_bucket_pos))?;
     }
 
-    result.0
+    Ok(entries)
 }

@@ -1,10 +1,18 @@
-use std::io;
+use std::{io, mem};
 
 use byteorder::{ReadBytesExt, BE};
 
-#[derive(Debug)]
+use thiserror::Error;
+
+use crate::io_ext::ReadFormatsExt;
+
+#[derive(Debug, Error)]
 pub enum DCXError {
-    IO(io::Error),
+    #[error("Could not copy bytes {0}")]
+    Io(#[from] io::Error),
+
+    #[error("Got error from oodle decompression: {0}")]
+    Decompress(u32),
 }
 
 #[derive(Debug)]
@@ -34,9 +42,8 @@ pub struct DCX {
 }
 
 impl DCX {
-    pub fn from_reader(r: &mut impl io::Read) -> Result<Self, io::Error> {
-        let magic = r.read_u32::<BE>()?;
-        assert!(magic == 0x44435800, "DCX was not of expected format");
+    pub fn from_reader(r: &mut impl io::Read) -> Result<Self, DCXError> {
+        r.read_magic(b"DCX\0")?;
 
         let unk04 = r.read_u32::<BE>()?;
         let dcs_offset = r.read_u32::<BE>()?;
@@ -66,20 +73,15 @@ impl DCX {
         r.read_exact(&mut compressed)?;
 
         let mut decompressed = vec![0x0u8; uncompressed_size as usize];
-        let result = oodle_safe::decompress(
+
+        oodle_safe::decompress(
             &compressed,
             &mut decompressed,
             None,
             None,
             None,
             None,
-        );
-
-        if result.is_err() {
-            panic!("Oodle decompress failed");
-        }
-
-        // std::fs::write("./test.dcx.decompress", decompressed)?;
+        ).map_err(DCXError::Decompress)?;
 
         Ok(Self {
             unk04,
@@ -105,5 +107,15 @@ impl DCX {
             dca_size,
             decompressed,
         })
+    }
+
+    pub fn has_magic(r: &mut (impl io::Read + io::Seek)) -> Result<bool, io::Error> {
+        // Read magic and check if it's DCX
+        let result = r.read_u32::<BE>()? == 0x44435800;
+
+        // Seek backwards to before the magic
+        r.seek(io::SeekFrom::Current(-(mem::size_of::<u32>() as i64)))?;
+
+        Ok(result)
     }
 }

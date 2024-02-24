@@ -1,6 +1,7 @@
-use crate::{bnd4::FromBnd4File, read_utf16};
 use std::io::{self, SeekFrom};
 use byteorder::{ReadBytesExt, LE};
+
+use crate::io_ext::ReadFormatsExt;
 
 #[derive(Debug)]
 pub enum TPFError {
@@ -14,17 +15,17 @@ pub struct TPF {
 
 impl TPF {
     pub fn from_reader(r: &mut (impl io::Read + io::Seek)) -> Result<Self, io::Error> {
-        let magic = r.read_u32::<LE>()?;
-        // assert!(magic == 0x44435800, "TPF was not of expected format");
-        let data_size = r.read_u32::<LE>()?;
+        r.read_magic(b"TPF\0")?;
+
+        let _data_size = r.read_u32::<LE>()?;
         let texture_count = r.read_u32::<LE>()?;
-        let platform = r.read_u8()?;
-        let unk0d = r.read_u8()?;
+        let _platform = r.read_u8()?;
+        let _unk0d = r.read_u8()?;
         assert!(r.read_u8()? == 0x1, "Encoding isn't 0x1");
-        assert!(r.read_u8()? == 0x0, "Padding has value");
+        r.read_padding(1)?;
 
         let mut textures = vec![];
-        for _ in 0..dbg!(texture_count) {
+        for _ in 0..texture_count {
             textures.push(Texture::from_reader(r)?);
         }
 
@@ -51,13 +52,13 @@ impl Texture {
         let format = r.read_u8()?;
         let cubemap = r.read_u8()?;
         let mipmaps = r.read_u8()?;
-        let unk0b = r.read_u8()?;
+        let _unk0b = r.read_u8()?;
         let name_offset = r.read_u32::<LE>()?;
-        let unk10 = r.read_u32::<LE>()?;
+        let _unk10 = r.read_u32::<LE>()?;
 
         let current = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
-        let name = read_utf16(r)?;
+        let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current))?;
 
         Ok(Self {
@@ -77,12 +78,3 @@ impl Texture {
         Ok(buffer)
     }
 }
-
-impl FromBnd4File for TPF {
-    fn from_bnd4(bytes: &[u8]) -> Self {
-        let mut cursor = io::Cursor::new(bytes);
-        Self::from_reader(&mut cursor).expect("Fuck lmao")
-    }
-}
-
-

@@ -1,6 +1,7 @@
 use byteorder::{ReadBytesExt, LE};
 use std::{io::{self, SeekFrom}, marker::ConstParamTy};
-use crate::{bnd4::FromBnd4File, read_utf16};
+
+use crate::io_ext::ReadFormatsExt;
 
 const ALLOWED_VERSIONS: [u32; 1] = [
     0x2001A, // Elden Ring
@@ -237,9 +238,9 @@ impl FLVERPartReader for FLVERMaterial {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
-        let name = read_utf16(r)?;
+        let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(mtd_offset as u64))?;
-        let mtd = read_utf16(r)?;
+        let mtd = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         let texture_count = r.read_u32::<LE>()?;
@@ -297,7 +298,7 @@ impl FLVERPartReader for FLVERBone {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
-        let name = read_utf16(r)?;
+        let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         Ok(Self {
@@ -642,9 +643,9 @@ impl FLVERPartReader for FLVERTexture {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(path_offset as u64))?;
-        let path = read_utf16(r)?;
+        let path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(type_offset as u64))?;
-        let r#type = read_utf16(r)?;
+        let r#type = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         Ok(Self {
@@ -690,11 +691,3 @@ fn read_vec<T: FLVERPartReader>(
 
     Ok(results)
 }
-
-impl FromBnd4File for FLVER {
-    fn from_bnd4(bytes: &[u8]) -> Self {
-        let mut cursor = io::Cursor::new(bytes);
-        Self::from_reader(&mut cursor).expect("Fuck lmao")
-    }
-}
-

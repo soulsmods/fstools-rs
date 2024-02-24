@@ -7,3 +7,6 @@ members = [
     "vfs",
     "util",
 ]
+
+[workspace.dependencies.thiserror]
+version = "1"
