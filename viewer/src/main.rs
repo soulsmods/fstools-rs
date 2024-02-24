@@ -1,18 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
-use std::f32::consts::PI;
+use std::{f32::consts::PI, path::PathBuf};
 use std::io;
-use std::io::Read;
-use std::sync::RwLock;
 
-use bevy::{
-    prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
-};
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::texture::{
-    CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor,
-    ImageType,
-};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use vfs::VfsAssetRepositoryPlugin;
 use formats::FSFormatsAssetPlugin;
@@ -64,7 +53,6 @@ fn main() {
         .add_plugins(FSFormatsAssetPlugin)
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, draw_dummies)
         .run();
 }
 
@@ -126,14 +114,9 @@ fn setup(
             transform: Transform::from_xyz(0.0, 3.0, 0.0),
             material: material_handle,
             ..default()
-        },));
-    }
-
-    for dummy in flver.dummies.iter() {
-        commands.spawn(Dummy {
-            position: Vec3::new(dummy.position.x, dummy.position.y, dummy.position.z * -1.0),
         });
     }
+
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
@@ -148,19 +131,6 @@ fn setup(
         ..default()
     });
 
-    // Draw some floor
-    let floor = flver.bounding_box_min;
-    const FLOOR_DISTANCE: f32 = 0.2;
-    commands.spawn(PbrBundle {
-        transform: Transform {
-            translation: Vec3::new(0.0, floor.y - FLOOR_DISTANCE, 0.0),
-            ..default()
-        },
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::ALICE_BLUE),
-        ..default()
-    });
-
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 6., 12.0)
@@ -169,10 +139,4 @@ fn setup(
         },
         PanOrbitCamera::default(),
     ));
-}
-
-fn draw_dummies(mut gizmos: Gizmos, dummies: Query<&Dummy>) {
-    for dummy in dummies.iter() {
-        gizmos.sphere(dummy.position, Quat::IDENTITY, 0.02, Color::RED);
-    }
 }
