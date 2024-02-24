@@ -19,11 +19,6 @@ impl AssetReader for VfsAssetRepository {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            // Hack to trick bevy's extension matching
-            let path_str = path.to_str().unwrap().replace("@", ".");
-            let unfucked_path = std::path::Path::new(&path_str);
-            let path = &unfucked_path;
-
             // Check the BHD first
             let from_bhd = self.open(path.to_string_lossy());
             if let Ok(bhd_reader) = from_bhd {
@@ -32,7 +27,6 @@ impl AssetReader for VfsAssetRepository {
             }
 
             // TODO: handle errors
-
             match self.open_from_mounts(path.to_str().unwrap()) {
                 Ok(b) => {
                     let reader: Box<Reader> = Box::new(Cursor::new(b));
