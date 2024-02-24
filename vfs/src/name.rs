@@ -1,5 +1,5 @@
 // TODO: replace Name with Hasher attached to Archives, support 32 bit hash
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Name(pub u64);
 
 impl<S: AsRef<str>> From<S> for Name {

@@ -1,7 +1,7 @@
 use std::fs;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
-use format::bhd2::BhdKey;
+use format::bhd::BhdKey;
 
 // TODO: replace Option with Result
 pub trait ArchiveKeyProvider {

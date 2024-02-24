@@ -14,5 +14,8 @@ version = "0.8"
 [dependencies.aes]
 version = "0.8"
 
+[dependencies.thiserror]
+workspace = true
+
 [dependencies.format]
 path = "../format"

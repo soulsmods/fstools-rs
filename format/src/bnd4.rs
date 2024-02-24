@@ -1,6 +1,8 @@
 use std::io::{self, Read, Seek, SeekFrom};
 use byteorder::{ReadBytesExt, LE};
 
+use crate::io_ext::ReadFormatsExt;
+
 type BND4Reader = std::io::Cursor<Vec<u8>>;
 
 #[derive(Debug)]
@@ -17,14 +19,13 @@ pub struct BND4 {
     pub raw_format: u8,
     pub extended: u8,
     pub buckets_offset: u64,
-    pub files: Vec<File>,
+    pub files: Vec<BND4Entry>,
     pub data: Vec<u8>,
 }
 
 impl BND4 {
-    pub fn from_reader(r: &mut BND4Reader) -> Result<Self, io::Error> {
-        let magic = r.read_u32::<LE>()?;
-        assert!(magic == 0x34444e42, "BND4 was not of expected format");
+    pub fn from_reader(r: &mut BND4Reader) -> io::Result<Self> {
+        r.read_magic(b"BND4")?;
 
         let unk04 = r.read_u8()?;
         let unk05 = r.read_u8()?;
@@ -53,7 +54,7 @@ impl BND4 {
 
         let mut files = vec![];
         for _ in 0..file_count {
-            files.push(File::from_reader(r)?);
+            files.push(BND4Entry::from_reader(r)?);
         }
 
         let mut data = vec![];
@@ -78,7 +79,14 @@ impl BND4 {
         })
     }
 
-    pub fn file_descriptor_by_stem(&self, path: &str) -> Option<&File> {
+    pub fn file_bytes(&self, handle: &BND4Entry) -> &[u8] {
+        let start = handle.data_offset as usize;
+        let end = start + handle.compressed_size as usize;
+
+        &self.data[start..end]
+    }
+
+    pub fn file_descriptor_by_stem(&self, path: &str) -> Option<&BND4Entry> {
         let lookup = std::path::PathBuf::from(Self::normalize_path(path));
 
         self.files.iter()
@@ -91,7 +99,7 @@ impl BND4 {
             })
     }
 
-    fn normalize_path(path: &str) -> String {
+    pub fn normalize_path(path: &str) -> String {
         path.replace("N:\\", "")
             .to_lowercase()
             .replace('\\', "/")
@@ -99,8 +107,9 @@ impl BND4 {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct File {
+pub struct BND4Entry {
     pub flags: u8,
+    pub unk4: i32,
     pub compressed_size: u64,
     pub uncompressed_size: u64,
     pub data_offset: u32,
@@ -108,17 +117,12 @@ pub struct File {
     pub path: String,
 }
 
-impl File {
+impl BND4Entry {
     pub fn from_reader(r: &mut BND4Reader) -> Result<Self, io::Error> {
         let flags = r.read_u8()?;
-        assert!(r.read_u8()? == 0x0);
-        assert!(r.read_u8()? == 0x0);
-        assert!(r.read_u8()? == 0x0);
-        assert!(r.read_u8()? == 0xFF);
-        assert!(r.read_u8()? == 0xFF);
-        assert!(r.read_u8()? == 0xFF);
-        assert!(r.read_u8()? == 0xFF);
+        r.read_padding(3)?;
 
+        let unk4 = r.read_i32::<LE>()?;
         let compressed_size = r.read_u64::<LE>()?;
         let uncompressed_size = r.read_u64::<LE>()?;
         let data_offset = r.read_u32::<LE>()?;
@@ -127,7 +131,7 @@ impl File {
 
         let current = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset as u64))?;
-        let path = read_utf16(r)?;
+        let path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current))?;
 
         assert!(
@@ -137,6 +141,7 @@ impl File {
 
         Ok(Self {
             flags,
+            unk4,
             compressed_size,
             uncompressed_size,
             data_offset,
@@ -152,23 +157,4 @@ impl File {
 
         Ok(buffer)
     }
-}
-
-pub trait FromBnd4File {
-    fn from_bnd4(bytes: &[u8]) -> Self;
-}
-
-fn read_utf16(r: &mut BND4Reader) -> Result<String, io::Error> {
-    let mut buffer = Vec::new();
-
-    loop {
-        let current = r.read_u16::<LE>()?;
-        if current != 0x0 {
-            buffer.push(current);
-        } else {
-            break;
-        }
-    }
-
-    Ok(String::from_utf16(buffer.as_slice()).unwrap())
 }

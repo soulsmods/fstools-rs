@@ -1,10 +1,18 @@
-use std::io;
+use std::{io, mem};
 
 use byteorder::{ReadBytesExt, BE};
 
-#[derive(Debug)]
+use thiserror::Error;
+
+use crate::io_ext::ReadFormatsExt;
+
+#[derive(Debug, Error)]
 pub enum DCXError {
-    IO(io::Error),
+    #[error("Could not copy bytes {0}")]
+    Io(#[from] io::Error),
+
+    #[error("Got error from oodle decompression: {0}")]
+    Decompress(u32),
 }
 
 #[derive(Debug)]
@@ -105,5 +113,15 @@ impl DCX {
             dca_size,
             decompressed,
         })
+    }
+
+    pub fn has_magic(r: &mut (impl io::Read + io::Seek)) -> Result<bool, io::Error> {
+        // Read magic and check if it's DCX
+        let result = r.read_u32::<BE>()? == 0x44435800;
+
+        // Seek backwards to before the magic
+        r.seek(io::SeekFrom::Current(-(mem::size_of::<u32>() as i64)))?;
+
+        Ok(result)
     }
 }

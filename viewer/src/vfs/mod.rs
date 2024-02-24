@@ -1,0 +1,32 @@
+use bevy::{app::App, asset::io::AssetSourceId};
+use bevy::asset::io::AssetSource;
+use bevy::prelude::*;
+use souls_vfs::Vfs;
+use std::sync::Arc;
+use self::reader::VfsAssetRepository;
+
+mod reader;
+
+pub struct VfsAssetRepositoryPlugin {
+    repository: VfsAssetRepository,
+}
+
+impl VfsAssetRepositoryPlugin {
+    pub fn new(vfs: Vfs) -> Self {
+        Self {
+            repository: VfsAssetRepository(Arc::new(vfs)),
+        }
+    }
+}
+
+impl Plugin for VfsAssetRepositoryPlugin {
+    fn build(&self, app: &mut App) {
+        let repository = self.repository.clone();
+
+        app.insert_resource(repository.clone());
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(repository.clone())),
+        );
+    }
+}
