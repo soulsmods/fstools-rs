@@ -37,7 +37,9 @@ impl<R: Read> ReadFormatsExt for R {
 
     #[cfg(not(debug_assertions))]
     fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
-        io::copy(self.take(length), &mut io::sink());
+        let mut taken = self.take(length as u64);
+        std::io::copy(&mut taken, &mut std::io::sink())?;
+        Ok(())
     }
 
     #[cfg(debug_assertions)]
