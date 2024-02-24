@@ -30,7 +30,6 @@ fn locate_er_dir() -> PathBuf {
 }
 
 fn main() -> Result<(), std::io::Error> {
-    // TODO: FIXME
     let args = Args::parse();
 
     let er_path = args.erpath
