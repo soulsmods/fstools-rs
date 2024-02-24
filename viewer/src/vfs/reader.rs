@@ -19,28 +19,19 @@ impl AssetReader for VfsAssetRepository {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
-            // Check the BHD first
-            let from_bhd = self.open(path.to_string_lossy());
-            if let Ok(bhd_reader) = from_bhd {
-                let reader: Box<Reader> = Box::new(VfsEntryReader(bhd_reader));
-                return Ok(reader);
-            }
+            let path_str = path.to_string_lossy();
 
-            // TODO: handle errors
-            match self.open_from_mounts(path.to_str().unwrap()) {
-                Ok(b) => {
-                    let reader: Box<Reader> = Box::new(Cursor::new(b));
-                    return Ok(reader);
-                },
-                Err(e) => Err(match e {
-                    VfsOpenError::Mmap(e) => {
-                        AssetReaderError::Io(e.into())
-                    },
-                    VfsOpenError::NotFound => {
-                        AssetReaderError::NotFound(path.to_path_buf())
-                    },
-                }),
-            }
+            self.open(&path_str)
+                .map(|r| Box::new(VfsEntryReader(r)) as Box<Reader>)
+                .or_else(|_| Ok(
+                    self.open_from_mounts(&path_str)
+                        .map(|r| Box::new(Cursor::new(r)))?
+                ))
+                .map_err(|e| match e {
+                    VfsOpenError::NotFound => AssetReaderError::NotFound(
+                        path.to_path_buf()
+                    ),
+                })
         })
     }
 
