@@ -26,7 +26,7 @@ pub enum BndMountError {
     Dcx(#[from] DCXError),
 
     #[error("Could not parse BND4: {0}")]
-    BND4(io::Error),
+    Bnd4(io::Error),
 }
 
 impl BndMountHost {
@@ -39,7 +39,7 @@ impl BndMountHost {
 
         let mut cursor = Cursor::new(decompressed);
         let bnd = BND4::from_reader(&mut cursor)
-            .map_err(BndMountError::BND4)?;
+            .map_err(BndMountError::Bnd4)?;
 
         self.entries.extend(
             bnd.files.iter()
