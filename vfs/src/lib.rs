@@ -23,9 +23,6 @@ pub use self::{
 
 #[derive(Debug, Error)]
 pub enum VfsOpenError {
-    #[error("Mmap operation failed: {0}")]
-    Mmap(#[from] Error),
-
     #[error("Entry was not found")]
     NotFound,
 }
@@ -109,7 +106,9 @@ impl Vfs {
                 let offset = entry.file_offset as usize;
                 let size = entry.file_size_with_padding as usize;
 
-                mmap.advise_range(Advice::Sequential, offset, size)?;
+                // Since its an optimization we don't really care about the 
+                // result.
+                let _ = mmap.advise_range(Advice::Sequential, offset, size);
 
                 Ok(VfsEntryReader::new(&mmap[offset..offset + size], entry))
             }
