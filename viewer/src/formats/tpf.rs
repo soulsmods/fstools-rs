@@ -9,6 +9,7 @@ use thiserror::Error;
 use bevy::utils::BoxedFuture;
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, AsyncReadExt, LoadContext};
+use crate::formats::TpfPlugin;
 
 #[derive(Asset, Deref, TypePath, Debug)]
 pub struct TPFAsset(TPF);
@@ -74,5 +75,12 @@ impl AssetLoader for TPFAssetLoader {
 
     fn extensions(&self) -> &[&str] {
         &["tpf", "tpf.dcx"]
+    }
+}
+
+impl Plugin for TpfPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<TPFAsset>()
+            .init_asset_loader::<TPFAssetLoader>();
     }
 }

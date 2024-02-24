@@ -64,6 +64,7 @@ impl<R: Read> ReadFormatsExt for R {
     }
 
     #[cfg(debug_assertions)]
+    #[inline(always)]
     fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
         for _ in 0..length {
             let padding = self.read_u8()?;

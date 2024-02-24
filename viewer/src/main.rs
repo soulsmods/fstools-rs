@@ -4,12 +4,13 @@ use std::io;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use vfs::VfsAssetRepositoryPlugin;
-use formats::FSFormatsAssetPlugin;
+use formats::TpfPlugin;
 use bevy::prelude::*;
 use clap::Parser;
 use steamlocate::SteamDir;
 use souls_vfs::{FileKeyProvider, Vfs};
 
+pub mod flver;
 mod formats;
 mod vfs;
 
@@ -50,7 +51,7 @@ fn main() {
     App::new()
         .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
         .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(FSFormatsAssetPlugin)
+        .add_plugins(TpfPlugin)
         .add_plugins(PanOrbitCameraPlugin)
         .add_systems(Startup, setup)
         .run();

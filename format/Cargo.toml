@@ -5,6 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
+bytemuck = "1"
 byteorder = "1"
 aes = "0.8"
 openssl-sys = "0.9.83"

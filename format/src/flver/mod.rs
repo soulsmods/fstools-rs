@@ -1,7 +1,12 @@
 use byteorder::{ReadBytesExt, LE};
-use std::{io::{self, SeekFrom}, marker::ConstParamTy};
+use std::io;
+use std::io::SeekFrom;
+use std::marker::ConstParamTy;
 
+use crate::flver::accessor::{VertexAttributeAccessor, VertexAttributeIter};
 use crate::io_ext::ReadFormatsExt;
+
+pub mod accessor;
 
 const ALLOWED_VERSIONS: [u32; 1] = [
     0x2001A, // Elden Ring
@@ -12,7 +17,10 @@ pub struct FLVERPartContext {
 }
 
 pub trait FLVERPartReader {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error>
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error>
     where
         Self: Sized;
 }
@@ -35,8 +43,8 @@ pub struct FLVER {
     pub bones: Vec<FLVERBone>,
     pub meshes: Vec<FLVERMesh>,
     pub face_sets: Vec<FLVERFaceSet>,
-    pub vertex_buffers: Vec<FLVERVertexBuffer>,
-    pub buffer_layouts: Vec<FLVERBufferLayout>,
+    pub vertex_buffers: Vec<VertexBuffer>,
+    pub buffer_layouts: Vec<VertexBufferLayout>,
     pub textures: Vec<FLVERTexture>,
 }
 
@@ -98,8 +106,10 @@ impl FLVER {
         let bones = read_vec::<FLVERBone>(r, &part_context, bone_count as usize)?;
         let meshes = read_vec::<FLVERMesh>(r, &part_context, mesh_count as usize)?;
         let face_sets = read_vec::<FLVERFaceSet>(r, &part_context, face_set_count as usize)?;
-        let vertex_buffers = read_vec::<FLVERVertexBuffer>(r, &part_context, vertex_buffer_count as usize)?;
-        let buffer_layouts = read_vec::<FLVERBufferLayout>(r, &part_context, buffer_layout_count as usize)?;
+        let vertex_buffers =
+            read_vec::<VertexBuffer>(r, &part_context, vertex_buffer_count as usize)?;
+        let buffer_layouts =
+            read_vec::<VertexBufferLayout>(r, &part_context, buffer_layout_count as usize)?;
         let textures = read_vec::<FLVERTexture>(r, &part_context, texture_count as usize)?;
 
         Ok(Self {
@@ -134,7 +144,10 @@ pub struct FLVERVector3 {
 }
 
 impl FLVERPartReader for FLVERVector3 {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         Ok(Self {
             x: r.read_f32::<LE>()?,
             y: r.read_f32::<LE>()?,
@@ -150,7 +163,10 @@ pub struct FLVERVector2 {
 }
 
 impl FLVERPartReader for FLVERVector2 {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         Ok(Self {
             x: r.read_f32::<LE>()?,
             y: r.read_f32::<LE>()?,
@@ -167,7 +183,10 @@ pub struct FLVERColor {
 }
 
 impl FLVERPartReader for FLVERColor {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         Ok(Self {
             r: r.read_u8()?,
             g: r.read_u8()?,
@@ -232,7 +251,10 @@ pub struct FLVERMaterial {
 }
 
 impl FLVERPartReader for FLVERMaterial {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         let name_offset = r.read_u32::<LE>()?;
         let mtd_offset = r.read_u32::<LE>()?;
 
@@ -279,7 +301,10 @@ pub struct FLVERBone {
 }
 
 impl FLVERPartReader for FLVERBone {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         let translation = FLVERVector3::from_reader(r, c)?;
         let name_offset = r.read_u32::<LE>()?;
 
@@ -329,7 +354,10 @@ pub struct FLVERMesh {
 }
 
 impl FLVERPartReader for FLVERMesh {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         let dynamic = r.read_u8()? == 0x1;
         assert!(r.read_u8()? == 0x0);
         assert!(r.read_u8()? == 0x0);
@@ -372,7 +400,6 @@ impl FLVERPartReader for FLVERMesh {
     }
 }
 
-
 #[derive(Debug)]
 pub struct FLVERFaceSetFlags(u32);
 
@@ -411,7 +438,10 @@ pub enum FLVERFaceSetIndices {
 }
 
 impl FLVERPartReader for FLVERFaceSet {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         let flags = r.read_u32::<LE>()?.into();
         let triangle_strip = r.read_u8()? == 0x1;
         let cull_back_faces = r.read_u8()? == 0x1;
@@ -427,15 +457,9 @@ impl FLVERPartReader for FLVERFaceSet {
         r.seek(SeekFrom::Start(index_offset as u64 + c.data_offset as u64))?;
         let indices = match index_size {
             0 => FLVERFaceSetIndices::Byte0,
-            8 => FLVERFaceSetIndices::Byte1(
-                read_vec::<u8>(r, c, index_count as usize)?
-            ),
-            16 => FLVERFaceSetIndices::Byte2(
-                read_vec::<u16>(r, c, index_count as usize)?
-            ),
-            32 => FLVERFaceSetIndices::Byte4(
-                read_vec::<u32>(r, c, index_count as usize)?
-            ),
+            8 => FLVERFaceSetIndices::Byte1(read_vec::<u8>(r, c, index_count as usize)?),
+            16 => FLVERFaceSetIndices::Byte2(read_vec::<u16>(r, c, index_count as usize)?),
+            32 => FLVERFaceSetIndices::Byte4(read_vec::<u32>(r, c, index_count as usize)?),
             _ => panic!("Unhandled index size {}", index_size),
         };
         r.seek(SeekFrom::Start(current))?;
@@ -451,7 +475,7 @@ impl FLVERPartReader for FLVERFaceSet {
 }
 
 #[derive(Debug)]
-pub struct FLVERVertexBuffer {
+pub struct VertexBuffer {
     pub buffer_index: u32,
     pub layout_index: u32,
     pub vertex_size: u32,
@@ -460,7 +484,7 @@ pub struct FLVERVertexBuffer {
     pub buffer_offset: u32,
 }
 
-impl FLVERPartReader for FLVERVertexBuffer {
+impl FLVERPartReader for VertexBuffer {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
         c: &FLVERPartContext,
@@ -485,12 +509,40 @@ impl FLVERPartReader for FLVERVertexBuffer {
     }
 }
 
+impl VertexBuffer {
+    pub fn accessor<'a>(
+        &self,
+        attribute: &FLVERBufferLayoutMember,
+        data: &'a [u8],
+    ) -> VertexAttributeAccessor<'a> {
+        use VertexAttributeAccessor as Accessor;
+        use VertexAttributeIter as Iter;
+
+        use self::VertexAttributeFormat::*;
+
+        match attribute.format {
+            Float3 => Accessor::Float3(Iter::new(data, self, attribute)),
+            Float2 => Accessor::Float2(Iter::new(data, self, attribute)),
+            Float4 => Accessor::Float4(Iter::new(data, self, attribute)),
+            Byte4A => Accessor::Byte4A(Iter::new(data, self, attribute)),
+            Byte4B => Accessor::Byte4B(Iter::new(data, self, attribute)),
+            Short2ToFloat2 => Accessor::Short2ToFloat2(Iter::new(data, self, attribute)),
+            Byte4C => Accessor::Byte4C(Iter::new(data, self, attribute)),
+            UV => Accessor::UV(Iter::new(data, self, attribute)),
+            UVPair => Accessor::UVPair(Iter::new(data, self, attribute)),
+            Short4ToFloat4A => Accessor::Short4ToFloat4A(Iter::new(data, self, attribute)),
+            Short4ToFloat4B => Accessor::Short4ToFloat4B(Iter::new(data, self, attribute)),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct FLVERBufferLayout {
+pub struct VertexBufferLayout {
     pub members: Vec<FLVERBufferLayoutMember>,
 }
 
-impl FLVERPartReader for FLVERBufferLayout {
+impl FLVERPartReader for VertexBufferLayout {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
         c: &FLVERPartContext,
@@ -511,12 +563,12 @@ impl FLVERPartReader for FLVERBufferLayout {
     }
 }
 
-impl FLVERBufferLayout {
+impl VertexBufferLayout {
     pub fn member_by_type(
         &self,
-        member_type: FLVERMemberType,
+        member_type: VertexAttributeSemantic,
     ) -> Option<&FLVERBufferLayoutMember> {
-        self.members.iter().find(|m| m.member_type == member_type)
+        self.members.iter().find(|m| m.semantic == member_type)
     }
 }
 
@@ -524,7 +576,7 @@ impl FLVERBufferLayout {
 #[derive(Debug, PartialEq, Eq, ConstParamTy)]
 // TODO: these come from soulsformats and probably have documented
 // names in dx12
-pub enum FLVERStorageType {
+pub enum VertexAttributeFormat {
     Float2 = 0x1,
     Float3 = 0x2,
     Float4 = 0x3,
@@ -538,10 +590,63 @@ pub enum FLVERStorageType {
     Short4ToFloat4A = 0x1A,
     Short4ToFloat4B = 0x2E,
     Byte4E = 0x2F,
-    EdgeCompressed =  0xF0,
+    EdgeCompressed = 0xF0,
 }
 
-impl From<u32> for FLVERStorageType {
+impl VertexAttributeFormat {
+    pub fn datum_size(&self) -> usize {
+        match self {
+            VertexAttributeFormat::Float2
+            | VertexAttributeFormat::Float3
+            | VertexAttributeFormat::Float4
+            | VertexAttributeFormat::UV
+            | VertexAttributeFormat::UVPair => 4,
+            VertexAttributeFormat::Byte4A
+            | VertexAttributeFormat::Byte4B
+            | VertexAttributeFormat::Byte4C
+            | VertexAttributeFormat::Byte4E => 1,
+            VertexAttributeFormat::Short2ToFloat2
+            | VertexAttributeFormat::ShortBoneIndices
+            | VertexAttributeFormat::Short4ToFloat4A
+            | VertexAttributeFormat::Short4ToFloat4B => 2,
+            _ => unimplemented!(),
+        }
+    }
+    pub fn dimensions(&self) -> usize {
+        match self {
+            VertexAttributeFormat::Float2 => 2,
+            VertexAttributeFormat::Float3 => 3,
+            VertexAttributeFormat::Float4 => 4,
+            VertexAttributeFormat::Byte4A => 4,
+            VertexAttributeFormat::Byte4B => 4,
+            VertexAttributeFormat::Short2ToFloat2 => 2,
+            VertexAttributeFormat::Byte4C => 4,
+            VertexAttributeFormat::UV => 2,
+            VertexAttributeFormat::UVPair => 4,
+            VertexAttributeFormat::ShortBoneIndices => 4,
+            VertexAttributeFormat::Short4ToFloat4A => 4,
+            VertexAttributeFormat::Short4ToFloat4B => 4,
+            VertexAttributeFormat::Byte4E => 4,
+            VertexAttributeFormat::EdgeCompressed => unimplemented!(),
+        }
+    }
+}
+
+pub enum VertexAttributeDimensions {
+    Scalar,
+    Vec2,
+    Vec3,
+    Vec4,
+}
+
+pub enum VertexAttributeDataType {
+    F32,
+    U32,
+    U16,
+    I16,
+}
+
+impl From<u32> for VertexAttributeFormat {
     fn from(value: u32) -> Self {
         match value {
             0x1 => Self::Float2,
@@ -564,7 +669,7 @@ impl From<u32> for FLVERStorageType {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum FLVERMemberType {
+pub enum VertexAttributeSemantic {
     Position,
     BoneWeights,
     BoneIndices,
@@ -575,7 +680,7 @@ pub enum FLVERMemberType {
     VertexColor,
 }
 
-impl From<u32> for FLVERMemberType {
+impl From<u32> for VertexAttributeSemantic {
     fn from(value: u32) -> Self {
         match value {
             0x0 => Self::Position,
@@ -595,8 +700,8 @@ impl From<u32> for FLVERMemberType {
 pub struct FLVERBufferLayoutMember {
     pub unk0: u32,
     pub struct_offset: u32,
-    pub storage_type: FLVERStorageType,
-    pub member_type: FLVERMemberType,
+    pub format: VertexAttributeFormat,
+    pub semantic: VertexAttributeSemantic,
     pub index: u32,
 }
 
@@ -608,8 +713,8 @@ impl FLVERPartReader for FLVERBufferLayoutMember {
         Ok(Self {
             unk0: r.read_u32::<LE>()?,
             struct_offset: r.read_u32::<LE>()?,
-            storage_type: r.read_u32::<LE>()?.into(),
-            member_type: r.read_u32::<LE>()?.into(),
+            format: r.read_u32::<LE>()?.into(),
+            semantic: r.read_u32::<LE>()?.into(),
             index: r.read_u32::<LE>()?,
         })
     }
@@ -628,7 +733,10 @@ pub struct FLVERTexture {
 }
 
 impl FLVERPartReader for FLVERTexture {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         let path_offset = r.read_u32::<LE>()?;
         let type_offset = r.read_u32::<LE>()?;
 
@@ -662,19 +770,28 @@ impl FLVERPartReader for FLVERTexture {
 }
 
 impl FLVERPartReader for u8 {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         r.read_u8()
     }
 }
 
 impl FLVERPartReader for u16 {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         r.read_u16::<LE>()
     }
 }
 
 impl FLVERPartReader for u32 {
-    fn from_reader(r: &mut (impl io::Read + io::Seek), c: &FLVERPartContext) -> Result<Self, io::Error> {
+    fn from_reader(
+        r: &mut (impl io::Read + io::Seek),
+        c: &FLVERPartContext,
+    ) -> Result<Self, io::Error> {
         r.read_u32::<LE>()
     }
 }
@@ -682,7 +799,7 @@ impl FLVERPartReader for u32 {
 fn read_vec<T: FLVERPartReader>(
     r: &mut (impl io::Read + io::Seek),
     c: &FLVERPartContext,
-    count: usize
+    count: usize,
 ) -> Result<Vec<T>, io::Error> {
     let mut results = Vec::new();
     for _ in 0..count {
