@@ -15,7 +15,8 @@ fn main() -> Result<(), std::io::Error> {
     let path = std::path::PathBuf::from(args.file);
 
     let mut dcx_file = std::fs::File::open(&path)?;
-    let dcx = DCX::from_reader(&mut dcx_file)?;
+    let dcx = DCX::from_reader(&mut dcx_file)
+        .expect("Could not parse DCX");
 
     let mut cursor = std::io::Cursor::new(dcx.decompressed);
     let bnd4 = BND4::from_reader(&mut cursor)?;
