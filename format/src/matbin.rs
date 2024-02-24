@@ -1,6 +1,7 @@
-use crate::read_utf16;
 use std::io::{self, SeekFrom};
 use byteorder::{ReadBytesExt, LE};
+
+use crate::io_ext::ReadFormatsExt;
 
 #[derive(Debug)]
 pub enum MatbinError {
@@ -33,9 +34,9 @@ impl Matbin {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(shader_path_offset))?;
-        let shader_path = read_utf16(r)?;
+        let shader_path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(source_path_offset))?;
-        let source_path = read_utf16(r)?;
+        let source_path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         assert!(r.read_u64::<LE>()? == 0x0);
@@ -76,8 +77,9 @@ pub struct MatbinParam {
 impl MatbinParam {
     pub fn from_reader(r: &mut (impl io::Read + io::Seek)) -> Result<Self, io::Error> {
         let name_offset = r.read_u64::<LE>()?;
-        // TOOD: read value
-        let value_offset = r.read_u64::<LE>()?;
+
+        // TODO: read values
+        let _value_offset = r.read_u64::<LE>()?;
         let key = r.read_u32::<LE>()?;
         let value_type = r.read_u32::<LE>()?;
 
@@ -86,7 +88,7 @@ impl MatbinParam {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(name_offset))?;
-        let name = read_utf16(r)?;
+        let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         Ok(Self {
@@ -122,9 +124,9 @@ impl MatbinSampler {
 
         let current_pos = r.stream_position()?;
         r.seek(SeekFrom::Start(type_offset))?;
-        let sampler_type = read_utf16(r)?;
+        let sampler_type = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(path_offset))?;
-        let path = read_utf16(r)?;
+        let path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
         Ok(Self {

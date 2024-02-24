@@ -1,10 +1,10 @@
-use byteorder::ReadBytesExt;
-use std::io;
+use byteorder::{ByteOrder, ReadBytesExt};
 use std::io::{ErrorKind, Read};
 
 pub trait ReadFormatsExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
     fn read_magic<const LENGTH: usize>(&mut self, expected: &[u8; LENGTH]) -> std::io::Result<()>;
+    fn read_utf16<BO: ByteOrder>(&mut self) -> std::io::Result<String>;
 
     fn read_padding(&mut self, length: usize) -> std::io::Result<()>;
 }
@@ -33,6 +33,23 @@ impl<R: Read> ReadFormatsExt for R {
                 ),
             ))
         }
+    }
+
+    fn read_utf16<BO: ByteOrder>(
+        &mut self
+    ) -> std::io::Result<String> {
+        let mut buffer = Vec::new();
+
+        loop {
+            let current = self.read_u16::<BO>()?;
+            if current != 0x0 {
+                buffer.push(current);
+            } else {
+                break;
+            }
+        }
+
+        Ok(String::from_utf16(buffer.as_slice()).unwrap())
     }
 
     #[cfg(not(debug_assertions))]

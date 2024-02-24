@@ -29,14 +29,12 @@ impl BND4 {
 
         let unk04 = r.read_u8()?;
         let unk05 = r.read_u8()?;
-        assert!(r.read_u8()? == 0x0);
-        assert!(r.read_u8()? == 0x0);
-        assert!(r.read_u8()? == 0x0);
+        r.read_padding(3)?;
 
         assert!(r.read_u8()? == 0x0, "BND4 is not little endian");
 
         let unk0a = r.read_u8()?;
-        assert!(r.read_u8()? == 0x0);
+        r.read_padding(1)?;
         let file_count = r.read_u32::<LE>()?;
 
         let file_headers_offset = r.read_u64::<LE>()?;
@@ -47,8 +45,7 @@ impl BND4 {
         let raw_format = r.read_u8()?;
         let extended = r.read_u8()?;
 
-        assert!(r.read_u32::<LE>()? == 0x0);
-        assert!(r.read_u8()? == 0x0);
+        r.read_padding(5)?;
 
         let buckets_offset = r.read_u64::<LE>()?;
 

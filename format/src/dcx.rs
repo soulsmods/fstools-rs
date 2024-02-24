@@ -42,9 +42,8 @@ pub struct DCX {
 }
 
 impl DCX {
-    pub fn from_reader(r: &mut impl io::Read) -> Result<Self, io::Error> {
-        let magic = r.read_u32::<BE>()?;
-        assert!(magic == 0x44435800, "DCX was not of expected format");
+    pub fn from_reader(r: &mut impl io::Read) -> Result<Self, DCXError> {
+        r.read_magic(b"DCX\0")?;
 
         let unk04 = r.read_u32::<BE>()?;
         let dcs_offset = r.read_u32::<BE>()?;
@@ -74,20 +73,15 @@ impl DCX {
         r.read_exact(&mut compressed)?;
 
         let mut decompressed = vec![0x0u8; uncompressed_size as usize];
-        let result = oodle_safe::decompress(
+
+        oodle_safe::decompress(
             &compressed,
             &mut decompressed,
             None,
             None,
             None,
             None,
-        );
-
-        if result.is_err() {
-            panic!("Oodle decompress failed");
-        }
-
-        // std::fs::write("./test.dcx.decompress", decompressed)?;
+        ).map_err(DCXError::Decompress)?;
 
         Ok(Self {
             unk04,
