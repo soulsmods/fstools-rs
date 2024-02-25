@@ -1,15 +1,16 @@
-use std::{f32::consts::PI, path::PathBuf};
-use std::io;
+use std::{f32::consts::PI, io, path::PathBuf};
 
+use bevy::{prelude::*, utils::petgraph::visit::Walker};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
-use vfs::VfsAssetRepositoryPlugin;
-use formats::FSFormatsAssetPlugin;
-use bevy::prelude::*;
 use clap::Parser;
-use steamlocate::SteamDir;
 use souls_vfs::{FileKeyProvider, Vfs};
+use steamlocate::SteamDir;
+use vfs::VfsAssetRepositoryPlugin;
 
+use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
+
+pub mod flver;
 mod formats;
 mod vfs;
 
@@ -26,8 +27,7 @@ fn locate_er_dir() -> PathBuf {
 
 fn main() {
     let args = Args::parse();
-    let er_path = args.erpath
-        .unwrap_or_else(locate_er_dir);
+    let er_path = args.erpath.unwrap_or_else(locate_er_dir);
 
     let keys = FileKeyProvider::new("keys");
     let archives = [
@@ -38,8 +38,7 @@ fn main() {
         er_path.join("sd/sd"),
     ];
 
-    let mut vfs = Vfs::create(archives.clone(), &keys)
-        .expect("unable to create vfs");
+    let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
 
     vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
         .expect("Could not mount bnd");
@@ -49,10 +48,12 @@ fn main() {
 
     App::new()
         .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
+        .add_plugins(FormatsPlugins)
         .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(FSFormatsAssetPlugin)
         .add_plugins(PanOrbitCameraPlugin)
+        .init_resource::<AssetCollection>()
         .add_systems(Startup, setup)
+        .add_systems(Update, spawn_flvers)
         .run();
 }
 
@@ -72,12 +73,22 @@ pub enum AssetLoadError {
     NotFound,
 }
 
+#[derive(Resource, Default)]
+pub struct AssetCollection {
+    assets: Vec<Handle<FlverAsset>>,
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut assets: ResMut<AssetCollection>,
+    flvers: Res<Assets<FlverAsset>>,
     asset_server: Res<AssetServer>,
 ) {
+    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
+
+    assets.assets.push(flver);
     // From mounted BND
     {
         let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
@@ -89,9 +100,7 @@ fn setup(
         });
 
         commands.spawn(PbrBundle {
-            mesh: meshes.add(
-                Cuboid::new(2.0, 2.0, 2.0),
-            ),
+            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
             material: material_handle,
             ..default()
         });
@@ -99,7 +108,8 @@ fn setup(
 
     // From DCX'd TPF
     {
-        let texture: Handle<Image> = asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
+        let texture: Handle<Image> =
+            asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
         let material_handle = materials.add(StandardMaterial {
             base_color_texture: Some(texture.clone()),
             alpha_mode: AlphaMode::Blend,
@@ -108,9 +118,7 @@ fn setup(
         });
 
         commands.spawn(PbrBundle {
-            mesh: meshes.add(
-                Cuboid::new(2.0, 2.0, 2.0),
-            ),
+            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
             transform: Transform::from_xyz(0.0, 3.0, 0.0),
             material: material_handle,
             ..default()
@@ -139,4 +147,24 @@ fn setup(
         },
         PanOrbitCamera::default(),
     ));
+}
+
+pub fn spawn_flvers(
+    mut commands: Commands,
+    mut events: EventReader<AssetEvent<FlverAsset>>,
+    flvers: Res<Assets<FlverAsset>>,
+) {
+    for ev in events.read() {
+        if let AssetEvent::LoadedWithDependencies { id } = ev {
+            let flver = flvers.get(*id).expect("flver wasn't loaded");
+
+            for mesh in flver.meshes() {
+                commands.spawn(PbrBundle {
+                    mesh: mesh.clone(),
+                    transform: Transform::from_xyz(0.0, 5.0, 0.0),
+                    ..PbrBundle::default()
+                });
+            }
+        }
+    }
 }

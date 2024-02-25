@@ -1,24 +1,21 @@
+use crate::flver::FlverPlugin;
+use bevy::app::{PluginGroup, PluginGroupBuilder};
 use bevy::{
-    app::{App, Plugin},
+    app::Plugin,
     asset::AssetApp,
 };
 
-use self::{
-    flver::{FLVERAsset, FLVERAssetLoader},
-    tpf::{TPFAsset, TPFAssetLoader},
-};
-
 pub mod tpf;
-pub mod flver;
 
 #[derive(Default)]
-pub struct FSFormatsAssetPlugin;
+pub struct TpfPlugin;
 
-impl Plugin for FSFormatsAssetPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<TPFAsset>();
-        app.init_asset_loader::<TPFAssetLoader>();
-        app.init_asset::<FLVERAsset>();
-        app.init_asset_loader::<FLVERAssetLoader>();
+pub struct FormatsPlugins;
+
+impl PluginGroup for FormatsPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(FlverPlugin)
+            .add(TpfPlugin)
     }
 }
