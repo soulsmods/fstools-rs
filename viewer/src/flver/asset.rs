@@ -5,11 +5,8 @@ use bevy::{
     log::warn,
     prelude::{Mesh, TypePath},
     render::{
-        mesh::{
-            Indices,
-            PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::{RenderAssetUsages},
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
     },
 };
 use format::flver::{

@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, io, path::PathBuf};
 
-use bevy::{prelude::*};
+use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;

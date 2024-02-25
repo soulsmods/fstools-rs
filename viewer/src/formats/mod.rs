@@ -1,6 +1,4 @@
-use bevy::{
-    app::{PluginGroup, PluginGroupBuilder},
-};
+use bevy::app::{PluginGroup, PluginGroupBuilder};
 
 use crate::flver::FlverPlugin;
 
