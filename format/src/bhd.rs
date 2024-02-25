@@ -1,12 +1,12 @@
 use std::{
     io::{Cursor, Read, Seek, SeekFrom},
-    mem::{transmute, MaybeUninit},
+    mem::{MaybeUninit, transmute},
 };
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
-use pkcs1::{der::Document, RsaPublicKeyDocument};
 use rayon::{iter::ParallelIterator, prelude::*};
-use rug::{integer::Order, Integer};
+use rsa::{pkcs1::DecodeRsaPublicKey, RsaPublicKey, traits::PublicKeyParts};
+use rug::{Integer, integer::Order};
 
 use crate::io_ext::ReadFormatsExt;
 
@@ -16,15 +16,13 @@ pub struct BhdKey {
     size: usize,
 }
 
-pub type BhdKeyDecodeError = pkcs1::Error;
+pub type BhdKeyDecodeError = rsa::Error;
 
 impl BhdKey {
     pub fn from_pem(data: &str) -> Result<Self, BhdKeyDecodeError> {
-        let doc = RsaPublicKeyDocument::from_pem(data)?;
-        let key = doc.decode();
-
-        let exponent = Integer::from_digits(key.public_exponent.as_bytes(), Order::Msf);
-        let modulus = Integer::from_digits(key.modulus.as_bytes(), Order::Msf);
+        let key = RsaPublicKey::from_pkcs1_pem(data)?;
+        let exponent = Integer::from_digits(&key.e().to_bytes_be(), Order::Msf);
+        let modulus = Integer::from_digits(&key.n().to_bytes_be(), Order::Msf);
         let size = (modulus.significant_bits() as usize + 7) / 8;
 
         Ok(BhdKey {
