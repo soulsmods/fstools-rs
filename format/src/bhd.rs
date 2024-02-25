@@ -1,12 +1,12 @@
 use std::{
     io::{Cursor, Read, Seek, SeekFrom},
-    mem::{MaybeUninit, transmute},
+    mem::{transmute, MaybeUninit},
 };
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use rayon::{iter::ParallelIterator, prelude::*};
-use rsa::{pkcs1::DecodeRsaPublicKey, RsaPublicKey, traits::PublicKeyParts};
-use rug::{Integer, integer::Order};
+use rsa::{pkcs1::DecodeRsaPublicKey, traits::PublicKeyParts, RsaPublicKey};
+use rug::{integer::Order, Integer};
 
 use crate::io_ext::ReadFormatsExt;
 
