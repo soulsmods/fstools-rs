@@ -1,10 +1,13 @@
-use std::cmp::min;
-use std::io::{Cursor, Error, Read, Write};
-use std::ops::Range;
+use std::{
+    cmp::min,
+    io::{Cursor, Error, Read, Write},
+    ops::Range,
+};
 
-use aes::cipher::generic_array::GenericArray;
-use aes::cipher::{BlockDecrypt, KeyInit};
-use aes::{Aes128, Block};
+use aes::{
+    cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit},
+    Aes128, Block,
+};
 
 use crate::VfsFileEntry;
 

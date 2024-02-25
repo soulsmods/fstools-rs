@@ -1,4 +1,5 @@
 use std::io::{self, SeekFrom};
+
 use byteorder::{ReadBytesExt, LE};
 
 use crate::io_ext::ReadFormatsExt;
@@ -29,9 +30,7 @@ impl TPF {
             textures.push(Texture::from_reader(r)?);
         }
 
-        Ok(Self {
-            textures,
-        })
+        Ok(Self { textures })
     }
 }
 

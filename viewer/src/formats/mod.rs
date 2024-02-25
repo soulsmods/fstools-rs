@@ -1,9 +1,9 @@
-use crate::flver::FlverPlugin;
-use bevy::app::{PluginGroup, PluginGroupBuilder};
 use bevy::{
-    app::Plugin,
+    app::{Plugin, PluginGroup, PluginGroupBuilder},
     asset::AssetApp,
 };
+
+use crate::flver::FlverPlugin;
 
 pub mod tpf;
 

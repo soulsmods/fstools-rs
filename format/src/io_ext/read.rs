@@ -1,5 +1,6 @@
-use byteorder::{ByteOrder, ReadBytesExt};
 use std::io::{ErrorKind, Read};
+
+use byteorder::{ByteOrder, ReadBytesExt};
 
 pub trait ReadFormatsExt {
     fn read_bool(&mut self) -> std::io::Result<bool>;
@@ -35,9 +36,7 @@ impl<R: Read> ReadFormatsExt for R {
         }
     }
 
-    fn read_utf16<BO: ByteOrder>(
-        &mut self
-    ) -> std::io::Result<String> {
+    fn read_utf16<BO: ByteOrder>(&mut self) -> std::io::Result<String> {
         let mut buffer = Vec::new();
 
         loop {
@@ -50,10 +49,7 @@ impl<R: Read> ReadFormatsExt for R {
         }
 
         String::from_utf16(buffer.as_slice())
-            .map_err(|e| std::io::Error::new(
-                ErrorKind::InvalidInput,
-                e.to_string(),
-            ))
+            .map_err(|e| std::io::Error::new(ErrorKind::InvalidInput, e.to_string()))
     }
 
     #[cfg(not(debug_assertions))]

@@ -15,8 +15,7 @@ fn main() -> Result<(), std::io::Error> {
     let path = std::path::PathBuf::from(args.file);
 
     let mut dcx_file = std::fs::File::open(&path)?;
-    let dcx = DCX::from_reader(&mut dcx_file)
-        .expect("Could not parse DCX");
+    let dcx = DCX::from_reader(&mut dcx_file).expect("Could not parse DCX");
 
     let mut cursor = std::io::Cursor::new(dcx.decompressed);
     let bnd4 = BND4::from_reader(&mut cursor)?;
@@ -29,8 +28,7 @@ fn main() -> Result<(), std::io::Error> {
 
     for entry in bnd4.files.iter() {
         let trimmed_path = entry.path.replace("N:\\", "").replace('\\', "/");
-        let output_path = std::path::PathBuf::from(folder.clone())
-            .join(trimmed_path.as_str());
+        let output_path = std::path::PathBuf::from(folder.clone()).join(trimmed_path.as_str());
 
         let parent = output_path.parent().unwrap();
         std::fs::create_dir_all(parent)?;

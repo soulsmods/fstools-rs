@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use std::io::{Error, Read};
-use std::ops::Range;
-use std::{fs::File, path::Path};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{Error, Read},
+    ops::Range,
+    path::Path,
+};
 
 use format::bhd::Bhd;
 use memmap2::{Advice, Mmap, MmapOptions};
@@ -13,12 +16,10 @@ mod name;
 mod reader;
 
 pub use self::{
-    key_provider::ArchiveKeyProvider,
-    key_provider::FileKeyProvider,
+    bnd::{undo_container_compression, BndMountHost},
+    key_provider::{ArchiveKeyProvider, FileKeyProvider},
     name::Name,
     reader::VfsEntryReader,
-    bnd::BndMountHost,
-    bnd::undo_container_compression,
 };
 
 #[derive(Debug, Error)]
@@ -54,7 +55,8 @@ impl Vfs {
         Ok((data, bhd))
     }
 
-    /// Create a virtual filesystem from the archive files (BHD or BDT) pointed to by [archive_paths].
+    /// Create a virtual filesystem from the archive files (BHD or BDT) pointed to by
+    /// [archive_paths].
     pub fn create<P: AsRef<Path>, K: ArchiveKeyProvider>(
         archive_paths: impl IntoIterator<Item = P>,
         key_provider: &K,
@@ -95,7 +97,11 @@ impl Vfs {
                 Ok::<_, Error>(())
             })?;
 
-        Ok(Vfs { archives, entries, mount_host: Default::default(), })
+        Ok(Vfs {
+            archives,
+            entries,
+            mount_host: Default::default(),
+        })
     }
 
     /// Open a reader to the file identified by [name].
@@ -106,7 +112,7 @@ impl Vfs {
                 let offset = entry.file_offset as usize;
                 let size = entry.file_size_with_padding as usize;
 
-                // Since its an optimization we don't really care about the 
+                // Since its an optimization we don't really care about the
                 // result.
                 let _ = mmap.advise_range(Advice::Sequential, offset, size);
 
@@ -124,10 +130,7 @@ impl Vfs {
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer).unwrap();
 
-        self.mount_host.mount(
-            name,
-            buffer.as_slice(),
-        ).unwrap();
+        self.mount_host.mount(name, buffer.as_slice()).unwrap();
 
         Ok(())
     }

@@ -1,10 +1,11 @@
-use byteorder::{ReadBytesExt, LE};
-use std::io;
-use std::io::SeekFrom;
-use std::marker::ConstParamTy;
+use std::{io, io::SeekFrom, marker::ConstParamTy};
 
-use crate::flver::accessor::{VertexAttributeAccessor, VertexAttributeIter};
-use crate::io_ext::ReadFormatsExt;
+use byteorder::{ReadBytesExt, LE};
+
+use crate::{
+    flver::accessor::{VertexAttributeAccessor, VertexAttributeIter},
+    io_ext::ReadFormatsExt,
+};
 
 pub mod accessor;
 
@@ -57,10 +58,10 @@ impl FLVER {
         let mut endianness = vec![0x0u8; 2];
         r.read_exact(&mut endianness)?;
 
-        //assert!(endianness != [0x4C, 0x00], "Input is not little endian!");
+        // assert!(endianness != [0x4C, 0x00], "Input is not little endian!");
         let version = r.read_u32::<LE>()?;
 
-        //assert!(ALLOWED_VERSIONS.contains(&version), "FLVER version not supported");
+        // assert!(ALLOWED_VERSIONS.contains(&version), "FLVER version not supported");
 
         let data_offset = r.read_u32::<LE>()?;
         let data_length = r.read_u32::<LE>()?;

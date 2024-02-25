@@ -17,7 +17,6 @@ use bevy::{
         renderer::RenderDevice,
     },
 };
-
 use format::flver::{
     accessor::VertexAttributeAccessor, FLVERFaceSetIndices, FLVERMesh, VertexAttributeSemantic,
     FLVER,

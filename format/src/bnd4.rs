@@ -1,4 +1,5 @@
 use std::io::{self, Read, Seek, SeekFrom};
+
 use byteorder::{ReadBytesExt, LE};
 
 use crate::io_ext::ReadFormatsExt;
@@ -86,20 +87,15 @@ impl BND4 {
     pub fn file_descriptor_by_stem(&self, path: &str) -> Option<&BND4Entry> {
         let lookup = std::path::PathBuf::from(Self::normalize_path(path));
 
-        self.files.iter()
-            .find(|f| {
-                let path = std::path::PathBuf::from(
-                    Self::normalize_path(&f.path)
-                );
+        self.files.iter().find(|f| {
+            let path = std::path::PathBuf::from(Self::normalize_path(&f.path));
 
-                path.file_stem() == lookup.file_stem()
-            })
+            path.file_stem() == lookup.file_stem()
+        })
     }
 
     pub fn normalize_path(path: &str) -> String {
-        path.replace("N:\\", "")
-            .to_lowercase()
-            .replace('\\', "/")
+        path.replace("N:\\", "").to_lowercase().replace('\\', "/")
     }
 }
 
