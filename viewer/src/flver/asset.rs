@@ -10,8 +10,8 @@ use bevy::{
     },
 };
 use format::flver::{
-    accessor::VertexAttributeAccessor, FLVERFaceSetIndices, FLVERMesh, VertexAttributeSemantic,
-    FLVER,
+    accessor::VertexAttributeAccessor,
+    reader::{FLVERFaceSetIndices, FLVERMesh, FLVER},
 };
 
 #[derive(Default)]
@@ -93,7 +93,7 @@ fn load_mesh(flver: &FLVER, flver_mesh: &FLVERMesh, data: &[u8]) -> Mesh {
     for member in &layout.members {
         let accessor = buffer.accessor(member, data);
 
-        use VertexAttributeSemantic::*;
+        use format::flver::reader::VertexAttributeSemantic::*;
         let (attribute, values) = match (member.semantic, accessor) {
             (Position, VertexAttributeAccessor::Float3(it)) => (
                 Mesh::ATTRIBUTE_POSITION,

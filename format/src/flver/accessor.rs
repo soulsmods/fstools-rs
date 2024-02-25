@@ -2,7 +2,7 @@ use std::{marker::PhantomData, mem::size_of};
 
 use bytemuck::Pod;
 
-use crate::flver::{FLVERBufferLayoutMember, VertexBuffer};
+use crate::flver::reader::{FLVERBufferLayoutMember, VertexBuffer};
 
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, [f32; 2]>),
@@ -13,7 +13,8 @@ pub enum VertexAttributeAccessor<'a> {
     Short2ToFloat2(VertexAttributeIter<'a, [u16; 2]>),
     Byte4C(VertexAttributeIter<'a, [u8; 4]>),
     UV(VertexAttributeIter<'a, [f32; 2]>),
-    UVPair(VertexAttributeIter<'a, [f32; 4]>),
+    // TODO: get the last 2 components of this
+    UVPair(VertexAttributeIter<'a, [f32; 2]>),
     Short4ToFloat4A(VertexAttributeIter<'a, [u16; 4]>),
     Short4ToFloat4B(VertexAttributeIter<'a, [u16; 4]>),
 }
