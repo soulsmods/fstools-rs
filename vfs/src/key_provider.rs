@@ -1,5 +1,4 @@
-use std::fs;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use format::bhd::BhdKey;
 
@@ -22,8 +21,7 @@ impl FileKeyProvider {
 
 impl ArchiveKeyProvider for FileKeyProvider {
     fn get_key(&self, name: &str) -> Result<BhdKey, std::io::Error> {
-        fs::read(self.key_dir.join(name).with_extension("pem")).and_then(|pem| {
-            BhdKey::public_key_from_pem_pkcs1(&pem[..]).map_err(std::io::Error::other)
-        })
+        fs::read_to_string(self.key_dir.join(name).with_extension("pem"))
+            .and_then(|pem| BhdKey::from_pem(&pem).map_err(|e| std::io::Error::other(e)))
     }
 }

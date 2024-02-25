@@ -8,10 +8,12 @@ build = "build.rs"
 bytemuck = "1"
 byteorder = "1"
 aes = "0.8"
-openssl-sys = "0.9.83"
-openssl = { version = "0.10", features = ["vendored"] }
 oodle-safe = "0.1.0"
 rayon = "1"
+rug = "1.24"
+
+# TODO: PEM decoding is broken in the latest relases?
+pkcs1 = { version = "0.3", features = ["std", "pem", "alloc"] }
 
 [dependencies.thiserror]
 workspace = true

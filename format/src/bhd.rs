@@ -1,13 +1,40 @@
-use std::io::{Cursor, Read, Seek, SeekFrom};
-use std::mem::{transmute, MaybeUninit};
+use std::{
+    io::{Cursor, Read, Seek, SeekFrom},
+    mem::{transmute, MaybeUninit},
+};
 
-use byteorder::{BigEndian, LittleEndian};
-use openssl::pkey::Public;
-use openssl::rsa::{Padding, Rsa};
-use rayon::iter::ParallelIterator;
-use rayon::prelude::*;
+use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
+use pkcs1::{der::Document, RsaPublicKeyDocument};
+use rayon::{iter::ParallelIterator, prelude::*};
+use rug::{integer::Order, Integer};
 
-pub type BhdKey = Rsa<Public>;
+use crate::io_ext::ReadFormatsExt;
+
+pub struct BhdKey {
+    exponent: Integer,
+    modulus: Integer,
+    size: usize,
+}
+
+pub type BhdKeyDecodeError = pkcs1::Error;
+
+impl BhdKey {
+    pub fn from_pem(data: &str) -> Result<Self, BhdKeyDecodeError> {
+        let doc = RsaPublicKeyDocument::from_pem(data)?;
+        let key = doc.decode();
+
+        let exponent = Integer::from_digits(key.public_exponent.as_bytes(), Order::Msf);
+        let modulus = Integer::from_digits(key.modulus.as_bytes(), Order::Msf);
+        let size = (modulus.significant_bits() as usize + 7) / 8;
+
+        Ok(BhdKey {
+            exponent,
+            modulus,
+            size,
+        })
+    }
+}
+
 pub struct Bhd {
     pub toc: Vec<BhdTocEntry>,
 }
@@ -21,6 +48,7 @@ pub struct BhdTocEntry {
     pub aes_key: [u8; 16],
     pub encrypted_ranges: Vec<(i64, i64)>,
 }
+
 #[derive(Debug)]
 pub struct BhdHeader {
     pub is_big_endian: bool,
@@ -33,8 +61,7 @@ pub struct BhdHeader {
 
 impl Bhd {
     pub fn read<R: Read + Seek>(mut file: R, key: BhdKey) -> Result<Self, std::io::Error> {
-        let key_size = key.size() as usize;
-
+        let key_size = key.size;
         let file_len = file.seek(SeekFrom::End(0))? as usize;
         let decrypted_file_len = file_len - file_len / key_size;
         file.seek(SeekFrom::Start(0))?;
@@ -47,19 +74,19 @@ impl Bhd {
             .par_chunks(key_size)
             .zip(decrypted_data.par_chunks_mut(key_size - 1))
             .map(|(encrypted_block, decrypted_block)| {
+                let mut decrypted = Integer::from_digits(encrypted_block, Order::Msf);
+                decrypted
+                    .pow_mod_mut(&key.exponent, &key.modulus)
+                    .expect("failed to decrypt");
+
                 let mut decrypted_with_padding = vec![MaybeUninit::<u8>::uninit(); key_size];
+                decrypted.write_digits(
+                    unsafe { transmute::<_, &mut [u8]>(&mut decrypted_with_padding[..]) },
+                    Order::Msf,
+                );
+                decrypted_block.copy_from_slice(&decrypted_with_padding[1..]);
 
-                let len = key
-                    .public_decrypt(
-                        encrypted_block,
-                        unsafe { transmute(&mut decrypted_with_padding[..]) },
-                        Padding::NONE,
-                    )
-                    .map_err(std::io::Error::other)?;
-
-                decrypted_block.copy_from_slice(&decrypted_with_padding[1..len]);
-
-                Ok::<_, std::io::Error>(len)
+                Ok::<_, std::io::Error>(key_size)
             })
             .try_reduce(|| 0, |len, block_len| Ok(len + block_len))?;
 
@@ -81,9 +108,6 @@ impl Bhd {
         Ok(Bhd { toc })
     }
 }
-
-use byteorder::{ByteOrder, ReadBytesExt};
-use crate::io_ext::ReadFormatsExt;
 
 pub fn read_header_data<R: Read, O: ByteOrder>(
     mut reader: R,
