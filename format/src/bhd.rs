@@ -4,7 +4,7 @@ use std::{
 };
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
-use rayon::{iter::ParallelIterator, prelude::*};
+use rayon::prelude::*;
 use rsa::{pkcs1::DecodeRsaPublicKey, traits::PublicKeyParts, RsaPublicKey};
 use rug::{integer::Order, Integer};
 
