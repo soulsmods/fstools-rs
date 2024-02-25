@@ -1,6 +1,5 @@
 use bevy::{
-    app::{Plugin, PluginGroup, PluginGroupBuilder},
-    asset::AssetApp,
+    app::{PluginGroup, PluginGroupBuilder},
 };
 
 use crate::flver::FlverPlugin;

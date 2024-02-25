@@ -23,7 +23,7 @@ pub struct Matbin {
 
 impl Matbin {
     pub fn from_reader(r: &mut (impl io::Read + io::Seek)) -> Result<Self, io::Error> {
-        let magic = r.read_u32::<LE>()?;
+        let _magic = r.read_u32::<LE>()?;
         // assert!(magic == 0x42414d, "Matbin was not of expected format");
 
         let unk04 = r.read_u32::<LE>()?;

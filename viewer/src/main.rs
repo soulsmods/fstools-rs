@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, io, path::PathBuf};
 
-use bevy::{prelude::*, utils::petgraph::visit::Walker};
+use bevy::{prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
@@ -12,8 +12,6 @@ use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
 pub mod flver;
 mod formats;
 mod vfs;
-
-const ER_APPID: u32 = 1245620;
 
 fn main() {
     let args = Args::parse();
@@ -73,7 +71,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut assets: ResMut<AssetCollection>,
-    flvers: Res<Assets<FlverAsset>>,
     asset_server: Res<AssetServer>,
 ) {
     let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");

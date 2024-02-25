@@ -58,8 +58,8 @@ impl BndMountHost {
 
     fn entry_bytes(&self, entry: &BndFileEntry) -> Result<&[u8], VfsOpenError> {
         if let Some(mount) = self.mounted.get(&entry.container) {
-            let start = entry.offset as usize;
-            let end = start + entry.size as usize;
+            let start = entry.offset;
+            let end = start + entry.size;
 
             Ok(&mount.0[start..end])
         } else {
@@ -69,7 +69,7 @@ impl BndMountHost {
 
     fn extract_file_name(path: &str) -> String {
         // TODO: figure out if this works for Windows systems
-        let normalized = path.replace("\\", "/");
+        let normalized = path.replace('\\', "/");
         let path = std::path::PathBuf::from(normalized);
 
         path.file_name().unwrap().to_string_lossy().to_string()

@@ -58,7 +58,7 @@ impl AssetLoader for TPFAssetLoader {
 
                 load_context.labeled_asset_scope(texture.name.clone(), |_| {
                     Image::from_buffer(
-                        #[cfg(all(debug_assertions))]
+                        #[cfg(debug_assertions)]
                         texture.name.clone(),
                         &bytes,
                         ImageType::Format(ImageFormat::Dds),

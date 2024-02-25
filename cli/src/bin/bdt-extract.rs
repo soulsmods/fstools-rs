@@ -47,7 +47,7 @@ fn main() -> Result<(), std::io::Error> {
     let dictionary = std::fs::read_to_string(args.dictionary)?;
     let lines = dictionary
         .lines()
-        .map(|l| std::path::PathBuf::from(l))
+        .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
     let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")
@@ -56,7 +56,7 @@ fn main() -> Result<(), std::io::Error> {
     lines
         .par_iter()
         .progress_with_style(style)
-        .filter(|l| !l.to_str().unwrap().starts_with("#") && !l.to_str().unwrap().is_empty())
+        .filter(|l| !l.to_str().unwrap().starts_with('#') && !l.to_str().unwrap().is_empty())
         .for_each(|l| {
             let path = l.to_str().unwrap();
 
