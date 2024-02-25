@@ -1,14 +1,21 @@
 use std::io::Cursor;
 
-use bevy::prelude::*;
-use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::texture::{CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler, ImageSamplerDescriptor, ImageType, TextureError};
+use bevy::{
+    asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, LoadContext},
+    prelude::*,
+    render::{
+        render_asset::RenderAssetUsages,
+        texture::{
+            CompressedImageFormats, ImageAddressMode, ImageFormat, ImageSampler,
+            ImageSamplerDescriptor, ImageType, TextureError,
+        },
+    },
+    utils::BoxedFuture,
+};
 use format::tpf::TPF;
 use souls_vfs::undo_container_compression;
 use thiserror::Error;
-use bevy::utils::BoxedFuture;
-use bevy::asset::io::Reader;
-use bevy::asset::{Asset, AssetLoader, AsyncReadExt, LoadContext};
+
 use crate::formats::TpfPlugin;
 
 #[derive(Asset, Deref, TypePath, Debug)]
@@ -49,10 +56,9 @@ impl AssetLoader for TPFAssetLoader {
             for texture in tpf.textures.iter() {
                 let bytes = texture.bytes(&mut cursor)?;
 
-                load_context.labeled_asset_scope(
-                    texture.name.clone(),
-                    |_| Image::from_buffer(
-                        #[cfg(all(debug_assertions))]
+                load_context.labeled_asset_scope(texture.name.clone(), |_| {
+                    Image::from_buffer(
+                        #[cfg(debug_assertions)]
                         texture.name.clone(),
                         &bytes,
                         ImageType::Format(ImageFormat::Dds),
@@ -65,8 +71,9 @@ impl AssetLoader for TPFAssetLoader {
                             ..Default::default()
                         }),
                         RenderAssetUsages::MAIN_WORLD,
-                    ).unwrap()
-                );
+                    )
+                    .unwrap()
+                });
             }
 
             Ok(TPFAsset(tpf))

@@ -1,7 +1,6 @@
 use std::{io, mem};
 
 use byteorder::{ReadBytesExt, BE};
-
 use thiserror::Error;
 
 use crate::io_ext::ReadFormatsExt;
@@ -74,14 +73,8 @@ impl DCX {
 
         let mut decompressed = vec![0x0u8; uncompressed_size as usize];
 
-        oodle_safe::decompress(
-            &compressed,
-            &mut decompressed,
-            None,
-            None,
-            None,
-            None,
-        ).map_err(DCXError::Decompress)?;
+        oodle_safe::decompress(&compressed, &mut decompressed, None, None, None, None)
+            .map_err(DCXError::Decompress)?;
 
         Ok(Self {
             unk04,

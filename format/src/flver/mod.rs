@@ -1,14 +1,15 @@
-use byteorder::{ReadBytesExt, LE};
-use std::io;
-use std::io::SeekFrom;
-use std::marker::ConstParamTy;
+use std::{io, io::SeekFrom};
 
-use crate::flver::accessor::{VertexAttributeAccessor, VertexAttributeIter};
-use crate::io_ext::ReadFormatsExt;
+use byteorder::{ReadBytesExt, LE};
+
+use crate::{
+    flver::accessor::{VertexAttributeAccessor, VertexAttributeIter},
+    io_ext::ReadFormatsExt,
+};
 
 pub mod accessor;
 
-const ALLOWED_VERSIONS: [u32; 1] = [
+const _ALLOWED_VERSIONS: [u32; 1] = [
     0x2001A, // Elden Ring
 ];
 
@@ -57,10 +58,10 @@ impl FLVER {
         let mut endianness = vec![0x0u8; 2];
         r.read_exact(&mut endianness)?;
 
-        //assert!(endianness != [0x4C, 0x00], "Input is not little endian!");
+        // assert!(endianness != [0x4C, 0x00], "Input is not little endian!");
         let version = r.read_u32::<LE>()?;
 
-        //assert!(ALLOWED_VERSIONS.contains(&version), "FLVER version not supported");
+        // assert!(ALLOWED_VERSIONS.contains(&version), "FLVER version not supported");
 
         let data_offset = r.read_u32::<LE>()?;
         let data_length = r.read_u32::<LE>()?;
@@ -146,7 +147,7 @@ pub struct FLVERVector3 {
 impl FLVERPartReader for FLVERVector3 {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             x: r.read_f32::<LE>()?,
@@ -165,7 +166,7 @@ pub struct FLVERVector2 {
 impl FLVERPartReader for FLVERVector2 {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             x: r.read_f32::<LE>()?,
@@ -185,7 +186,7 @@ pub struct FLVERColor {
 impl FLVERPartReader for FLVERColor {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             r: r.read_u8()?,
@@ -253,7 +254,7 @@ pub struct FLVERMaterial {
 impl FLVERPartReader for FLVERMaterial {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         let name_offset = r.read_u32::<LE>()?;
         let mtd_offset = r.read_u32::<LE>()?;
@@ -487,7 +488,7 @@ pub struct VertexBuffer {
 impl FLVERPartReader for VertexBuffer {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         let buffer_index = r.read_u32::<LE>()?;
         let layout_index = r.read_u32::<LE>()?;
@@ -573,7 +574,7 @@ impl VertexBufferLayout {
 }
 
 #[repr(u32)]
-#[derive(Debug, PartialEq, Eq, ConstParamTy)]
+#[derive(Debug, PartialEq, Eq)]
 // TODO: these come from soulsformats and probably have documented
 // names in dx12
 pub enum VertexAttributeFormat {
@@ -708,7 +709,7 @@ pub struct FLVERBufferLayoutMember {
 impl FLVERPartReader for FLVERBufferLayoutMember {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             unk0: r.read_u32::<LE>()?,
@@ -772,7 +773,7 @@ impl FLVERPartReader for FLVERTexture {
 impl FLVERPartReader for u8 {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         r.read_u8()
     }
@@ -781,7 +782,7 @@ impl FLVERPartReader for u8 {
 impl FLVERPartReader for u16 {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         r.read_u16::<LE>()
     }
@@ -790,7 +791,7 @@ impl FLVERPartReader for u16 {
 impl FLVERPartReader for u32 {
     fn from_reader(
         r: &mut (impl io::Read + io::Seek),
-        c: &FLVERPartContext,
+        _c: &FLVERPartContext,
     ) -> Result<Self, io::Error> {
         r.read_u32::<LE>()
     }

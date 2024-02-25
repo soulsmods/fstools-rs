@@ -1,0 +1,24 @@
+name: Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**/Cargo.*'
+      - '.github/workflows/**.yml'
+
+jobs:
+  test:
+    name: Test
+    runs-on: arc-runner-set
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+      - run: ls /opt/test-data
+      - run: cargo fmt --all --check
+      - run: cargo test --workspace --all-features
+      - run: cargo clippy --workspace --all-targets --all-features -- -Dwarnings

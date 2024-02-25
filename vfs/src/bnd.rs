@@ -1,9 +1,13 @@
-use std::io::{self, Cursor};
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{self, Cursor},
+};
 
-use format::bnd4::BND4;
+use format::{
+    bnd4::BND4,
+    dcx::{DCXError, DCX},
+};
 use thiserror::Error;
-use format::dcx::{DCXError, DCX};
 
 use crate::{Name, VfsOpenError};
 
@@ -30,28 +34,22 @@ pub enum BndMountError {
 }
 
 impl BndMountHost {
-    pub fn mount(
-        &mut self,
-        name: Name,
-        bytes: &[u8],
-    ) -> Result<(), BndMountError> {
+    pub fn mount(&mut self, name: Name, bytes: &[u8]) -> Result<(), BndMountError> {
         let decompressed = undo_container_compression(bytes.to_vec())?;
 
         let mut cursor = Cursor::new(decompressed);
-        let bnd = BND4::from_reader(&mut cursor)
-            .map_err(BndMountError::Bnd4)?;
+        let bnd = BND4::from_reader(&mut cursor).map_err(BndMountError::Bnd4)?;
 
-        self.entries.extend(
-            bnd.files.iter()
-            .map(|f| (
+        self.entries.extend(bnd.files.iter().map(|f| {
+            (
                 Self::extract_file_name(&f.path).to_ascii_lowercase(),
                 BndFileEntry {
                     container: name.clone(),
                     offset: f.data_offset as usize,
                     size: f.compressed_size as usize,
-                }
-            ))
-        );
+                },
+            )
+        }));
 
         self.mounted.insert(name, BndBytes(bnd.data));
 
@@ -60,8 +58,8 @@ impl BndMountHost {
 
     fn entry_bytes(&self, entry: &BndFileEntry) -> Result<&[u8], VfsOpenError> {
         if let Some(mount) = self.mounted.get(&entry.container) {
-            let start = entry.offset as usize;
-            let end = start + entry.size as usize;
+            let start = entry.offset;
+            let end = start + entry.size;
 
             Ok(&mount.0[start..end])
         } else {
@@ -71,7 +69,7 @@ impl BndMountHost {
 
     fn extract_file_name(path: &str) -> String {
         // TODO: figure out if this works for Windows systems
-        let normalized = path.replace("\\", "/");
+        let normalized = path.replace('\\', "/");
         let path = std::path::PathBuf::from(normalized);
 
         path.file_name().unwrap().to_string_lossy().to_string()
@@ -79,7 +77,9 @@ impl BndMountHost {
 
     pub fn bytes_by_file_name(&self, name: &str) -> Result<&[u8], VfsOpenError> {
         let normalized_name = name.to_ascii_lowercase();
-        let entry = self.entries.iter()
+        let entry = self
+            .entries
+            .iter()
             .find(|(k, _)| **k == normalized_name)
             .ok_or(VfsOpenError::NotFound)?
             .1;
@@ -98,11 +98,9 @@ pub struct BndFileEntry {
 }
 
 // Optionally undoes any DCX compression when detected. Unfortunately there is
-// no guarantee that any file will be DCX compressed but they usually are 
+// no guarantee that any file will be DCX compressed but they usually are
 // meaning that the hot path will involve a copy.
-pub fn undo_container_compression(
-    mut b: Vec<u8>,
-) -> Result<Vec<u8>, DCXError> {
+pub fn undo_container_compression(mut b: Vec<u8>) -> Result<Vec<u8>, DCXError> {
     let mut r = Cursor::new(&mut b);
     Ok(if DCX::has_magic(&mut r)? {
         let dcx = DCX::from_reader(&mut r)?;

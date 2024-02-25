@@ -1,14 +1,20 @@
-use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy::asset::BoxedFuture;
-use bevy::prelude::{Deref, DerefMut, Resource};
-use bevy::tasks::futures_lite::io::Cursor;
-use bevy::tasks::futures_lite::AsyncRead;
+use std::{
+    io::{self, Read},
+    path::Path,
+    pin::Pin,
+    sync::Arc,
+    task::Poll,
+};
+
+use bevy::{
+    asset::{
+        io::{AssetReader, AssetReaderError, PathStream, Reader},
+        BoxedFuture,
+    },
+    prelude::{Deref, DerefMut, Resource},
+    tasks::futures_lite::{io::Cursor, AsyncRead},
+};
 use souls_vfs::{Vfs, VfsEntryReader as VfsEntryReaderImpl, VfsOpenError};
-use std::io::{self, Read};
-use std::path::Path;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::Poll;
 
 #[derive(Clone, Deref, DerefMut, Resource)]
 pub struct VfsAssetRepository(pub(crate) Arc<Vfs>);
@@ -23,14 +29,13 @@ impl AssetReader for VfsAssetRepository {
 
             self.open(&path_str)
                 .map(|r| Box::new(VfsEntryReader(r)) as Box<Reader>)
-                .or_else(|_| Ok(
-                    self.open_from_mounts(&path_str)
-                        .map(|r| Box::new(Cursor::new(r)))?
-                ))
+                .or_else(|_| {
+                    Ok(self
+                        .open_from_mounts(&path_str)
+                        .map(|r| Box::new(Cursor::new(r)))?)
+                })
                 .map_err(|e| match e {
-                    VfsOpenError::NotFound => AssetReaderError::NotFound(
-                        path.to_path_buf()
-                    ),
+                    VfsOpenError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
                 })
         })
     }

@@ -2,22 +2,13 @@ use std::{error::Error, io::Cursor};
 
 use bevy::{
     asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext},
-    ecs::system::{lifetimeless::SResMut, SystemParamItem},
-    gltf::{Gltf, GltfLoaderSettings},
     log::warn,
-    prelude::{Image, Mesh, Reflect, TypePath},
-    reflect::erased_serde::__private::serde::{Deserialize, Serialize},
+    prelude::{Mesh, TypePath},
     render::{
-        mesh::{
-            GpuBufferInfo, GpuMesh, Indices, MeshVertexAttribute, MeshVertexBufferLayout,
-            PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
-        render_resource::{Buffer, BufferInitDescriptor, BufferUsages, IndexFormat},
-        renderer::RenderDevice,
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
     },
 };
-
 use format::flver::{
     accessor::VertexAttributeAccessor, FLVERFaceSetIndices, FLVERMesh, VertexAttributeSemantic,
     FLVER,

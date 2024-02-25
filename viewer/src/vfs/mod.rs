@@ -1,8 +1,11 @@
-use bevy::{app::App, asset::io::AssetSourceId};
-use bevy::asset::io::AssetSource;
-use bevy::prelude::*;
-use souls_vfs::Vfs;
 use std::sync::Arc;
+
+use bevy::{
+    asset::io::{AssetSource, AssetSourceId},
+    prelude::*,
+};
+use souls_vfs::Vfs;
+
 use self::reader::VfsAssetRepository;
 
 mod reader;
