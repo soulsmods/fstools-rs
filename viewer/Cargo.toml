@@ -14,7 +14,6 @@ format = { path = "../format" }
 souls_vfs = { path = "../vfs" }
 util = { path = "../util" }
 bevy_panorbit_camera = "0.14"
-steamlocate = "1.2.1"
 bevy-inspector-egui = "0.23"
 
 [dependencies.thiserror]
