@@ -8,7 +8,7 @@ pub trait FlverDummy {
 }
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(C)]
+#[repr(packed)]
 pub struct FlverDummyData<O: ByteOrder> {
     position: [F32<O>; 3],
     color: [u8; 4],

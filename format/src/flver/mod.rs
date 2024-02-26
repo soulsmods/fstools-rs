@@ -1,4 +1,5 @@
 use std::{io::Read, ops::Deref};
+use std::fmt::{Debug, Formatter};
 
 use ::zerocopy::{FromBytes, FromZeroes, Ref, F32, U32};
 use byteorder::{ByteOrder, BE, LE};
@@ -38,6 +39,15 @@ impl<'a> Flver<'a> {
     }
 }
 
+impl<'a> Debug for Flver<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Flver::LittleEndian(inner) => inner.fmt(f),
+            Flver::BigEndian(inner) => inner.fmt(f)
+        }
+    }
+}
+
 impl<'a> Flver<'a> {
     fn parse<O: ByteOrder + 'static>(data: &'a [u8]) -> Option<FlverInner<'a, O>> {
         let (header_ref, dummy_bytes) = Ref::<&'a [u8], FlverHeaderData<O>>::new_from_prefix(data)?;
@@ -71,6 +81,26 @@ pub struct FlverInner<'a, O: ByteOrder> {
     dummys: &'a [FlverDummyData<O>],
 }
 
+impl<'a, O: ByteOrder> Debug for FlverInner<'a, O> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Flver")
+            .field("version", &self.header.version.get())
+            .field("data_offset", &self.header.data_offset.get())
+            .field("data_length", &self.header.data_length.get())
+            .field("dummy_count", &self.header.dummy_count.get())
+            .field("material_count", &self.header.material_count.get())
+            .field("mesh_count", &self.header.mesh_count.get())
+            .field("vertex_buffer_count", &self.header.vertex_buffer_count.get())
+            .field("bounding_box_min", &self.header.bounding_box_min)
+            .field("bounding_box_max", &self.header.bounding_box_max)
+            .field("face_count", &self.header.face_count.get())
+            .field("total_face_count", &self.header.total_face_count.get())
+            .field("vertex_index_size", &self.header.vertex_index_size)
+            .field("unk_68", &self.header._unk68.get())
+            .finish()
+    }
+}
+
 pub trait FlverData {
     fn dummy(&self, index: usize) -> &dyn FlverDummy;
 }
@@ -85,7 +115,7 @@ pub type FlverHeaderLE = FlverHeaderData<LE>;
 pub type FlverHeaderBE = FlverHeaderData<BE>;
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(C)]
+#[repr(packed)]
 pub struct FlverHeaderData<O: ByteOrder> {
     padding0: Padding<8>,
     pub(crate) version: U32<O>,
@@ -110,17 +140,24 @@ pub struct FlverHeaderData<O: ByteOrder> {
     pub(crate) texture_count: U32<O>,
     pub(crate) _unk5c: u8,
     pub(crate) _unk5d: u8,
-    _padding1: Padding<8>,
+    _padding1: Padding<10>,
     pub(crate) _unk68: U32<O>,
     _padding2: Padding<20>,
 }
 
+
 pub trait FlverHeader {
     fn version(&self) -> u32;
+
+    fn dummy_count(&self) -> u32;
 }
 
 impl<E: ByteOrder> FlverHeader for FlverHeaderData<E> {
     fn version(&self) -> u32 {
         self.version.get()
+    }
+
+    fn dummy_count(&self) -> u32 {
+        self.dummy_count.get()
     }
 }

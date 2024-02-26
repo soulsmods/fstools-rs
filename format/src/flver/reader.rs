@@ -1,4 +1,5 @@
 use std::{io, io::SeekFrom};
+use std::fmt::{Debug, Formatter};
 
 use byteorder::{ReadBytesExt, LE};
 
@@ -21,7 +22,25 @@ pub trait FLVERPartReader {
         Self: Sized;
 }
 
-#[derive(Debug)]
+impl Debug for FLVER {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Flver")
+            .field("version", &self.version)
+            .field("data_offset", &self.data_offset)
+            .field("data_length", &self.data_length)
+            .field("dummy_count", &self.dummies.len())
+            .field("material_count", &self.materials.len())
+            .field("mesh_count", &self.meshes.len())
+            .field("vertex_buffer_count", &self.vertex_buffers.len())
+            .field("bounding_box_min", &self.bounding_box_min)
+            .field("bounding_box_max", &self.bounding_box_max)
+            .field("face_count", &self.face_count)
+            .field("total_face_count", &self.total_face_count)
+            .field("vertex_index_size", &self.vertex_index_size)
+            .finish()
+    }
+}
+
 pub struct FLVER {
     pub version: u32,
     pub data_offset: u32,
