@@ -3,6 +3,7 @@ use std::{marker::PhantomData, mem::size_of};
 use bytemuck::Pod;
 
 use crate::flver::reader::{FLVERBufferLayoutMember, VertexBuffer};
+use crate::flver::vertex_buffer::VertexBufferLayoutMember;
 
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, [f32; 2]>),
@@ -27,23 +28,21 @@ pub struct VertexAttributeIter<'a, T: Pod> {
     _phantom: PhantomData<T>,
 }
 
+// TODO: this doesn't support endian sensitive reading like the rest of the FLVER parser.
 impl<'a, T: Pod> VertexAttributeIter<'a, T> {
     pub fn new(
-        data: &'a [u8],
-        buffer_info: &VertexBuffer,
-        member: &FLVERBufferLayoutMember,
+        buffer: &'a [u8],
+        vertex_size: usize,
+        vertex_offset: usize,
     ) -> VertexAttributeIter<'a, T> {
-        let buffer_offset = buffer_info.buffer_offset as usize;
-        let buffer_length = buffer_info.buffer_length as usize;
-        let buffer = &data[buffer_offset..buffer_offset + buffer_length];
-        let attribute_data_offset = member.struct_offset as usize;
+        let attribute_data_offset = vertex_offset;
         let attribute_data_end = attribute_data_offset + size_of::<T>();
 
         Self {
             buffer,
             attribute_data_offset,
             attribute_data_end,
-            vertex_size: buffer_info.vertex_size as usize,
+            vertex_size,
             _phantom: Default::default(),
         }
     }

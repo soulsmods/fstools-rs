@@ -4,31 +4,40 @@ use std::{
     ops::Deref,
 };
 
+use bytemuck::Pod;
 use byteorder::{ByteOrder, LE};
 use zerocopy::{AsBytes, FromBytes, FromZeroes, Ref, F32, U32};
 
 use crate::{
     flver::{
+        accessor::VertexAttributeAccessor,
         bone::Bone,
         dummy::Dummy,
         face_set::FaceSet,
         material::Material,
         mesh::Mesh,
+        reader::{
+            FLVERBufferLayoutMember, VertexAttributeFormat,
+            VertexAttributeFormat::{
+                Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
+                Short4ToFloat4B, UVPair, UV,
+            },
+        },
         texture::Texture,
-        vertex_buffer::{VertexBuffer, VertexBufferLayout},
+        vertex_buffer::{VertexBuffer, VertexBufferLayout, VertexBufferLayoutMember},
     },
     io_ext::{zerocopy::Padding, ReadFormatsExt},
 };
 
 pub mod accessor;
-mod bone;
-mod dummy;
-mod face_set;
-mod material;
-mod mesh;
+pub mod bone;
+pub mod dummy;
+pub mod face_set;
+pub mod material;
+pub mod mesh;
 pub mod reader;
-mod texture;
-mod vertex_buffer;
+pub mod texture;
+pub mod vertex_buffer;
 
 pub type Flver<'a> = FlverInner<'a, LE>;
 
@@ -40,7 +49,7 @@ pub struct FlverInner<'a, O: ByteOrder> {
     dummys: &'a [Dummy<O>],
     face_sets: &'a [FaceSet<O>],
     materials: &'a [Material<O>],
-    meshes: &'a [Mesh<O>],
+    pub meshes: &'a [Mesh<O>],
     textures: &'a [Texture<O>],
     vertex_buffers: &'a [VertexBuffer<O>],
     vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
@@ -55,20 +64,55 @@ impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
 }
 
 impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
+    pub fn vertex_attribute_accessor(
+        &self,
+        buffer: &VertexBuffer<O>,
+        attribute: &VertexBufferLayoutMember<O>,
+    ) -> VertexAttributeAccessor<'a> {
+        use crate::flver::{
+            accessor::{VertexAttributeAccessor as Accessor, VertexAttributeIter as Iter},
+            reader::VertexAttributeFormat::{
+                Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
+                Short4ToFloat4B, UVPair, UV,
+            },
+        };
+
+        let buffer_offset = buffer.buffer_offset.get() as usize;
+        let buffer_length = buffer.buffer_length.get() as usize;
+
+        let data = &self.data[buffer_offset..buffer_offset + buffer_length];
+        let vertex_size = buffer.vertex_size.get() as usize;
+        let vertex_offset = attribute.struct_offset.get() as usize;
+
+        match VertexAttributeFormat::from(attribute.format_id.get()) {
+            Float3 => Accessor::Float3(Iter::new(data, vertex_size, vertex_offset)),
+            Float2 => Accessor::Float2(Iter::new(data, vertex_size, vertex_offset)),
+            Float4 => Accessor::Float4(Iter::new(data, vertex_size, vertex_offset)),
+            Byte4A => Accessor::Byte4A(Iter::new(data, vertex_size, vertex_offset)),
+            Byte4B => Accessor::Byte4B(Iter::new(data, vertex_size, vertex_offset)),
+            Short2ToFloat2 => Accessor::Short2ToFloat2(Iter::new(data, vertex_size, vertex_offset)),
+            Byte4C => Accessor::Byte4C(Iter::new(data, vertex_size, vertex_offset)),
+            UV => Accessor::UV(Iter::new(data, vertex_size, vertex_offset)),
+            UVPair => Accessor::UVPair(Iter::new(data, vertex_size, vertex_offset)),
+            Short4ToFloat4A => {
+                Accessor::Short4ToFloat4A(Iter::new(data, vertex_size, vertex_offset))
+            }
+            Short4ToFloat4B => {
+                Accessor::Short4ToFloat4B(Iter::new(data, vertex_size, vertex_offset))
+            }
+            _ => unimplemented!(),
+        }
+    }
+
     fn parse_no_verify(bytes: &'a [u8]) -> Option<Self> {
         let (header_ref, dummy_bytes) = Ref::<&'a [u8], FlverHeader<O>>::new_from_prefix(bytes)?;
         let header: &'a FlverHeader<O> = header_ref.into_ref();
 
         let (dummys, next) = Dummy::<O>::slice_from_prefix(dummy_bytes, header.dummy_count())?;
-
         let (materials, next) = Material::<O>::slice_from_prefix(next, header.material_count())?;
-
         let (bones, next) = Bone::<O>::slice_from_prefix(next, header.bone_count())?;
-
         let (meshes, next) = Mesh::<O>::slice_from_prefix(next, header.mesh_count())?;
-
         let (face_sets, next) = FaceSet::<O>::slice_from_prefix(next, header.face_set_count())?;
-
         let (vertex_buffers, next) =
             VertexBuffer::<O>::slice_from_prefix(next, header.vertex_buffer_count())?;
 

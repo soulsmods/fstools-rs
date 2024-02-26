@@ -3,6 +3,7 @@ use std::{
     io,
     io::SeekFrom,
 };
+use bytemuck::Pod;
 
 use byteorder::{ReadBytesExt, LE};
 
@@ -525,37 +526,6 @@ impl FLVERPartReader for VertexBuffer {
             buffer_length,
             buffer_offset,
         })
-    }
-}
-
-impl VertexBuffer {
-    pub fn accessor<'a>(
-        &self,
-        attribute: &FLVERBufferLayoutMember,
-        data: &'a [u8],
-    ) -> VertexAttributeAccessor<'a> {
-        use crate::flver::{
-            accessor::{VertexAttributeAccessor as Accessor, VertexAttributeIter as Iter},
-            reader::VertexAttributeFormat::{
-                Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
-                Short4ToFloat4B, UVPair, UV,
-            },
-        };
-
-        match attribute.format {
-            Float3 => Accessor::Float3(Iter::new(data, self, attribute)),
-            Float2 => Accessor::Float2(Iter::new(data, self, attribute)),
-            Float4 => Accessor::Float4(Iter::new(data, self, attribute)),
-            Byte4A => Accessor::Byte4A(Iter::new(data, self, attribute)),
-            Byte4B => Accessor::Byte4B(Iter::new(data, self, attribute)),
-            Short2ToFloat2 => Accessor::Short2ToFloat2(Iter::new(data, self, attribute)),
-            Byte4C => Accessor::Byte4C(Iter::new(data, self, attribute)),
-            UV => Accessor::UV(Iter::new(data, self, attribute)),
-            UVPair => Accessor::UVPair(Iter::new(data, self, attribute)),
-            Short4ToFloat4A => Accessor::Short4ToFloat4A(Iter::new(data, self, attribute)),
-            Short4ToFloat4B => Accessor::Short4ToFloat4B(Iter::new(data, self, attribute)),
-            _ => unimplemented!(),
-        }
     }
 }
 
