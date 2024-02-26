@@ -1,5 +1,8 @@
-use std::{io, io::SeekFrom};
-use std::fmt::{Debug, Formatter};
+use std::{
+    fmt::{Debug, Formatter},
+    io,
+    io::SeekFrom,
+};
 
 use byteorder::{ReadBytesExt, LE};
 
@@ -110,6 +113,7 @@ impl FLVER {
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
         let _unk68 = r.read_u32::<LE>()?;
+        println!("unk68: {}", _unk68);
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
         r.read_u32::<LE>()?;
