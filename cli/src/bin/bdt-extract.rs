@@ -4,34 +4,22 @@ use clap::Parser;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use souls_vfs::{FileKeyProvider, Vfs};
-use steamlocate::SteamDir;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long)]
-    erpath: Option<PathBuf>,
+    erpath: PathBuf,
     #[arg(long)]
     archive: Option<String>,
     #[arg(long)]
     dictionary: String,
 }
 
-const ER_APPID: u32 = 1245620;
-
-fn locate_er_dir() -> PathBuf {
-    let mut steamdir = SteamDir::locate().expect("steam installation not found");
-
-    match steamdir.app(&ER_APPID) {
-        Some(app) => app.path.join("Game"),
-        None => panic!("couldn't find elden ring installation"),
-    }
-}
-
 fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
 
-    let er_path = args.erpath.unwrap_or_else(locate_er_dir);
+    let er_path = args.erpath;
 
     let keys = FileKeyProvider::new("keys");
     let archives = [
