@@ -1,6 +1,8 @@
 use byteorder::ByteOrder;
 use zerocopy::{FromBytes, FromZeroes, U32};
 
+use crate::flver::header::FlverHeaderPart;
+
 #[derive(FromZeroes, FromBytes)]
 #[repr(packed)]
 #[allow(unused)]
@@ -14,3 +16,5 @@ pub struct Material<O: ByteOrder> {
     unk18: U32<O>,
     unk1c: U32<O>,
 }
+
+impl<O: ByteOrder> FlverHeaderPart for Material<O> {}

@@ -9,9 +9,13 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
+use byteorder::LE;
 use format::flver::{
     accessor::VertexAttributeAccessor,
-    reader::{FLVERFaceSetIndices, FLVERMesh, FLVER},
+    face_set::FaceSetIndices,
+    mesh::Mesh as FlverMesh,
+    reader::{VertexAttributeFormat, VertexAttributeSemantic, FLVER},
+    Flver,
 };
 
 #[derive(Default)]
@@ -58,14 +62,19 @@ impl FlverLoader {
         load_context: &'a mut LoadContext<'ctx>,
     ) -> Result<FlverAsset, Box<dyn Error + Send + Sync>> {
         let mut reader = Cursor::new(bytes);
-        let flver = FLVER::from_reader(&mut reader)?;
-        let data = &bytes[flver.data_offset as usize..];
-        let mut meshes = Vec::with_capacity(flver.meshes.len());
+        let flver1 = FLVER::from_reader(&mut reader)?;
+        let flver = Flver::parse(bytes).expect("failed to parse flver");
+
+        println!("{:#?}", flver1.buffer_layouts);
+        println!(
+            "{:#?}",
+            flver.vertex_attributes(&flver.vertex_buffer_layouts[0])
+        );
+        let mut meshes = Vec::with_capacity(flver.mesh_count());
 
         for (index, flver_mesh) in flver.meshes.iter().enumerate() {
-            let mesh_handle = load_context.labeled_asset_scope(format!("mesh{}", index), |_| {
-                load_mesh(&flver, flver_mesh, data)
-            });
+            let mesh_handle = load_context
+                .labeled_asset_scope(format!("mesh{}", index), |_| load_mesh(&flver, flver_mesh));
 
             meshes.push(mesh_handle);
         }
@@ -74,27 +83,33 @@ impl FlverLoader {
     }
 }
 
-fn load_mesh(flver: &FLVER, flver_mesh: &FLVERMesh, data: &[u8]) -> Mesh {
+fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh<LE>) -> Mesh {
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
     );
 
-    let face_set = flver_mesh
-        .face_set_indices
-        .iter()
-        .map(|i| &flver.face_sets[*i as usize])
-        .find(|i| i.flags.is_main())
-        .expect("Could not find a main face set for the mesh");
+    let face_set = flver
+        .mesh_face_sets(flver_mesh)
+        .find(|set| set.is_lod0())
+        .expect("couldn't find main face set");
 
-    let buffer = &flver.vertex_buffers[flver_mesh.vertex_buffer_indices[0] as usize];
-    let layout = &flver.buffer_layouts[buffer.buffer_index as usize];
+    let buffer = flver
+        .mesh_buffers(flver_mesh)
+        .next()
+        .expect("no vertex buffers for FLVER");
 
-    for member in &layout.members {
-        let accessor = buffer.accessor(member, data);
+    let layout = &flver.vertex_buffer_layouts[buffer.layout_index.get() as usize];
+    let layout_members = flver.vertex_attributes(layout);
 
+    for member in layout_members {
         use format::flver::reader::VertexAttributeSemantic::*;
-        let (attribute, values) = match (member.semantic, accessor) {
+
+        let accessor = flver.vertex_attribute_accessor(buffer, member);
+        let semantic = VertexAttributeSemantic::from(member.semantic_id.get());
+        let format = VertexAttributeFormat::from(member.format_id.get());
+
+        let (attribute, values) = match (semantic, accessor) {
             (Position, VertexAttributeAccessor::Float3(it)) => (
                 Mesh::ATTRIBUTE_POSITION,
                 VertexAttributeValues::Float32x3(it.collect()),
@@ -110,7 +125,7 @@ fn load_mesh(flver: &FLVER, flver_mesh: &FLVERMesh, data: &[u8]) -> Mesh {
             _ => {
                 warn!(
                     "Vertex Attribute {:#?} and format {:#?} is currently unsupported",
-                    member.semantic, member.format
+                    semantic, format
                 );
 
                 continue;
@@ -120,13 +135,13 @@ fn load_mesh(flver: &FLVER, flver_mesh: &FLVERMesh, data: &[u8]) -> Mesh {
         mesh.insert_attribute(attribute, values);
     }
 
-    let indices = match &face_set.indices {
-        FLVERFaceSetIndices::Byte0 => unimplemented!(),
-        FLVERFaceSetIndices::Byte1(data) => {
+    let indices = match flver.face_set_indices(face_set) {
+        Some(FaceSetIndices::U8(data)) => {
             Indices::U16(data.iter().map(|index| *index as u16).collect())
         }
-        FLVERFaceSetIndices::Byte2(data) => Indices::U16(data.clone()),
-        FLVERFaceSetIndices::Byte4(data) => Indices::U32(data.clone()),
+        Some(FaceSetIndices::U16(data)) => Indices::U16(data.iter().map(|val| val.get()).collect()),
+        Some(FaceSetIndices::U32(data)) => Indices::U32(data.iter().map(|val| val.get()).collect()),
+        _ => unimplemented!(),
     };
 
     mesh.insert_indices(indices);

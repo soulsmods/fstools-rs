@@ -1,7 +1,7 @@
 use byteorder::ByteOrder;
 use zerocopy::{FromBytes, FromZeroes, F32, U32};
 
-use crate::io_ext::zerocopy::Padding;
+use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
 #[derive(FromBytes, FromZeroes)]
 #[allow(unused)]
@@ -16,3 +16,5 @@ pub struct Texture<O: ByteOrder> {
     unk18: F32<O>,
     unk1c: F32<O>,
 }
+
+impl<O: ByteOrder> FlverHeaderPart for Texture<O> {}

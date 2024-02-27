@@ -1,7 +1,7 @@
 use byteorder::ByteOrder;
 use zerocopy::{FromBytes, FromZeroes, F32, U16};
 
-use crate::io_ext::zerocopy::Padding;
+use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
 #[derive(FromZeroes, FromBytes)]
 #[repr(packed)]
@@ -18,3 +18,5 @@ pub struct Dummy<O: ByteOrder> {
     use_up_vector: u8,
     _padding1: Padding<16>,
 }
+
+impl<O: ByteOrder> FlverHeaderPart for Dummy<O> {}

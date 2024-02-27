@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 
 use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
-#[derive(AsBytes, FromZeroes, FromBytes)]
+#[derive(AsBytes, FromZeroes, FromBytes, Copy, Clone)]
 #[repr(packed)]
 pub struct Padding<const N: usize>([u8; N]);
 

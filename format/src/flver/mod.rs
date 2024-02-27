@@ -4,35 +4,31 @@ use std::{
     ops::Deref,
 };
 
-use bytemuck::Pod;
 use byteorder::{ByteOrder, LE};
-use zerocopy::{AsBytes, FromBytes, FromZeroes, Ref, F32, U32};
+use header::FlverHeader;
+use zerocopy::{FromBytes, Ref, U16, U32};
 
 use crate::{
     flver::{
         accessor::VertexAttributeAccessor,
         bone::Bone,
         dummy::Dummy,
-        face_set::FaceSet,
+        face_set::{FaceSet, FaceSetIndices},
+        header::FlverHeaderPart,
         material::Material,
         mesh::Mesh,
-        reader::{
-            FLVERBufferLayoutMember, VertexAttributeFormat,
-            VertexAttributeFormat::{
-                Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
-                Short4ToFloat4B, UVPair, UV,
-            },
-        },
+        reader::VertexAttributeFormat,
         texture::Texture,
-        vertex_buffer::{VertexBuffer, VertexBufferLayout, VertexBufferLayoutMember},
+        vertex_buffer::{VertexBuffer, VertexBufferAttribute, VertexBufferLayout},
     },
-    io_ext::{zerocopy::Padding, ReadFormatsExt},
+    io_ext::ReadFormatsExt,
 };
 
 pub mod accessor;
 pub mod bone;
 pub mod dummy;
 pub mod face_set;
+mod header;
 pub mod material;
 pub mod mesh;
 pub mod reader;
@@ -44,16 +40,23 @@ pub type Flver<'a> = FlverInner<'a, LE>;
 #[allow(unused)]
 pub struct FlverInner<'a, O: ByteOrder> {
     header: &'a FlverHeader<O>,
+
+    /// The entire underlying byte array this FLVER was created from.
+    bytes: &'a [u8],
+
+    /// The data region of this FLVER, containing vertex buffers and strings.
     data: &'a [u8],
     bones: &'a [Bone<O>],
     dummys: &'a [Dummy<O>],
-    face_sets: &'a [FaceSet<O>],
+    pub face_sets: &'a [FaceSet<O>],
     materials: &'a [Material<O>],
     pub meshes: &'a [Mesh<O>],
     textures: &'a [Texture<O>],
-    vertex_buffers: &'a [VertexBuffer<O>],
-    vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
+    pub vertex_buffers: &'a [VertexBuffer<O>],
+    pub vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
 }
+
+impl<'a, O: ByteOrder> FlverInner<'a, O> {}
 
 impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
     type Target = FlverHeader<O>;
@@ -64,10 +67,56 @@ impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
 }
 
 impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
+    pub fn face_set_indices(&self, face_set: &'a FaceSet<O>) -> Option<FaceSetIndices<'a, O>> {
+        let index_size = face_set.index_size.get() as usize;
+        let index_count = face_set.index_count.get() as usize;
+        let index_offset = face_set.index_offset.get() as usize;
+        let index_data = &self.data[index_offset..index_offset + (index_size / 8 * index_count)];
+
+        Some(match face_set.index_size.get() {
+            8 => FaceSetIndices::U8(index_data),
+            16 => FaceSetIndices::U16(U16::slice_from(index_data)?),
+            32 => FaceSetIndices::U32(U32::slice_from(index_data)?),
+            _ => return None,
+        })
+    }
+
+    pub fn mesh_buffers(&self, mesh: &'a Mesh<O>) -> impl Iterator<Item = &'a VertexBuffer<O>> {
+        VertexBuffer::from_indices_at::<U32<O>>(
+            self.vertex_buffers,
+            self.bytes,
+            mesh.vertex_buffer_offset.get() as usize,
+            mesh.vertex_buffer_count.get() as usize,
+        )
+    }
+
+    pub fn mesh_face_sets(&self, mesh: &'a Mesh<O>) -> impl Iterator<Item = &'a FaceSet<O>> {
+        FaceSet::from_indices_at::<U32<O>>(
+            self.face_sets,
+            self.bytes,
+            mesh.face_set_offset.get() as usize,
+            mesh.face_set_count.get() as usize,
+        )
+    }
+
+    pub fn vertex_attributes(
+        &self,
+        vertex_buffer_layout: &'a VertexBufferLayout<O>,
+    ) -> &'a [VertexBufferAttribute<O>] {
+        let attribute_count = vertex_buffer_layout.member_count.get() as usize;
+        let attribute_offset = vertex_buffer_layout.member_offset.get() as usize;
+        let attributes_length = std::mem::size_of::<VertexBufferLayout<O>>() * attribute_count;
+
+        VertexBufferAttribute::slice_from(
+            &self.bytes[attribute_offset..attribute_offset + attributes_length],
+        )
+        .unwrap()
+    }
+
     pub fn vertex_attribute_accessor(
         &self,
         buffer: &VertexBuffer<O>,
-        attribute: &VertexBufferLayoutMember<O>,
+        attribute: &VertexBufferAttribute<O>,
     ) -> VertexAttributeAccessor<'a> {
         use crate::flver::{
             accessor::{VertexAttributeAccessor as Accessor, VertexAttributeIter as Iter},
@@ -105,7 +154,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
     }
 
     fn parse_no_verify(bytes: &'a [u8]) -> Option<Self> {
-        let (header_ref, dummy_bytes) = Ref::<&'a [u8], FlverHeader<O>>::new_from_prefix(bytes)?;
+        let (header_ref, dummy_bytes) = Ref::<_, FlverHeader<O>>::new_from_prefix(bytes)?;
         let header: &'a FlverHeader<O> = header_ref.into_ref();
 
         let (dummys, next) = Dummy::<O>::slice_from_prefix(dummy_bytes, header.dummy_count())?;
@@ -126,6 +175,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
 
         Some(Self {
             header,
+            bytes,
             data,
             bones,
             dummys,
@@ -173,75 +223,5 @@ impl<'a, O: ByteOrder + 'static> Debug for FlverInner<'a, O> {
             .field("vertex_index_size", &self.vertex_index_size)
             .field("unk_68", &self._unk68.get())
             .finish()
-    }
-}
-
-#[derive(AsBytes, FromZeroes, FromBytes)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct FlverHeader<O: ByteOrder> {
-    #[doc(hidden)]
-    _padding0: Padding<8>,
-    pub(crate) version: U32<O>,
-    pub(crate) data_offset: U32<O>,
-    pub(crate) data_length: U32<O>,
-    pub(crate) dummy_count: U32<O>,
-    pub(crate) material_count: U32<O>,
-    pub(crate) bone_count: U32<O>,
-    pub(crate) mesh_count: U32<O>,
-    pub(crate) vertex_buffer_count: U32<O>,
-    pub(crate) bounding_box_min: [F32<O>; 3],
-    pub(crate) bounding_box_max: [F32<O>; 3],
-    pub(crate) face_count: U32<O>,
-    pub(crate) total_face_count: U32<O>,
-    pub(crate) vertex_index_size: u8,
-    pub(crate) unicode: u8,
-    pub(crate) _unk4a: u8,
-    pub(crate) _unk4b: u8,
-    pub(crate) _unk4c: U32<O>,
-    pub(crate) face_set_count: U32<O>,
-    pub(crate) buffer_layout_count: U32<O>,
-    pub(crate) texture_count: U32<O>,
-    pub(crate) _unk5c: u8,
-    pub(crate) _unk5d: u8,
-    #[doc(hidden)]
-    _padding1: Padding<10>,
-    pub(crate) _unk68: U32<O>,
-
-    #[doc(hidden)]
-    _padding2: Padding<20>,
-}
-
-impl<O: ByteOrder + 'static> FlverHeader<O> {
-    pub fn bone_count(&self) -> usize {
-        self.bone_count.get() as usize
-    }
-
-    pub fn dummy_count(&self) -> usize {
-        self.dummy_count.get() as usize
-    }
-
-    pub fn face_set_count(&self) -> usize {
-        self.face_set_count.get() as usize
-    }
-
-    pub fn material_count(&self) -> usize {
-        self.material_count.get() as usize
-    }
-
-    pub fn mesh_count(&self) -> usize {
-        self.mesh_count.get() as usize
-    }
-
-    pub fn vertex_buffer_count(&self) -> usize {
-        self.vertex_buffer_count.get() as usize
-    }
-
-    pub fn vertex_buffer_layout_count(&self) -> usize {
-        self.buffer_layout_count.get() as usize
-    }
-
-    pub fn texture_count(&self) -> usize {
-        self.texture_count.get() as usize
     }
 }

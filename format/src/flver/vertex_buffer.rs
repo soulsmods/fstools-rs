@@ -1,10 +1,11 @@
 use byteorder::ByteOrder;
 use zerocopy::{FromBytes, FromZeroes, U32};
 
-use crate::io_ext::zerocopy::Padding;
+use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
-#[derive(FromBytes, FromZeroes)]
+#[derive(Debug, FromBytes, FromZeroes)]
 #[allow(unused)]
+#[repr(packed)]
 pub struct VertexBuffer<O: ByteOrder> {
     pub buffer_index: U32<O>,
     pub layout_index: U32<O>,
@@ -15,21 +16,28 @@ pub struct VertexBuffer<O: ByteOrder> {
     pub buffer_offset: U32<O>,
 }
 
-#[derive(FromBytes, FromZeroes)]
-#[allow(unused)]
-pub struct VertexBufferLayout<O: ByteOrder> {
-    member_count: U32<O>,
-    padding0: Padding<8>,
-    member_offset: U32<O>,
-}
+impl<O: ByteOrder> FlverHeaderPart for VertexBuffer<O> {}
 
-#[derive(FromBytes, FromZeroes)]
+#[derive(Debug, FromBytes, FromZeroes)]
 #[repr(packed)]
 #[allow(unused)]
-pub struct VertexBufferLayoutMember<O: ByteOrder> {
+pub struct VertexBufferLayout<O: ByteOrder> {
+    pub(crate) member_count: U32<O>,
+    padding0: Padding<8>,
+    pub(crate) member_offset: U32<O>,
+}
+
+impl<O: ByteOrder> FlverHeaderPart for VertexBufferLayout<O> {}
+
+#[derive(Debug, FromBytes, FromZeroes)]
+#[repr(packed)]
+#[allow(unused)]
+pub struct VertexBufferAttribute<O: ByteOrder> {
     pub unk0: U32<O>,
     pub struct_offset: U32<O>,
     pub format_id: U32<O>,
     pub semantic_id: U32<O>,
     pub index: U32<O>,
 }
+
+impl<O: ByteOrder> FlverHeaderPart for VertexBufferAttribute<O> {}

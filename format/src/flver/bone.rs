@@ -1,9 +1,9 @@
 use byteorder::ByteOrder;
 use zerocopy::{FromBytes, FromZeroes, F32, U16, U32};
 
-use crate::io_ext::zerocopy::Padding;
+use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
-#[derive(FromZeroes, FromBytes)]
+#[derive(Debug, FromZeroes, FromBytes)]
 #[repr(C)]
 #[allow(unused)]
 pub struct Bone<O: ByteOrder> {
@@ -20,3 +20,5 @@ pub struct Bone<O: ByteOrder> {
     bounding_box_max: [F32<O>; 3],
     _padding0: Padding<0x34>,
 }
+
+impl<O: ByteOrder> FlverHeaderPart for Bone<O> {}

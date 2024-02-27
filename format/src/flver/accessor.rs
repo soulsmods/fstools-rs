@@ -2,9 +2,6 @@ use std::{marker::PhantomData, mem::size_of};
 
 use bytemuck::Pod;
 
-use crate::flver::reader::{FLVERBufferLayoutMember, VertexBuffer};
-use crate::flver::vertex_buffer::VertexBufferLayoutMember;
-
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, [f32; 2]>),
     Float3(VertexAttributeIter<'a, [f32; 3]>),
@@ -58,11 +55,11 @@ impl<'a, T: Pod> Iterator for VertexAttributeIter<'a, T> {
         }
 
         let attribute_byte_data = &self.buffer[self.attribute_data_offset..self.attribute_data_end];
-        let data: &[T] = bytemuck::cast_slice(attribute_byte_data);
+        let data: &T = bytemuck::from_bytes(attribute_byte_data);
 
         self.buffer = &self.buffer[self.vertex_size..];
 
-        Some(data[0])
+        Some(*data)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

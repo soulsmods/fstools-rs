@@ -3,11 +3,10 @@ use std::{
     io,
     io::SeekFrom,
 };
-use bytemuck::Pod;
 
 use byteorder::{ReadBytesExt, LE};
 
-use crate::{flver::accessor::VertexAttributeAccessor, io_ext::ReadFormatsExt};
+use crate::io_ext::ReadFormatsExt;
 
 const _ALLOWED_VERSIONS: [u32; 1] = [
     0x2001A, // Elden Ring
@@ -495,6 +494,7 @@ impl FLVERPartReader for FLVERFaceSet {
 }
 
 #[derive(Debug)]
+
 pub struct VertexBuffer {
     pub buffer_index: u32,
     pub layout_index: u32,
