@@ -66,7 +66,9 @@ impl<R: Read> ReadFormatsExt for R {
             let padding = self.read_u8()?;
 
             if padding != 0 {
-                return Err(std::io::Error::other("Expecting padding bytes, found non-zero value"));
+                return Err(std::io::Error::other(
+                    "Expecting padding bytes, found non-zero value",
+                ));
             }
         }
 
