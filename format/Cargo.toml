@@ -13,6 +13,7 @@ oodle-safe = "0.1.0"
 rayon = "1"
 rug = "1.24"
 rsa = "0.9"
+zerocopy = { version = "0.7.32", features = ["derive"] }
 
 [dependencies.thiserror]
 workspace = true
