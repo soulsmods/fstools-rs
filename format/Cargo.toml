@@ -5,6 +5,10 @@ license.workspace = true
 edition = "2021"
 build = "build.rs"
 
+[features]
+default = []
+strict-padding = []
+
 [dependencies]
 bytemuck = "1"
 byteorder = "1"
