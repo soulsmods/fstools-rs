@@ -2,16 +2,19 @@ use std::{array, marker::PhantomData, mem::size_of};
 
 use bytemuck::Pod;
 
-use crate::flver::vertex_buffer::normalization::{NoNormalization, VertexAttributeNormalization};
+use crate::flver::vertex_buffer::normalization::{NoNormalization, SNorm, UNorm, VertexAttributeNormalization};
 
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, f32, 2>),
     Float3(VertexAttributeIter<'a, f32, 3>),
     Float4(VertexAttributeIter<'a, f32, 4>),
-    Byte4A(VertexAttributeIter<'a, u8, 4>),
-    Byte4B(VertexAttributeIter<'a, u8, 4>),
-    Short2ToFloat2(VertexAttributeIter<'a, u16, 2>),
-    Byte4C(VertexAttributeIter<'a, u8, 4>),
+    UNorm8x4(VertexAttributeIter<'a, u8, 4, UNorm<u8, 255>>),
+    UNorm4x4(VertexAttributeIter<'a, u8, 4, UNorm<u8, 127>>),
+    UNorm16x2(VertexAttributeIter<'a, u16, 2, UNorm<u16, 32767>>),
+    UNorm16x4(VertexAttributeIter<'a, u16, 4, UNorm<u16, 32767>>),
+    SNorm8x4(VertexAttributeIter<'a, u8, 4, SNorm<u8, 127>>),
+    SNorm16x4(VertexAttributeIter<'a, u16, 4, SNorm<u16, 32767>>),
+    SNorm16x2(VertexAttributeIter<'a, u16, 2, SNorm<u16, 32767>>),
     UV(VertexAttributeIter<'a, f32, 2>),
     // TODO: get the last 2 components of this
     UVPair(VertexAttributeIter<'a, f32, 2>),
