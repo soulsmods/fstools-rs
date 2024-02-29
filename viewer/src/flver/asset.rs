@@ -11,10 +11,10 @@ use bevy::{
 };
 use byteorder::LE;
 use format::flver::{
-    accessor::VertexAttributeAccessor,
     face_set::FaceSetIndices,
     mesh::Mesh as FlverMesh,
     reader::{VertexAttributeFormat, VertexAttributeSemantic, FLVER},
+    vertex_buffer::accessor::VertexAttributeAccessor,
     Flver,
 };
 

@@ -3,6 +3,9 @@ use zerocopy::{FromBytes, FromZeroes, U32};
 
 use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
+pub mod accessor;
+mod normalization;
+
 #[derive(Debug, FromBytes, FromZeroes)]
 #[allow(unused)]
 #[repr(packed)]

@@ -6,11 +6,13 @@ use std::{
 
 use byteorder::{ByteOrder, LE};
 use header::FlverHeader;
+use vertex_buffer::accessor::{
+    VertexAttributeAccessor as Accessor, VertexAttributeAccessor, VertexAttributeIter as Iter,
+};
 use zerocopy::{FromBytes, Ref, U16, U32};
 
 use crate::{
     flver::{
-        accessor::VertexAttributeAccessor,
         bone::Bone,
         dummy::Dummy,
         face_set::{FaceSet, FaceSetIndices},
@@ -24,7 +26,6 @@ use crate::{
     io_ext::ReadFormatsExt,
 };
 
-pub mod accessor;
 pub mod bone;
 pub mod dummy;
 pub mod face_set;
@@ -118,12 +119,9 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
         buffer: &VertexBuffer<O>,
         attribute: &VertexBufferAttribute<O>,
     ) -> VertexAttributeAccessor<'a> {
-        use crate::flver::{
-            accessor::{VertexAttributeAccessor as Accessor, VertexAttributeIter as Iter},
-            reader::VertexAttributeFormat::{
-                Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
-                Short4ToFloat4B, UVPair, UV,
-            },
+        use crate::flver::reader::VertexAttributeFormat::{
+            Byte4A, Byte4B, Byte4C, Float2, Float3, Float4, Short2ToFloat2, Short4ToFloat4A,
+            Short4ToFloat4B, UVPair, UV,
         };
 
         let buffer_offset = buffer.buffer_offset.get() as usize;
