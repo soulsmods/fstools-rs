@@ -52,21 +52,23 @@ impl<R: Read> ReadFormatsExt for R {
             .map_err(|e| std::io::Error::new(ErrorKind::InvalidInput, e.to_string()))
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(feature = "strict-padding"))]
     fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
         let mut taken = self.take(length as u64);
         std::io::copy(&mut taken, &mut std::io::sink())?;
         Ok(())
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "strict-padding")]
     #[inline(always)]
     fn read_padding(&mut self, length: usize) -> std::io::Result<()> {
         for _ in 0..length {
             let padding = self.read_u8()?;
 
             if padding != 0 {
-                dbg!("Expected padding bytes, found non-zero value: {}", padding);
+                return Err(std::io::Error::other(
+                    "Expecting padding bytes, found non-zero value",
+                ));
             }
         }
 
