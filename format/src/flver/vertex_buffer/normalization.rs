@@ -24,7 +24,7 @@ impl<T: Copy> VertexAttributeNormalization for NoNormalization<T> {
 
 /// Normalize a signed value to a range of [0,1] with N possible values.
 pub struct SNorm<T: Into<f32> + Copy, const N: usize> {
-    _value: PhantomData<T>
+    _value: PhantomData<T>,
 }
 
 impl<T: Into<f32> + Copy, const N: usize> VertexAttributeNormalization for SNorm<T, N> {
@@ -38,7 +38,7 @@ impl<T: Into<f32> + Copy, const N: usize> VertexAttributeNormalization for SNorm
 
 /// Normalize an unsigned value to a range of [0,1] with N possible values.
 pub struct UNorm<T: Into<f32> + Copy, const N: usize> {
-    _value: PhantomData<T>
+    _value: PhantomData<T>,
 }
 
 impl<T: Into<f32> + Copy, const N: usize> VertexAttributeNormalization for UNorm<T, N> {

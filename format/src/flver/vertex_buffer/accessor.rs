@@ -2,7 +2,9 @@ use std::{array, marker::PhantomData, mem::size_of};
 
 use bytemuck::Pod;
 
-use crate::flver::vertex_buffer::normalization::{NoNormalization, SNorm, UNorm, VertexAttributeNormalization};
+use crate::flver::vertex_buffer::normalization::{
+    NoNormalization, SNorm, UNorm, VertexAttributeNormalization,
+};
 
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, f32, 2>),
