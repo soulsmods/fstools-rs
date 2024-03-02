@@ -9,7 +9,9 @@ on:
 jobs:
   clippy:
     name: Clippy
-    runs-on: soulsmods-runner
+    runs-on:
+      group: Default
+      labels: soulsmods-runner
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -19,7 +21,9 @@ jobs:
         
   fmt:
     name: Formatting
-    runs-on: soulsmods-runner
+    runs-on:
+      group: Default
+      labels: soulsmods-runner
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -29,7 +33,9 @@ jobs:
 
   test:
     name: Test
-    runs-on: soulsmods-runner
+    runs-on:
+      group: Default
+      labels: soulsmods-runner
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
