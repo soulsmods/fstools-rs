@@ -1,0 +1,27 @@
+on: pull_request_target
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: octokit/graphql-action@v2.x
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+        id: enable_automerge
+        with:
+          query: |
+            mutation enableAutoMerge($pullId: ID!) {
+              enablePullRequestAutoMerge(input: {
+                pullRequestId: $pullId,
+                mergeMethod: MERGE,
+              }) {
+                pullRequest {
+                  id,
+                  autoMergeRequest {
+                    enabledAt
+                  }
+                }
+              }
+            }
+          variables: |
+            pullId: ${{ github.event.pull_request.node_id }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
