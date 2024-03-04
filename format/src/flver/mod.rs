@@ -45,7 +45,7 @@ pub struct FlverInner<'a, O: ByteOrder> {
     bytes: &'a [u8],
 
     /// The data region of this FLVER, containing vertex buffers and strings.
-    data: &'a [u8],
+    pub data: &'a [u8],
     bones: &'a [Bone<O>],
     dummys: &'a [Dummy<O>],
     pub face_sets: &'a [FaceSet<O>],

@@ -45,6 +45,7 @@ fn main() -> Result<(), std::io::Error> {
         .par_iter()
         .progress_with_style(style)
         .filter(|l| !l.to_str().unwrap().starts_with('#') && !l.to_str().unwrap().is_empty())
+        .filter(|l| l.to_str().unwrap().contains("shader"))
         .for_each(|l| {
             let path = l.to_str().unwrap();
 

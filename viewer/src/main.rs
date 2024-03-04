@@ -28,11 +28,11 @@ fn main() {
 
     let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
 
-    vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
+    vfs.mount("/chr/c3800.chrbnd.dcx")
         .expect("Could not mount bnd");
 
-    vfs.mount("/chr/c3660_l.texbnd.dcx")
-        .expect("Could not mount bnd");
+    // vfs.mount("/chr/c3660_l.texbnd.dcx")
+    //     .expect("Could not mount bnd");
 
     App::new()
         .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
@@ -73,44 +73,44 @@ fn setup(
     mut assets: ResMut<AssetCollection>,
     asset_server: Res<AssetServer>,
 ) {
-    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
+    let flver: Handle<FlverAsset> = asset_server.load("c3800.flver");
 
     assets.assets.push(flver);
     // From mounted BND
-    {
-        let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            material: material_handle,
-            ..default()
-        });
-    }
+    // {
+    //     let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
+    //     let material_handle = materials.add(StandardMaterial {
+    //         base_color_texture: Some(texture.clone()),
+    //         alpha_mode: AlphaMode::Blend,
+    //         unlit: true,
+    //         ..default()
+    //     });
+    //
+    //     commands.spawn(PbrBundle {
+    //         mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
+    //         material: material_handle,
+    //         ..default()
+    //     });
+    // }
 
     // From DCX'd TPF
-    {
-        let texture: Handle<Image> =
-            asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            transform: Transform::from_xyz(0.0, 3.0, 0.0),
-            material: material_handle,
-            ..default()
-        });
-    }
+    // {
+    //     let texture: Handle<Image> =
+    //         asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
+    //     let material_handle = materials.add(StandardMaterial {
+    //         base_color_texture: Some(texture.clone()),
+    //         alpha_mode: AlphaMode::Blend,
+    //         unlit: true,
+    //         ..default()
+    //     });
+    //
+    //     commands.spawn(PbrBundle {
+    //         mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
+    //         transform: Transform::from_xyz(0.0, 3.0, 0.0),
+    //         material: material_handle,
+    //         ..default()
+    //     });
+    // }
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {

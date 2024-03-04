@@ -101,11 +101,13 @@ pub struct BndFileEntry {
 // no guarantee that any file will be DCX compressed but they usually are
 // meaning that the hot path will involve a copy.
 pub fn undo_container_compression(mut b: Vec<u8>) -> Result<Vec<u8>, DCXError> {
-    let mut r = Cursor::new(&mut b);
-    Ok(if DCX::has_magic(&mut r)? {
-        let dcx = DCX::from_reader(&mut r)?;
-        dcx.decompressed
-    } else {
-        b
-    })
+    Ok(vec![])
+    // let mut r = Cursor::new(&mut b);
+    // Ok(if DCX::has_magic(&mut r)? {
+    //     // let dcx = DCX::from_reader(&mut r)?;
+    //     // dcx.decompressed
+    //     vec![]
+    // } else {
+    //     b
+    // })
 }
