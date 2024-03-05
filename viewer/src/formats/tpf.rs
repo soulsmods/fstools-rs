@@ -49,7 +49,7 @@ impl AssetLoader for TPFAssetLoader {
             reader.read_to_end(&mut buffer).await?;
 
             // Account for DCX compression
-            let decompressed = undo_container_compression(buffer).unwrap();
+            let decompressed = undo_container_compression(&buffer).unwrap();
             let mut cursor = Cursor::new(&decompressed);
 
             let tpf = TPF::from_reader(&mut cursor)?;

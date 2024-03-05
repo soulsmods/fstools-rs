@@ -1,11 +1,11 @@
 use std::{
     collections::HashMap,
-    io::{self, Cursor},
+    io::{self, Cursor, Read},
 };
 
 use format::{
     bnd4::BND4,
-    dcx::{DCXError, DCX},
+    dcx::{Dcx, DcxError},
 };
 use thiserror::Error;
 
@@ -26,8 +26,8 @@ pub enum BndMountError {
     #[error("Could not get copy bnd4 bytes from vfs reader: {0}")]
     DataCopy(io::Error),
 
-    #[error("Could not parse DCX: {0}")]
-    Dcx(#[from] DCXError),
+    #[error("Could not parse Dcx: {0}")]
+    Dcx(#[from] DcxError),
 
     #[error("Could not parse BND4: {0}")]
     Bnd4(io::Error),
@@ -35,7 +35,7 @@ pub enum BndMountError {
 
 impl BndMountHost {
     pub fn mount(&mut self, name: Name, bytes: &[u8]) -> Result<(), BndMountError> {
-        let decompressed = undo_container_compression(bytes.to_vec())?;
+        let decompressed = undo_container_compression(bytes)?;
 
         let mut cursor = Cursor::new(decompressed);
         let bnd = BND4::from_reader(&mut cursor).map_err(BndMountError::Bnd4)?;
@@ -97,15 +97,19 @@ pub struct BndFileEntry {
     size: usize,
 }
 
-// Optionally undoes any DCX compression when detected. Unfortunately there is
-// no guarantee that any file will be DCX compressed but they usually are
-// meaning that the hot path will involve a copy.
-pub fn undo_container_compression(mut b: Vec<u8>) -> Result<Vec<u8>, DCXError> {
-    let mut r = Cursor::new(&mut b);
-    Ok(if DCX::has_magic(&mut r)? {
-        let dcx = DCX::from_reader(&mut r)?;
-        dcx.decompressed
+// Optionally undoes any Dcx compression when detected. Unfortunately there is
+// no guarantee that any file will be Dcx compressed but they usually are
+// meaning that the hot path will generally involve a copy.
+pub fn undo_container_compression(buf: &[u8]) -> Result<Vec<u8>, DcxError> {
+    if Dcx::has_magic(buf) {
+        let dcx = Dcx::parse(buf).ok_or(DcxError::ParserError)?;
+
+        let mut decoder = dcx.create_decoder()?;
+        let mut decompressed = Vec::with_capacity(decoder.hint_size());
+        decoder.read_to_end(&mut decompressed)?;
+
+        Ok(decompressed)
     } else {
-        b
-    })
+        Ok(buf.to_vec())
+    }
 }

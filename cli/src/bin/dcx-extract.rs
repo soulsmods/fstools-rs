@@ -1,7 +1,8 @@
-use std::io::Write;
+use std::io::{Read, Write};
 
 use clap::Parser;
-use format::{bnd4::BND4, dcx::DCX};
+use format::{bnd4::BND4, dcx::Dcx};
+use memmap2::MmapOptions;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -14,10 +15,21 @@ fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let path = std::path::PathBuf::from(args.file);
 
-    let mut dcx_file = std::fs::File::open(&path)?;
-    let dcx = DCX::from_reader(&mut dcx_file).expect("Could not parse DCX");
+    let dcx_file = std::fs::File::open(&path)?;
+    let data = unsafe {
+        MmapOptions::new()
+            .populate()
+            .map_copy_read_only(&dcx_file)?
+    };
 
-    let mut cursor = std::io::Cursor::new(dcx.decompressed);
+    let dcx = Dcx::parse(&data).unwrap();
+
+    let mut decoder = dcx.create_decoder().expect("Could not create decoder");
+
+    let mut decompressed = Vec::with_capacity(decoder.hint_size());
+    decoder.read_to_end(&mut decompressed)?;
+
+    let mut cursor = std::io::Cursor::new(decompressed);
     let bnd4 = BND4::from_reader(&mut cursor)?;
 
     let folder = format!(
