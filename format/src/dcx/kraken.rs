@@ -1,22 +1,10 @@
-use std::{
-    ffi::c_void,
-    io::{self, Cursor, Error, ErrorKind, Read, Result},
-    mem::size_of,
-};
+use std::io::{Cursor, Error, ErrorKind, Read, Result};
 
 use byteorder::BE;
 use oodle_sys::{
-    OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_Destroy, OodleLZ_Compressor,
-    OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
-    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll, OodleLZ_Decompress,
-    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OODLELZ_FAILED,
+    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll, OodleLZ_Decompress, OODLELZ_FAILED,
 };
 use zerocopy::U32;
-
-// const DECODE_WINDOW_SIZE: i32 = 3 * 1024 * 1024;
-// const DICTIONARY_SIZE: i32 = 2 * 1024 * 1024;
-// const BUFFER_SIZE: i32 = (256 + 63) * 1024;
-// const COMPRESSOR: OodleLZ_Compressor = OodleLZ_Compressor_OodleLZ_Compressor_Kraken;
 
 pub struct DcxDecoderKraken<'a> {
     compressed: &'a [u8],

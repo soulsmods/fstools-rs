@@ -1,8 +1,8 @@
-use std::io::{Cursor, Read, Write};
+use std::io::{Read, Write};
 
 use clap::Parser;
 use format::{bnd4::BND4, dcx::Dcx};
-use memmap2::{Advice, Mmap, MmapOptions};
+use memmap2::MmapOptions;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

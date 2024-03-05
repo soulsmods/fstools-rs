@@ -2,7 +2,7 @@ use std::{io, io::Read};
 
 use byteorder::BE;
 use thiserror::Error;
-use zerocopy::{AsBytes, FromBytes, FromZeroes, Ref, U32};
+use zerocopy::{FromBytes, FromZeroes, Ref, U32};
 
 use self::{deflate::DcxDecoderDeflate, kraken::DcxDecoderKraken};
 
@@ -43,6 +43,7 @@ pub struct Dcx<'a> {
     header: &'a Header,
     sizes: &'a Sizes,
     compression_parameters: &'a CompressionParameters,
+    additional: &'a Additional,
     compressed: &'a [u8],
 }
 
@@ -60,6 +61,7 @@ impl<'a> Dcx<'a> {
             header: header.into_ref(),
             sizes: sizes.into_ref(),
             compression_parameters: compression_parameters.into_ref(),
+            additional: additional.into_ref(),
             compressed: rest,
         })
     }
@@ -79,7 +81,6 @@ impl<'a> Dcx<'a> {
 
         Ok(DcxContentDecoder {
             uncompressed_size: self.sizes.uncompressed_size,
-            compressed: &self.compressed,
             decoder,
         })
     }
@@ -108,9 +109,6 @@ pub enum Decoder<'a> {
 }
 
 pub struct DcxContentDecoder<'a> {
-    /// Reference to the compressed bytes.
-    compressed: &'a [u8],
-
     /// Size of the contents once decompressed.
     uncompressed_size: U32<BE>,
 
