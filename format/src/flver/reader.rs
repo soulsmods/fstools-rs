@@ -588,82 +588,6 @@ pub enum VertexAttributeFormat {
     Byte4E = 0x2F,
     EdgeCompressed = 0xF0,
 }
-
-impl VertexAttributeFormat {
-    pub fn datum_size(&self) -> usize {
-        match self {
-            VertexAttributeFormat::Float2
-            | VertexAttributeFormat::Float3
-            | VertexAttributeFormat::Float4
-            | VertexAttributeFormat::UV
-            | VertexAttributeFormat::UVPair => 4,
-            VertexAttributeFormat::Byte4A
-            | VertexAttributeFormat::Byte4B
-            | VertexAttributeFormat::Byte4C
-            | VertexAttributeFormat::Byte4E => 1,
-            VertexAttributeFormat::Short2ToFloat2
-            | VertexAttributeFormat::ShortBoneIndices
-            | VertexAttributeFormat::Short4ToFloat4A
-            | VertexAttributeFormat::Short4ToFloat4B => 2,
-            _ => unimplemented!(),
-        }
-    }
-    pub fn dimensions(&self) -> usize {
-        match self {
-            VertexAttributeFormat::Float2 => 2,
-            VertexAttributeFormat::Float3 => 3,
-            VertexAttributeFormat::Float4 => 4,
-            VertexAttributeFormat::Byte4A => 4,
-            VertexAttributeFormat::Byte4B => 4,
-            VertexAttributeFormat::Short2ToFloat2 => 2,
-            VertexAttributeFormat::Byte4C => 4,
-            VertexAttributeFormat::UV => 2,
-            VertexAttributeFormat::UVPair => 4,
-            VertexAttributeFormat::ShortBoneIndices => 4,
-            VertexAttributeFormat::Short4ToFloat4A => 4,
-            VertexAttributeFormat::Short4ToFloat4B => 4,
-            VertexAttributeFormat::Byte4E => 4,
-            VertexAttributeFormat::EdgeCompressed => unimplemented!(),
-        }
-    }
-}
-
-pub enum VertexAttributeDimensions {
-    Scalar,
-    Vec2,
-    Vec3,
-    Vec4,
-}
-
-pub enum VertexAttributeDataType {
-    F32,
-    U32,
-    U16,
-    I16,
-}
-
-impl From<u32> for VertexAttributeFormat {
-    fn from(value: u32) -> Self {
-        match value {
-            0x1 => Self::Float2,
-            0x2 => Self::Float3,
-            0x3 => Self::Float4,
-            0x10 => Self::Byte4A,
-            0x11 => Self::Byte4B,
-            0x12 => Self::Short2ToFloat2,
-            0x13 => Self::Byte4C,
-            0x15 => Self::UV,
-            0x16 => Self::UVPair,
-            0x18 => Self::ShortBoneIndices,
-            0x1A => Self::Short4ToFloat4A,
-            0x2E => Self::Short4ToFloat4B,
-            0x2F => Self::Byte4E,
-            0xF0 => Self::EdgeCompressed,
-            _ => panic!("Unknown storage type {}", value),
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VertexAttributeSemantic {
     Position,
@@ -696,7 +620,7 @@ impl From<u32> for VertexAttributeSemantic {
 pub struct FLVERBufferLayoutMember {
     pub unk0: u32,
     pub struct_offset: u32,
-    pub format: VertexAttributeFormat,
+    pub format: u32,
     pub semantic: VertexAttributeSemantic,
     pub index: u32,
 }
@@ -709,7 +633,7 @@ impl FLVERPartReader for FLVERBufferLayoutMember {
         Ok(Self {
             unk0: r.read_u32::<LE>()?,
             struct_offset: r.read_u32::<LE>()?,
-            format: r.read_u32::<LE>()?.into(),
+            format: r.read_u32::<LE>()?,
             semantic: r.read_u32::<LE>()?.into(),
             index: r.read_u32::<LE>()?,
         })

@@ -2,7 +2,6 @@ use std::{error::Error, io::Cursor};
 
 use bevy::{
     asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext},
-    log::warn,
     prelude::{Mesh, TypePath},
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -11,10 +10,10 @@ use bevy::{
 };
 use byteorder::LE;
 use format::flver::{
-    accessor::VertexAttributeAccessor,
     face_set::FaceSetIndices,
     mesh::Mesh as FlverMesh,
-    reader::{VertexAttributeFormat, VertexAttributeSemantic, FLVER},
+    reader::{VertexAttributeSemantic, FLVER},
+    vertex_buffer::accessor::VertexAttributeAccessor,
     Flver,
 };
 
@@ -105,9 +104,10 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh<LE>) -> Mesh {
     for member in layout_members {
         use format::flver::reader::VertexAttributeSemantic::*;
 
-        let accessor = flver.vertex_attribute_accessor(buffer, member);
         let semantic = VertexAttributeSemantic::from(member.semantic_id.get());
-        let format = VertexAttributeFormat::from(member.format_id.get());
+        let Some(accessor) = flver.vertex_attribute_accessor(buffer, member) else {
+            continue;
+        };
 
         let (attribute, values) = match (semantic, accessor) {
             (Position, VertexAttributeAccessor::Float3(it)) => (
@@ -123,11 +123,6 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh<LE>) -> Mesh {
                 VertexAttributeValues::Float32x2(it.collect()),
             ),
             _ => {
-                warn!(
-                    "Vertex Attribute {:#?} and format {:#?} is currently unsupported",
-                    semantic, format
-                );
-
                 continue;
             }
         };
