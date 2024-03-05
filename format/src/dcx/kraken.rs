@@ -29,13 +29,17 @@ impl<'a> Read for DcxDecoderKraken<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if self.inner_cursor.is_none() {
             let mut inner_buffer = vec![0u8; self.uncompressed_size.get() as usize];
+            let compressed_len =
+                isize::try_from(inner_buffer.len()).map_err(|e| Error::new(ErrorKind::Other, e))?;
+            let inner_buffer_len =
+                isize::try_from(inner_buffer.len()).map_err(|e| Error::new(ErrorKind::Other, e))?;
 
             let result = unsafe {
                 OodleLZ_Decompress(
                     self.compressed.as_ptr() as *const _,
-                    self.compressed.len() as isize,
+                    compressed_len,
                     inner_buffer.as_mut_ptr() as *mut _,
-                    inner_buffer.len() as isize,
+                    inner_buffer_len,
                     oodle_sys::OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes,
                     0,
                     0,
