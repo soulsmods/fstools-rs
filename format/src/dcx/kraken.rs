@@ -9,40 +9,24 @@ use zerocopy::U32;
 pub struct DcxDecoderKraken<'a> {
     compressed: &'a [u8],
     uncompressed_size: U32<BE>,
-    // decoder: *mut OodleLZDecoder,
     inner_cursor: Option<Cursor<Vec<u8>>>,
 }
 
 impl<'a> DcxDecoderKraken<'a> {
     pub fn from_buffer(buf: &'a [u8], uncompressed_size: U32<BE>) -> Self {
-        // let raw_size = buf.len() as i64;
-        // let decoder = unsafe {
-        //     OodleLZDecoder_Create(
-        //         COMPRESSOR,
-        //         raw_size,
-        //         0 as *mut c_void,
-        //         -1,
-        //     )
-        // };
-
         Self {
             compressed: buf,
             uncompressed_size,
-            // decoder,
             inner_cursor: None,
         }
     }
 }
-
-// impl<'a> Drop for DcxDecoderKraken<'a> {
-//     fn drop(&mut self) {
-//         unsafe { OodleLZDecoder_Destroy(self.decoder) }
-//     }
-// }
-
 impl<'a> Read for DcxDecoderKraken<'a> {
+    // TODO: implement somewhat incremental reading by working with oodle's
+    // blocks per example in docs.
+    // It currently just decompresses the entire input one go and then
+    // operates a Cursor wrapping the decompressed bytes.
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // Hack to just make it work for now
         if self.inner_cursor.is_none() {
             let mut inner_buffer = vec![0u8; self.uncompressed_size.get() as usize];
 
@@ -73,31 +57,5 @@ impl<'a> Read for DcxDecoderKraken<'a> {
         }
 
         self.inner_cursor.as_mut().unwrap().read(buf)
-
-        // let mut dec_window = vec![0u8; DECODE_WINDOW_SIZE as usize];
-        //
-        // unsafe {
-        //     let mut output = vec![0u8; size_of::<OodleLZ_DecodeSome_Out>()];
-        //     OodleLZDecoder_DecodeSome(
-        //         self.decoder,
-        //         output.as_mut_ptr() as *mut OodleLZ_DecodeSome_Out,
-        //         dec_window.as_mut_ptr() as *mut c_void, // dec_window
-        //         DICTIONARY_SIZE as isize,               // dec_window_pos
-        //         self.uncompressed_size.get() as isize,  // in_size
-        //         DECODE_WINDOW_SIZE as isize - DICTIONARY_SIZE as isize, // dec_avail
-        //         self.compressed.as_ptr() as *const c_void,
-        //         self.compressed.len() as isize,
-        //         OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes,
-        //         OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
-        //         OodleLZ_Verbosity_OodleLZ_Verbosity_None,
-        //         OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
-        //     );
-        //
-        //     dbg!(&dec_window);
-        //     std::fs::write("./kraken-out.bin", dec_window).unwrap();
-        //
-        //     // let report = &*(output.as_ptr() as *const OodleLZ_DecodeSome_Out);
-        //     Ok(0)
-        // }
     }
 }
