@@ -2138,7 +2138,6 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "flate2",
- "oodle-safe",
  "oodle-sys",
  "rayon",
  "rsa",
@@ -3249,15 +3248,6 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
-
-[[package]]
-name = "oodle-safe"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dccbc93c025bd77d57cfbd547ee6dd5cd6c184044bc6cea606d9713ae61015f"
-dependencies = [
- "oodle-sys",
-]
 
 [[package]]
 name = "oodle-sys"

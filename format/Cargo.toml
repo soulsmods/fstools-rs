@@ -13,7 +13,6 @@ strict-padding = []
 bytemuck = "1"
 byteorder = "1"
 aes = "0.8"
-oodle-safe = "0.1.0"
 rayon = "1"
 rug = "1.24"
 rsa = "0.9"
