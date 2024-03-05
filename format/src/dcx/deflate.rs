@@ -1,4 +1,5 @@
 use std::io::{self, Read};
+
 use flate2::{read::ZlibDecoder, Compression};
 
 pub struct DcxDecoderDeflate<'a>(ZlibDecoder<&'a [u8]>);

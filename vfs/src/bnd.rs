@@ -5,7 +5,7 @@ use std::{
 
 use format::{
     bnd4::BND4,
-    dcx::{DcxError, Dcx},
+    dcx::{Dcx, DcxError},
 };
 use thiserror::Error;
 
@@ -102,8 +102,7 @@ pub struct BndFileEntry {
 // meaning that the hot path will generally involve a copy.
 pub fn undo_container_compression(buf: &[u8]) -> Result<Vec<u8>, DcxError> {
     if Dcx::has_magic(buf) {
-        let dcx = Dcx::parse(buf)
-            .ok_or(DcxError::ParserError)?;
+        let dcx = Dcx::parse(buf).ok_or(DcxError::ParserError)?;
 
         let mut decoder = dcx.create_decoder()?;
         let mut decompressed = Vec::with_capacity(decoder.hint_size());

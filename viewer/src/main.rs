@@ -73,7 +73,7 @@ fn setup(
     mut assets: ResMut<AssetCollection>,
     asset_server: Res<AssetServer>,
 ) {
-    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver"); 
+    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
 
     assets.assets.push(flver);
     // From mounted BND

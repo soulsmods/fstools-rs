@@ -1,9 +1,8 @@
-use std::io::{Cursor, Write, Read};
+use std::io::{Cursor, Read, Write};
 
 use clap::Parser;
-use memmap2::{Advice, Mmap, MmapOptions};
-
 use format::{bnd4::BND4, dcx::Dcx};
+use memmap2::{Advice, Mmap, MmapOptions};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,8 +24,7 @@ fn main() -> Result<(), std::io::Error> {
 
     let dcx = Dcx::parse(&data).unwrap();
 
-    let mut decoder = dcx.create_decoder()
-        .expect("Could not create decoder");
+    let mut decoder = dcx.create_decoder().expect("Could not create decoder");
 
     let mut decompressed = Vec::with_capacity(decoder.hint_size());
     decoder.read_to_end(&mut decompressed)?;

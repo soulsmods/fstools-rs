@@ -1,8 +1,15 @@
-use std::{ffi::c_void, io::{self, Cursor, Error, ErrorKind, Read, Result}, mem::size_of};
+use std::{
+    ffi::c_void,
+    io::{self, Cursor, Error, ErrorKind, Read, Result},
+    mem::size_of,
+};
 
 use byteorder::BE;
 use oodle_sys::{
-    OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_Destroy, OodleLZ_Compressor, OodleLZ_Compressor_OodleLZ_Compressor_Kraken, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll, OodleLZ_Decompress, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OODLELZ_FAILED
+    OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_Destroy, OodleLZ_Compressor,
+    OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
+    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll, OodleLZ_Decompress,
+    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OODLELZ_FAILED,
 };
 use zerocopy::U32;
 
@@ -15,15 +22,11 @@ pub struct DcxDecoderKraken<'a> {
     compressed: &'a [u8],
     uncompressed_size: U32<BE>,
     // decoder: *mut OodleLZDecoder,
-
     inner_cursor: Option<Cursor<Vec<u8>>>,
 }
 
 impl<'a> DcxDecoderKraken<'a> {
-    pub fn from_buffer(
-        buf: &'a [u8],
-        uncompressed_size: U32<BE>,
-    ) -> Self {
+    pub fn from_buffer(buf: &'a [u8], uncompressed_size: U32<BE>) -> Self {
         // let raw_size = buf.len() as i64;
         // let decoder = unsafe {
         //     OodleLZDecoder_Create(
@@ -38,7 +41,6 @@ impl<'a> DcxDecoderKraken<'a> {
             compressed: buf,
             uncompressed_size,
             // decoder,
-
             inner_cursor: None,
         }
     }

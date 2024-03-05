@@ -1,5 +1,4 @@
-use std::io;
-use std::io::Read;
+use std::{io, io::Read};
 
 use byteorder::BE;
 use thiserror::Error;
@@ -7,8 +6,8 @@ use zerocopy::{AsBytes, FromBytes, FromZeroes, Ref, U32};
 
 use self::{deflate::DcxDecoderDeflate, kraken::DcxDecoderKraken};
 
-pub mod kraken;
 pub mod deflate;
+pub mod kraken;
 
 const MAGIC_DCX: u32 = 0x44435800;
 const MAGIC_ALGORITHM_KRAKEN: &[u8; 4] = b"KRAK";
