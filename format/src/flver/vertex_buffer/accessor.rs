@@ -57,6 +57,17 @@ impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization> VertexAttribut
             _normalization: PhantomData,
         }
     }
+
+    pub fn no_norm(self) -> VertexAttributeIter<'a, T, L, NoNormalization<T>> {
+        let Self {
+            buffer,
+            vertex_size,
+            attribute_data_offset,
+            ..
+        } = self;
+
+        VertexAttributeIter::new(buffer, vertex_size, attribute_data_offset)
+    }
 }
 
 impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> ExactSizeIterator
