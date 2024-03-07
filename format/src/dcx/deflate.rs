@@ -2,15 +2,15 @@ use std::io::{self, Read};
 
 use flate2::read::ZlibDecoder;
 
-pub struct DcxDecoderDeflate<'a>(ZlibDecoder<&'a [u8]>);
+pub struct DcxDecoderDeflate<R: Read>(ZlibDecoder<R>);
 
-impl<'a> DcxDecoderDeflate<'a> {
-    pub fn from_buffer(buf: &'a [u8]) -> Self {
-        Self(ZlibDecoder::new(buf))
+impl<R: Read> DcxDecoderDeflate<R> {
+    pub fn new(reader: R) -> Self {
+        Self(ZlibDecoder::new(reader))
     }
 }
 
-impl<'a> Read for DcxDecoderDeflate<'a> {
+impl<R: Read> Read for DcxDecoderDeflate<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
     }

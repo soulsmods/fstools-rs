@@ -112,6 +112,7 @@ impl Vfs {
                 let offset = entry.file_offset as usize;
                 let size = entry.file_size_with_padding as usize;
 
+                println!("{}", size);
                 // Since its an optimization we don't really care about the
                 // result.
                 let _ = mmap.advise_range(Advice::Sequential, offset, size);

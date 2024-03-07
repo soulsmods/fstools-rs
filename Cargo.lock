@@ -2147,6 +2147,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fstools"
+version = "0.0.0"
+dependencies = [
+ "format",
+ "souls_vfs",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"

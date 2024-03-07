@@ -1,8 +1,11 @@
-use std::{io, io::Read};
+use std::{
+    io::{Error, Read},
+    mem::size_of,
+};
 
 use byteorder::BE;
 use thiserror::Error;
-use zerocopy::{FromBytes, FromZeroes, Ref, U32};
+use zerocopy::{FromBytes, FromZeroes, U32};
 
 use self::{deflate::DcxDecoderDeflate, kraken::DcxDecoderKraken};
 
@@ -16,7 +19,7 @@ const MAGIC_ALGORITHM_DEFLATE: &[u8; 4] = b"DFLT";
 #[derive(Debug, Error)]
 pub enum DcxError {
     #[error("Could not copy bytes {0}")]
-    Io(#[from] io::Error),
+    Io(#[from] std::io::Error),
 
     #[error("Unrecognized DCX compression algorithm: {0:x?}")]
     UnknownAlgorithm([u8; 4]),
@@ -34,48 +37,34 @@ pub enum DecompressionError {
     Zlib,
 }
 
-#[derive(FromZeroes, FromBytes)]
-#[repr(C)]
-#[allow(unused)]
-pub struct Dcx<'a> {
-    bytes: &'a [u8],
-
-    header: &'a Header,
-    sizes: &'a Sizes,
-    compression_parameters: &'a CompressionParameters,
-    additional: &'a Additional,
-    compressed: &'a [u8],
+#[derive(FromBytes, FromZeroes)]
+#[repr(packed)]
+pub struct DcxHeader {
+    metadata: Metadata,
+    sizes: Sizes,
+    compression_parameters: CompressionParameters,
+    _additional: Additional,
 }
 
-impl<'a> Dcx<'a> {
-    // TODO: add magic validation
-    pub fn parse(bytes: &'a [u8]) -> Option<Self> {
-        let (header, next) = Ref::<_, Header>::new_from_prefix(bytes)?;
-        let (sizes, next) = Ref::<_, Sizes>::new_from_prefix(next)?;
-        let (compression_parameters, next) =
-            Ref::<_, CompressionParameters>::new_from_prefix(next)?;
-        let (additional, rest) = Ref::<_, Additional>::new_from_prefix(next)?;
+impl DcxHeader {
+    pub fn read<R: Read>(mut reader: R) -> Result<(DcxHeader, DcxContentDecoder<R>), DcxError> {
+        let mut header_data = [0u8; size_of::<DcxHeader>()];
+        reader.read_exact(&mut header_data)?;
 
-        Some(Self {
-            bytes,
-            header: header.into_ref(),
-            sizes: sizes.into_ref(),
-            compression_parameters: compression_parameters.into_ref(),
-            additional: additional.into_ref(),
-            compressed: rest,
-        })
+        let dcx = DcxHeader::read_from(&header_data).ok_or(Error::other("unaligned DCX header"))?;
+        let decoder = dcx.create_decoder(reader)?;
+
+        Ok((dcx, decoder))
     }
 
-    pub fn create_decoder(&self) -> Result<DcxContentDecoder, DcxError> {
+    pub fn create_decoder<R: Read>(&self, reader: R) -> Result<DcxContentDecoder<R>, DcxError> {
         let algorithm = &self.compression_parameters.algorithm;
         let decoder = match algorithm {
-            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(DcxDecoderKraken::from_buffer(
-                self.compressed,
-                self.sizes.uncompressed_size,
+            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(DcxDecoderKraken::new(
+                reader.take(self.sizes.compressed_size.get() as u64),
+                self.sizes.uncompressed_size.get(),
             )),
-            MAGIC_ALGORITHM_DEFLATE => {
-                Decoder::Deflate(DcxDecoderDeflate::from_buffer(self.compressed))
-            }
+            MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DcxDecoderDeflate::new(reader)),
             _ => return Err(DcxError::UnknownAlgorithm(algorithm.to_owned())),
         };
 
@@ -93,36 +82,36 @@ impl<'a> Dcx<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for Dcx<'a> {
+impl std::fmt::Debug for DcxHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DCX")
-            .field("header", self.header)
-            .field("sizes", self.sizes)
-            .field("compression_parameters", self.compression_parameters)
+            .field("header", &self.metadata)
+            .field("sizes", &self.sizes)
+            .field("compression_parameters", &self.compression_parameters)
             .finish()
     }
 }
 
-pub enum Decoder<'a> {
-    Kraken(DcxDecoderKraken<'a>),
-    Deflate(DcxDecoderDeflate<'a>),
+pub enum Decoder<R: Read> {
+    Kraken(DcxDecoderKraken<R>),
+    Deflate(DcxDecoderDeflate<R>),
 }
 
-pub struct DcxContentDecoder<'a> {
+pub struct DcxContentDecoder<R: Read> {
     /// Size of the contents once decompressed.
     uncompressed_size: U32<BE>,
 
-    decoder: Decoder<'a>,
+    decoder: Decoder<R>,
 }
 
-impl<'a> DcxContentDecoder<'a> {
+impl<R: Read> DcxContentDecoder<R> {
     pub fn hint_size(&self) -> usize {
         self.uncompressed_size.get() as usize
     }
 }
 
-impl<'a> Read for DcxContentDecoder<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+impl<R: Read> Read for DcxContentDecoder<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match &mut self.decoder {
             Decoder::Kraken(d) => d.read(buf),
             Decoder::Deflate(d) => d.read(buf),
@@ -134,7 +123,7 @@ impl<'a> Read for DcxContentDecoder<'a> {
 #[repr(C)]
 #[allow(unused)]
 /// The DCX chunk. Describes the layout of the container.
-struct Header {
+struct Metadata {
     chunk_magic: [u8; 4],
 
     /// Overal Dcx file version

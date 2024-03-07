@@ -1,3 +1,11 @@
+[package]
+name = "fstools"
+edition = "2021"
+
+[dependencies]
+format = { path = "format" }
+souls_vfs = { path = "vfs" }
+
 [workspace]
 resolver = "2"
 default-members = ["cli", "viewer"]
