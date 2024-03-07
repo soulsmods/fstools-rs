@@ -6,6 +6,10 @@ edition = "2021"
 format = { path = "format" }
 souls_vfs = { path = "vfs" }
 
+[dev-dependencies]
+crc32fast = "1"
+insta = "1"
+
 [workspace]
 resolver = "2"
 default-members = ["cli", "viewer"]

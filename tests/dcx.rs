@@ -1,7 +1,12 @@
-use std::{error::Error, path::PathBuf};
+use std::{
+    error::Error,
+    io::{BufReader, Read},
+    path::PathBuf,
+};
 
-use format::dcx::DcxHeader;
-pub use fstools::prelude::*;
+use crc32fast::Hasher;
+use fstools::{formats::dcx::DcxHeader, prelude::*};
+use insta::assert_debug_snapshot;
 
 #[test]
 pub fn decode_kraken_dcx() -> Result<(), Box<dyn Error>> {
@@ -17,9 +22,24 @@ pub fn decode_kraken_dcx() -> Result<(), Box<dyn Error>> {
 
     let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
     let file = vfs.open("/map/m60/m60_44_58_00/m60_44_58_00_445800.mapbnd.dcx")?;
-    let (_, mut reader) = DcxHeader::read(file)?;
+    let (header, mut reader) = DcxHeader::read(file)?;
+    let mut hasher = Hasher::new();
 
-    std::io::copy(&mut reader, &mut std::io::sink())?;
+    let mut buffer = [0u8; 4096];
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break, // End of file
+            Ok(len) => hasher.update(&buffer[..len]),
+            Err(e) => {
+                // Handle the error more gracefully, e.g., return it or log it
+                eprintln!("Error reading data: {}", e);
+                break;
+            }
+        }
+    }
+
+    let hash = hasher.finalize();
+    assert_debug_snapshot!((header, hash));
 
     Ok(())
 }
