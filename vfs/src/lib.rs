@@ -52,6 +52,10 @@ impl Vfs {
         let key = key_provider.get_key(name)?;
         let bhd = Bhd::read(bhd_file, key)?;
 
+        // Make sure we don't include this mapped memory in coredumps.
+        #[cfg(target_os = "linux")]
+        let _ = data.advise(Advice::DontDump);
+
         Ok((data, bhd))
     }
 
@@ -112,12 +116,17 @@ impl Vfs {
                 let offset = entry.file_offset as usize;
                 let size = entry.file_size_with_padding as usize;
 
-                println!("{}", size);
-                // Since its an optimization we don't really care about the
+                // Since it's an optimization we don't really care about the
                 // result.
                 let _ = mmap.advise_range(Advice::Sequential, offset, size);
 
-                Ok(VfsEntryReader::new(&mmap[offset..offset + size], entry))
+                Ok(VfsEntryReader::new(
+                    mmap,
+                    offset,
+                    size,
+                    &mmap[offset..offset + size],
+                    entry,
+                ))
             }
             None => Err(VfsOpenError::NotFound),
         }
@@ -127,9 +136,13 @@ impl Vfs {
     pub fn mount<N: Into<Name>>(&mut self, name: N) -> Result<(), VfsOpenError> {
         let name = name.into();
 
-        let mut reader = self.open(name.clone())?;
-        let mut buffer = Vec::new();
-        reader.read_to_end(&mut buffer).unwrap();
+        let buffer = {
+            let mut reader = self.open(name.clone())?;
+            let mut buffer = Vec::new();
+            reader.read_to_end(&mut buffer).unwrap();
+
+            buffer
+        };
 
         self.mount_host.mount(name, buffer.as_slice()).unwrap();
 

@@ -8,6 +8,7 @@ use aes::{
     cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit},
     Aes128, Block,
 };
+use memmap2::{Advice, Mmap};
 
 use crate::VfsFileEntry;
 
@@ -35,6 +36,9 @@ pub struct VfsEntryReader<'a> {
 
     /// The size of the file including any padding from encryption.
     encrypted_file_size: usize,
+    mmap: &'a Mmap,
+    offset: usize,
+    size: usize,
 }
 
 pub enum VfsEntryPartKind {
@@ -43,7 +47,13 @@ pub enum VfsEntryPartKind {
 }
 
 impl<'a> VfsEntryReader<'a> {
-    pub fn new(data: &'a [u8], entry: &'a VfsFileEntry) -> Self {
+    pub fn new(
+        mmap: &'a Mmap,
+        offset: usize,
+        size: usize,
+        data: &'a [u8],
+        entry: &'a VfsFileEntry,
+    ) -> Self {
         Self {
             cipher: Aes128::new(&GenericArray::from(entry.aes_key)),
             data,
@@ -53,6 +63,9 @@ impl<'a> VfsEntryReader<'a> {
             encrypted_data_range_index: 0,
             encrypted_data_ranges: &entry.aes_ranges,
             encrypted_file_size: data.len(),
+            mmap,
+            offset,
+            size,
         }
     }
 
@@ -94,6 +107,12 @@ impl<'a> VfsEntryReader<'a> {
         }
 
         Ok(written)
+    }
+}
+
+impl<'a> Drop for VfsEntryReader<'a> {
+    fn drop(&mut self) {
+        let _ = self.mmap.advise_range(Advice::DontNeed, self.offset, self.size);
     }
 }
 
