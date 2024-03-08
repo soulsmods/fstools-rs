@@ -37,3 +37,5 @@ jobs:
           components: rustfmt, clippy
       - run: ls /opt/test-data
       - run: cargo test --workspace --all-features
+        env:
+          ER_PATH: /opt/test-data/elden-ring/Game
