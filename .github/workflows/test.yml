@@ -35,7 +35,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - run: ls /opt/test-data
+      - run: ls -R /opt/test-data/elden-ring
       - run: cargo test --workspace --all-features
         env:
           ER_PATH: /opt/test-data/elden-ring/Game
