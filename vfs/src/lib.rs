@@ -8,16 +8,15 @@ use std::{
 };
 
 use aes::{
+    cipher::{generic_array::GenericArray, BlockDecrypt, BlockSizeUser, KeyInit},
     Aes128,
-    cipher::{BlockDecrypt, BlockSizeUser, generic_array::GenericArray, KeyInit},
 };
+use format::bhd::Bhd;
 use memmap2::MmapOptions;
 use thiserror::Error;
 
-use format::bhd::Bhd;
-
 pub use self::{
-    bnd::{BndMountHost, undo_container_compression},
+    bnd::{undo_container_compression, BndMountHost},
     key_provider::{ArchiveKeyProvider, FileKeyProvider},
     name::Name,
     reader::VfsEntryReader,

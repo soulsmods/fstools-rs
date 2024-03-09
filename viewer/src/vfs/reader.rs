@@ -1,11 +1,10 @@
 use std::{
-    io::{self},
+    io::{self, Read},
     path::Path,
     pin::Pin,
     sync::Arc,
     task::Poll,
 };
-use std::io::Read;
 
 use bevy::{
     asset::{
