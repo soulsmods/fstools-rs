@@ -39,3 +39,4 @@ jobs:
       - run: cargo test --workspace --all-features
         env:
           ER_PATH: /opt/test-data/elden-ring/Game
+          ER_KEYS_PATH: /opt/test-data/elden-ring
