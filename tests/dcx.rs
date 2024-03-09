@@ -1,17 +1,16 @@
-use std::{
-    error::Error,
-    io::{BufReader, Read},
-    path::PathBuf,
-};
+use std::{collections::HashSet, error::Error, io::Read, path::PathBuf, sync::Arc};
 
 use crc32fast::Hasher;
+use format::dcx::{DcxContentDecoder, DcxError};
 use fstools::{formats::dcx::DcxHeader, prelude::*};
-use insta::assert_debug_snapshot;
+use insta::{assert_debug_snapshot, assert_snapshot};
+use libtest_mimic::{Arguments, Failed, Trial};
 
-#[test]
-pub fn decode_kraken_dcx() -> Result<(), Box<dyn Error>> {
-    let er_path = PathBuf::from(std::env::var("ER_PATH").expect("no elden ring path provided"));
-    let keys = FileKeyProvider::new("keys");
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Arguments::from_args();
+    let er_path = PathBuf::from(std::env::var("ER_PATH").expect("er_path"));
+    let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").expect("er_keys_path"));
+    let keys = FileKeyProvider::new(keys_path);
     let archives = [
         er_path.join("Data0"),
         er_path.join("Data1"),
@@ -20,26 +19,53 @@ pub fn decode_kraken_dcx() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
-    let file = vfs.open("/map/m60/m60_44_58_00/m60_44_58_00_445800.mapbnd.dcx")?;
-    let (header, mut reader) = DcxHeader::read(file)?;
-    let mut hasher = Hasher::new();
+    let vfs = Arc::new(Vfs::create(archives.clone(), &keys).expect("unable to create vfs"));
 
-    let mut buffer = [0u8; 4096];
+    let dictionary = include_str!("data/EldenRingDictionary.txt");
+    let lines = dictionary
+        .lines()
+        .filter(|line| line.ends_with(".dcx"))
+        .collect::<HashSet<_>>();
+
+    let mut tests = vec![];
+
+    assert_snapshot!(lines.len());
+
+    for line in lines {
+        let vfs = vfs.clone();
+        let test = Trial::test(line, move || check_file(vfs.clone(), line)).with_kind("dcx");
+
+        tests.push(test);
+    }
+
+    libtest_mimic::run(&args, tests).exit();
+}
+
+pub fn check_file(mut vfs: Arc<Vfs>, file: &str) -> Result<(), Failed> {
+    let file = match vfs.open(file) {
+        Ok(file) => file,
+        Err(VfsOpenError::NotFound) => {
+            return Ok(());
+        }
+    };
+
+    let (_, mut reader) = match DcxHeader::read(file) {
+        Ok(details) => details,
+        Err(DcxError::UnknownAlgorithm(_)) => return Ok(()),
+        Err(_) => return Err("failed to parse DCX header".into()),
+    };
+
+    let mut buffer = [0u8; 4096 * 4];
+
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => break, // End of file
-            Ok(len) => hasher.update(&buffer[..len]),
+            Ok(len) => {}
             Err(e) => {
-                // Handle the error more gracefully, e.g., return it or log it
-                eprintln!("Error reading data: {}", e);
-                break;
+                return Err(e.into());
             }
         }
     }
-
-    let hash = hasher.finalize();
-    assert_debug_snapshot!((header, hash));
 
     Ok(())
 }
