@@ -1,18 +1,15 @@
 use std::{
-    alloc::alloc,
     cmp::min,
-    io::{BufRead, BufReader, Error, Read, Result, Take},
+    io::{Error, Read, Result},
     ptr::null_mut,
 };
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
-    OodleLZDecoder_MemorySizeNeeded, OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
     OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Invalid,
-    OodleLZ_Compressor_OodleLZ_Compressor_Kraken, OodleLZ_DecodeSome_Out,
-    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
-    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OodleLZ_Verbosity_OodleLZ_Verbosity_Lots,
-    OodleLZ_Verbosity_OodleLZ_Verbosity_None, OODLELZ_BLOCK_LEN,
+    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
+    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
+    OODLELZ_BLOCK_LEN,
 };
 
 pub struct DcxDecoderKraken<R: Read> {
@@ -119,7 +116,7 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
                 // - Signedness conversions of offsets are all valid, given that
                 //   `sliding_window.len() <= i32::MAX` and `self.uncompressed_size < isize::MAX`.
                 // - Consumed `input_data_len` is caped at i32::MAX
-                let decode_buffer_avail = (self.decode_buffer.len() - wpos);
+                let decode_buffer_avail = self.decode_buffer.len() - wpos;
                 OodleLZDecoder_DecodeSome(
                     self.decoder,
                     &mut out as *mut _,

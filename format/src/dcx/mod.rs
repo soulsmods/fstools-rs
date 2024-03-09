@@ -1,4 +1,5 @@
 use std::{
+    fmt::{Debug, Formatter},
     io::{Error, Read},
     mem::size_of,
 };
@@ -80,10 +81,22 @@ impl DcxHeader {
             None => false,
         }
     }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+
+    pub fn sizes(&self) -> &Sizes {
+        &self.sizes
+    }
+
+    pub fn compression_parameters(&self) -> &CompressionParameters {
+        &self.compression_parameters
+    }
 }
 
-impl std::fmt::Debug for DcxHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for DcxHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DCX")
             .field("header", &self.metadata)
             .field("sizes", &self.sizes)
@@ -119,11 +132,11 @@ impl<R: Read> Read for DcxContentDecoder<R> {
     }
 }
 
-#[derive(FromZeroes, FromBytes, Debug)]
+#[derive(FromZeroes, FromBytes)]
 #[repr(C)]
 #[allow(unused)]
 /// The DCX chunk. Describes the layout of the container.
-struct Metadata {
+pub struct Metadata {
     chunk_magic: [u8; 4],
 
     /// Overal Dcx file version
@@ -142,11 +155,19 @@ struct Metadata {
     data_offset: U32<BE>,
 }
 
-#[derive(FromZeroes, FromBytes, Debug)]
+impl Debug for Metadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Metadata")
+            .field("version", &self.version.get())
+            .finish()
+    }
+}
+
+#[derive(FromZeroes, FromBytes)]
 #[repr(C)]
 #[allow(unused)]
 /// The DCS Chunk. Describes the sizes before and after compression.
-struct Sizes {
+pub struct Sizes {
     chunk_magic: [u8; 4],
     /// Size of the data when decompressed, can be used for reserving vector
     /// capacity.
@@ -156,11 +177,20 @@ struct Sizes {
     compressed_size: U32<BE>,
 }
 
-#[derive(FromZeroes, FromBytes, Debug)]
+impl Debug for Sizes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sizes")
+            .field("uncompressed_size", &self.uncompressed_size.get())
+            .field("compressed_size", &self.compressed_size.get())
+            .finish()
+    }
+}
+
+#[derive(FromZeroes, FromBytes)]
 #[repr(packed)]
 #[allow(unused)]
 /// The DCP chunk. Describes parameters used for compression/decompression.
-struct CompressionParameters {
+pub struct CompressionParameters {
     chunk_magic: [u8; 4],
 
     /// Either KRAK, DFLT or EDGE
@@ -172,6 +202,16 @@ struct CompressionParameters {
     /// Arbitrary bytes describing the parameter chunk
     /// TODO make this of dynamic size using the chunksize
     settings: [u8; 20],
+}
+
+impl Debug for CompressionParameters {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let algorithm_name = String::from_utf8_lossy(&self.algorithm);
+
+        f.debug_struct("CompressionParameters")
+            .field("algorithm", &algorithm_name)
+            .finish()
+    }
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
