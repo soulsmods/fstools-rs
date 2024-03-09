@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Error, Read, Seek, SeekFrom};
 
 use memmap2::MmapMut;
 
@@ -21,5 +21,23 @@ impl Read for VfsEntryReader {
         self.position += read;
 
         Ok(read)
+    }
+}
+
+impl Seek for VfsEntryReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let new_pos = match pos {
+            SeekFrom::Start(start_offset) => Some(start_offset as usize),
+            SeekFrom::End(end_offset) => self.mmap.len().checked_add_signed(end_offset as isize),
+            SeekFrom::Current(offset) => self.position.checked_add_signed(offset as isize),
+        }
+        .ok_or(Error::other("invalid seek offset"))?;
+
+        if new_pos < self.mmap.len() {
+            self.position = new_pos;
+            Ok(self.position as u64)
+        } else {
+            Err(Error::other("seek went out of bounds"))
+        }
     }
 }
