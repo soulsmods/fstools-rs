@@ -61,7 +61,7 @@ impl DcxHeader {
         let algorithm = &self.compression_parameters.algorithm;
         let decoder = match algorithm {
             MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(DcxDecoderKraken::new(
-                reader.take(self.sizes.compressed_size.get() as u64),
+                reader,
                 self.sizes.uncompressed_size.get(),
             )),
             MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DcxDecoderDeflate::new(reader)),
@@ -157,7 +157,7 @@ struct Sizes {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(C)]
+#[repr(packed)]
 #[allow(unused)]
 /// The DCP chunk. Describes parameters used for compression/decompression.
 struct CompressionParameters {
