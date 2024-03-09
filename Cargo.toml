@@ -7,7 +7,6 @@ format = { path = "format" }
 souls_vfs = { path = "vfs" }
 
 [dev-dependencies]
-crc32fast = "1"
 insta = "1"
 libtest-mimic = "0.7"
 
@@ -15,7 +14,6 @@ libtest-mimic = "0.7"
 name = "dcx"
 path = "tests/dcx.rs"
 harness = false
-
 
 [workspace]
 resolver = "2"

@@ -1,10 +1,11 @@
 use std::{
-    io::{self, Read},
+    io::{self},
     path::Path,
     pin::Pin,
     sync::Arc,
     task::Poll,
 };
+use std::io::Read;
 
 use bevy::{
     asset::{
@@ -27,7 +28,7 @@ impl AssetReader for VfsAssetRepository {
         Box::pin(async move {
             let path_str = path.to_string_lossy();
 
-            self.open(&path_str)
+            self.open(&*path_str)
                 .map(|r| Box::new(VfsEntryReader(r)) as Box<Reader>)
                 .or_else(|_| {
                     Ok(self
@@ -62,9 +63,9 @@ impl AssetReader for VfsAssetRepository {
     }
 }
 
-struct VfsEntryReader<'a>(VfsEntryReaderImpl<'a>);
+struct VfsEntryReader(VfsEntryReaderImpl);
 
-impl<'a> AsyncRead for VfsEntryReader<'a> {
+impl AsyncRead for VfsEntryReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,

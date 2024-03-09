@@ -1,9 +1,8 @@
 use std::{collections::HashSet, error::Error, io::Read, path::PathBuf, sync::Arc};
 
-use crc32fast::Hasher;
-use format::dcx::{DcxContentDecoder, DcxError};
+use format::dcx::DcxError;
 use fstools::{formats::dcx::DcxHeader, prelude::*};
-use insta::{assert_debug_snapshot, assert_snapshot};
+use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -41,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     libtest_mimic::run(&args, tests).exit();
 }
 
-pub fn check_file(mut vfs: Arc<Vfs>, file: &str) -> Result<(), Failed> {
+pub fn check_file(vfs: Arc<Vfs>, file: &str) -> Result<(), Failed> {
     let file = match vfs.open(file) {
         Ok(file) => file,
         Err(VfsOpenError::NotFound) => {
@@ -60,7 +59,7 @@ pub fn check_file(mut vfs: Arc<Vfs>, file: &str) -> Result<(), Failed> {
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => break, // End of file
-            Ok(len) => {}
+            Ok(_) => {}
             Err(e) => {
                 return Err(e.into());
             }

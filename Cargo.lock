@@ -2159,7 +2159,6 @@ dependencies = [
 name = "fstools"
 version = "0.0.0"
 dependencies = [
- "crc32fast",
  "format",
  "insta",
  "libtest-mimic",
