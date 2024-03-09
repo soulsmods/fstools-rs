@@ -4,23 +4,29 @@ use std::{
     io::{Error, Read},
     ops::Range,
     path::Path,
+    slice,
 };
 
-use format::bhd::Bhd;
-use memmap2::{Advice, Mmap, MmapOptions};
+use aes::{
+    Aes128,
+    cipher::{BlockDecrypt, BlockSizeUser, generic_array::GenericArray, KeyInit},
+};
+use memmap2::MmapOptions;
 use thiserror::Error;
+
+use format::bhd::Bhd;
+
+pub use self::{
+    bnd::{BndMountHost, undo_container_compression},
+    key_provider::{ArchiveKeyProvider, FileKeyProvider},
+    name::Name,
+    reader::VfsEntryReader,
+};
 
 mod bnd;
 mod key_provider;
 mod name;
 mod reader;
-
-pub use self::{
-    bnd::{undo_container_compression, BndMountHost},
-    key_provider::{ArchiveKeyProvider, FileKeyProvider},
-    name::Name,
-    reader::VfsEntryReader,
-};
 
 #[derive(Debug, Error)]
 pub enum VfsOpenError {
@@ -30,7 +36,7 @@ pub enum VfsOpenError {
 
 /// A read-only virtual filesystem layered over the BHD/BDT archives of a FROMSOFTWARE game.
 pub struct Vfs {
-    archives: Vec<Mmap>,
+    archives: Vec<File>,
     entries: HashMap<Name, VfsFileEntry>,
     mount_host: BndMountHost,
 }
@@ -39,11 +45,10 @@ impl Vfs {
     fn load_archive<P: AsRef<Path>>(
         path: P,
         key_provider: &impl ArchiveKeyProvider,
-    ) -> Result<(Mmap, Bhd), Error> {
+    ) -> Result<(File, Bhd), Error> {
         let path = path.as_ref();
         let bhd_file = File::open(path.with_extension("bhd"))?;
         let bdt_file = File::open(path.with_extension("bdt"))?;
-        let data = unsafe { MmapOptions::new().map_copy_read_only(&bdt_file)? };
         let name = path
             .file_stem()
             .and_then(|stem| stem.to_str())
@@ -52,11 +57,7 @@ impl Vfs {
         let key = key_provider.get_key(name)?;
         let bhd = Bhd::read(bhd_file, key)?;
 
-        // Make sure we don't include this mapped memory in coredumps.
-        #[cfg(target_os = "linux")]
-        let _ = data.advise(Advice::DontDump);
-
-        Ok((data, bhd))
+        Ok((bdt_file, bhd))
     }
 
     /// Create a virtual filesystem from the archive files (BHD or BDT) pointed to by
@@ -73,9 +74,9 @@ impl Vfs {
             .enumerate()
             .try_for_each(|(index, path)| {
                 let path = path.as_ref();
-                let (data, bhd) = Self::load_archive(path, key_provider)?;
+                let (mmap, bhd) = Self::load_archive(path, key_provider)?;
 
-                archives.push(data);
+                archives.push(mmap);
                 entries.extend(bhd.toc.into_iter().map(|entry| {
                     (
                         Name(entry.hash),
@@ -112,21 +113,30 @@ impl Vfs {
     pub fn open<N: Into<Name>>(&self, name: N) -> Result<VfsEntryReader, VfsOpenError> {
         match self.entries.get(&name.into()) {
             Some(entry) => {
-                let mmap = &self.archives[entry.archive];
+                let archive_file = &self.archives[entry.archive];
                 let offset = entry.file_offset as usize;
-                let size = entry.file_size_with_padding as usize;
+                let encrypted_size = entry.file_size_with_padding as usize;
+                let mut mmap = unsafe {
+                    MmapOptions::new()
+                        .offset(offset as u64)
+                        .len(encrypted_size)
+                        .map_copy(archive_file)
+                        .expect("mapping failed")
+                };
+                let data_ptr = mmap.as_mut_ptr();
+                let data_cipher = Aes128::new(&GenericArray::from(entry.aes_key));
 
-                // Since it's an optimization we don't really care about the
-                // result.
-                let _ = mmap.advise_range(Advice::Sequential, offset, size);
+                for range in &entry.aes_ranges {
+                    let size = (range.end - range.start) as usize;
+                    let start = unsafe { data_ptr.add(range.start as usize) };
 
-                Ok(VfsEntryReader::new(
-                    mmap,
-                    offset,
-                    size,
-                    &mmap[offset..offset + size],
-                    entry,
-                ))
+                    let num_blocks = size / Aes128::block_size();
+                    let blocks = unsafe { slice::from_raw_parts_mut(start as *mut _, num_blocks) };
+
+                    data_cipher.decrypt_blocks(blocks);
+                }
+
+                Ok(VfsEntryReader::new(mmap))
             }
             None => Err(VfsOpenError::NotFound),
         }
