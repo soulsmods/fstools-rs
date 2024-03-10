@@ -23,12 +23,10 @@ pub enum MatbinError {
     UnalignedValue,
 }
 
-#[derive(FromZeroes, FromBytes)]
-#[repr(C)]
-#[allow(unused)]
 // Defines a material for instancing in FLVERs and such.
 // It does so by pointing at a shader and specifying the parameter/sampler
 // setup.
+#[allow(unused)]
 pub struct Matbin<'buffer> {
     bytes: &'buffer [u8],
 
