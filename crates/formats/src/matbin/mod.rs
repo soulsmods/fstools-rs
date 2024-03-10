@@ -11,7 +11,7 @@ use crate::io_ext::zerocopy::Padding;
 #[derive(Debug, Error)]
 pub enum MatbinError {
     #[error("Could not copy bytes {0}")]
-    IO(#[from] io::Error),
+    Io(#[from] io::Error),
 
     #[error("Could not read string")]
     String(#[from] ReadUtf16StringError),
