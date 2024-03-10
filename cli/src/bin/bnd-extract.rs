@@ -1,4 +1,7 @@
-use std::io::{Read, Write};
+use std::{
+    error::Error,
+    io::{Read, Write},
+};
 
 use clap::Parser;
 use format::{bnd4::BND4, dcx::DcxHeader};
@@ -10,7 +13,7 @@ struct Args {
     file: String,
 }
 
-fn main() -> Result<(), std::io::Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let path = std::path::PathBuf::from(args.file);
 

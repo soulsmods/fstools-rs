@@ -1,9 +1,12 @@
 use std::{
     collections::HashMap,
-    io::{self, Cursor},
+    io::{self, Cursor, Read},
 };
 
-use format::{bnd4::BND4, dcx::DcxError};
+use format::{
+    bnd4::BND4,
+    dcx::{DcxError, DcxHeader},
+};
 use thiserror::Error;
 
 use crate::{Name, VfsOpenError};
@@ -97,18 +100,17 @@ pub struct BndFileEntry {
 // Optionally undoes any Dcx compression when detected. Unfortunately there is
 // no guarantee that any file will be Dcx compressed but they usually are
 // meaning that the hot path will generally involve a copy.
-pub fn undo_container_compression(_buf: &[u8]) -> Result<Vec<u8>, DcxError> {
-    // if DcxHeader::has_magic(buf) {
-    //     let dcx = DcxHeader::ref_from_prefix(buf).ok_or(DcxError::ParserError)?;
-    //
-    //     let mut decoder = dcx.create_decoder()?;
-    //     let mut decompressed = Vec::with_capacity(decoder.hint_size());
-    //     decoder.read_to_end(&mut decompressed)?;
-    //
-    //     Ok(decompressed)
-    // } else {
-    //     Ok(buf.to_vec())
-    // }
+// Optionally undoes any Dcx compression when detected. Unfortunately there is
+// no guarantee that any file will be Dcx compressed but they usually are
+// meaning that the hot path will generally involve a copy.
+pub fn undo_container_compression(buf: &[u8]) -> Result<Vec<u8>, DcxError> {
+    if DcxHeader::has_magic(buf) {
+        let (_, mut decoder) = DcxHeader::read(buf)?;
+        let mut decompressed = Vec::with_capacity(decoder.hint_size());
+        decoder.read_to_end(&mut decompressed)?;
 
-    todo!("FIXME")
+        Ok(decompressed)
+    } else {
+        Ok(buf.to_vec())
+    }
 }
