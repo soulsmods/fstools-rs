@@ -1,3 +1,20 @@
+[package]
+name = "fstools"
+edition = "2021"
+
+[dependencies]
+format = { path = "format" }
+souls_vfs = { path = "vfs" }
+
+[dev-dependencies]
+insta = "1"
+libtest-mimic = "0.7"
+
+[[test]]
+name = "dcx"
+path = "tests/dcx.rs"
+harness = false
+
 [workspace]
 resolver = "2"
 default-members = ["cli", "viewer"]

@@ -111,7 +111,9 @@ pub fn read_header_data<R: Read, O: ByteOrder>(
     mut reader: R,
     is_big_endian: bool,
 ) -> Result<BhdHeader, std::io::Error> {
-    reader.read_padding(7)?;
+    let _ = reader.read_u8()?;
+    reader.read_padding(2)?;
+    let _ = reader.read_u32::<O>()?;
 
     let file_size = reader.read_u32::<O>()?;
     let toc_buckets = reader.read_i32::<O>()?;

@@ -1,11 +1,13 @@
+use std::path::Path;
+
 // TODO: replace Name with Hasher attached to Archives, support 32 bit hash
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Name(pub u64);
 
-impl<S: AsRef<str>> From<S> for Name {
+impl<S: AsRef<Path>> From<S> for Name {
     fn from(value: S) -> Self {
         let value = value.as_ref();
-        let prefix = if !value.starts_with('/') {
+        let prefix = if !value.starts_with("/") {
             Some('/')
         } else {
             None
@@ -13,7 +15,12 @@ impl<S: AsRef<str>> From<S> for Name {
 
         let hash = prefix
             .into_iter()
-            .chain(value.chars().map(|ch| ch.to_ascii_lowercase()))
+            .chain(
+                value
+                    .to_string_lossy()
+                    .chars()
+                    .map(|ch| ch.to_ascii_lowercase()),
+            )
             .map(|ch| match ch {
                 '\\' => '/',
                 _ => ch,

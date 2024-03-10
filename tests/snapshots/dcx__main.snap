@@ -1,0 +1,5 @@
+---
+source: tests/dcx.rs
+expression: lines.len()
+---
+69821
