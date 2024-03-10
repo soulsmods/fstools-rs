@@ -1,0 +1,12 @@
+[package]
+name = "fstools_vfs"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+aes = "0.8"
+encoding_rs = "0.8"
+fstools_formats.workspace = true
+memmap2.workspace = true
+thiserror.workspace = true

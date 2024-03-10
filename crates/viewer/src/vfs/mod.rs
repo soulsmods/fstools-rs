@@ -4,7 +4,7 @@ use bevy::{
     asset::io::{AssetSource, AssetSourceId},
     prelude::*,
 };
-use souls_vfs::Vfs;
+use fstools_vfs::Vfs;
 
 use self::reader::VfsAssetRepository;
 

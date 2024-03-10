@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
-use souls_vfs::{FileKeyProvider, Vfs};
+use fstools_vfs::{FileKeyProvider, Vfs};
 use vfs::VfsAssetRepositoryPlugin;
 
 use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};

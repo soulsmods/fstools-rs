@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::Parser;
-use format::{bnd4::BND4, dcx::DcxHeader};
+use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

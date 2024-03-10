@@ -1,6 +1,6 @@
 [package]
-name = "viewer"
-edition = "2021"
+name = "fstools_viewer"
+edition.workspace = true
 version.workspace = true
 license.workspace = true
 
@@ -10,11 +10,8 @@ license.workspace = true
 clap = { version = "4", features = ["derive"] }
 byteorder = "1"
 bevy = { version = "0.13", features = ["dds"] }
-format = { path = "../format" }
-souls_vfs = { path = "../vfs" }
-util = { path = "../util" }
 bevy_panorbit_camera = "0.14"
 bevy-inspector-egui = "0.23"
-
-[dependencies.thiserror]
-workspace = true
+fstools_formats.workspace = true
+fstools_vfs.workspace = true
+thiserror.workspace = true

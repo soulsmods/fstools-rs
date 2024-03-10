@@ -1,10 +1,12 @@
 [package]
 name = "fstools"
-edition = "2021"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
 
 [dependencies]
-format = { path = "format" }
-souls_vfs = { path = "vfs" }
+fstools_formats.workspace = true
+fstools_vfs.workspace = true
 
 [dev-dependencies]
 insta = "1"
@@ -17,18 +19,22 @@ harness = false
 
 [workspace]
 resolver = "2"
-default-members = ["cli", "viewer"]
+default-members = ["crates/cli", "crates/viewer"]
 members = [
-    "format",
-    "cli",
-    "viewer",
-    "vfs",
-    "util",
+    "crates/formats",
+    "crates/cli",
+    "crates/viewer",
+    "crates/vfs",
 ]
 
 [workspace.package]
 version = "0.1.0"
 license = "MIT AND Apache-2.0"
+edition = "2021"
 
-[workspace.dependencies.thiserror]
-version = "1"
+[workspace.dependencies]
+fstools_formats = { path = "crates/formats", version = "0.1.0" }
+fstools_vfs = { path = "crates/vfs", version = "0.1.0" }
+memmap2 = "0.7"
+rayon = "1"
+thiserror = "1"

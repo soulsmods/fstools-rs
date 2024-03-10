@@ -1,9 +1,9 @@
 use std::{fs, io::Read, path::PathBuf};
 
 use clap::Parser;
+use fstools_vfs::{FileKeyProvider, Vfs};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use souls_vfs::{FileKeyProvider, Vfs};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

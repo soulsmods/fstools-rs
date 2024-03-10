@@ -11,7 +11,7 @@ use aes::{
     cipher::{generic_array::GenericArray, BlockDecrypt, BlockSizeUser, KeyInit},
     Aes128,
 };
-use format::bhd::Bhd;
+use fstools_formats::bhd::Bhd;
 use memmap2::MmapOptions;
 use thiserror::Error;
 
