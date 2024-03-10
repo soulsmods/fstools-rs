@@ -200,7 +200,7 @@ impl<'buffer> ParameterValue<'buffer> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(C)]
+#[repr(packed)]
 #[allow(unused)]
 pub struct Header {
     chunk_magic: [u8; 4],
@@ -229,7 +229,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(C)]
+#[repr(packed)]
 #[allow(unused)]
 pub struct Parameter {
     /// Offset to name of the parameter
@@ -248,7 +248,7 @@ pub struct Parameter {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(C)]
+#[repr(packed)]
 #[allow(unused)]
 pub struct Sampler {
     // Offset to the samplers type
