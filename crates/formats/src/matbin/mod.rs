@@ -77,8 +77,8 @@ impl<'a> Matbin<'a> {
     ) -> impl Iterator<Item=Result<SamplerIterElement, MatbinError>> {
         self.samplers.iter()
             .map(|e| {
-                let sampler_type = {
-                    let offset = e.type_offset.get() as usize;
+                let name = {
+                    let offset = e.name_offset.get() as usize;
                     let bytes = &self.bytes[offset..];
                     read_utf16_string(bytes)
                 }?;
@@ -90,7 +90,7 @@ impl<'a> Matbin<'a> {
                 }?;
 
                 Ok(SamplerIterElement {
-                    sampler_type,
+                    name,
                     path,
                 })
             })
@@ -206,7 +206,7 @@ pub struct Header {
     chunk_magic: [u8; 4],
 
     // Seems to be 2? Might be some version number. Couldn't easily find the
-    /// parser with Ghidra so :shrug:.
+    // parser with Ghidra so :shrug:.
     unk04: U32<LE>,
 
     /// Offset to the shader path
@@ -251,16 +251,16 @@ pub struct Parameter {
 #[repr(packed)]
 #[allow(unused)]
 pub struct Sampler {
-    // Offset to the samplers type
-    type_offset: U64<LE>,
+    /// Offset to the samplers name
+    name_offset: U64<LE>,
 
-    // Offset to the samplers path
+    /// Offset to the samplers path
     path_offset: U64<LE>,
 
-    // Adler32 hash of the type string without the string terminator
-    type_hash: U32<LE>,
+    /// Adler32 hash of the name string without the string terminator
+    name_hash: U32<LE>,
 
-    // ???
+    /// ???
     unkxy: [F32<LE>; 2],
 
     _padding1c: Padding<20>,

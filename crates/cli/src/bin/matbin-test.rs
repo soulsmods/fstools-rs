@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         for sampler in samplers.iter() {
             println!(
                 "   - Sampler: {} = {}",
-                sampler.sampler_type.to_string().unwrap(),
+                sampler.name.to_string().unwrap(),
                 sampler.path.to_string().unwrap(),
             );
         }
