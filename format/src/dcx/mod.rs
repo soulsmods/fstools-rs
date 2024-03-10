@@ -8,10 +8,10 @@ use byteorder::BE;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, U32};
 
-use self::{deflate::DcxDecoderDeflate, kraken::DcxDecoderKraken};
+use self::{deflate::DcxDecoderDeflate, oodle::OodleDecoder};
 
 pub mod deflate;
-pub mod kraken;
+pub mod oodle;
 
 const MAGIC_DCX: u32 = 0x44435800;
 const MAGIC_ALGORITHM_KRAKEN: &[u8; 4] = b"KRAK";
@@ -61,7 +61,7 @@ impl DcxHeader {
     pub fn create_decoder<R: Read>(&self, reader: R) -> Result<DcxContentDecoder<R>, DcxError> {
         let algorithm = &self.compression_parameters.algorithm;
         let decoder = match algorithm {
-            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(DcxDecoderKraken::new(
+            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(OodleDecoder::new(
                 reader,
                 self.sizes.uncompressed_size.get(),
             )),
@@ -106,7 +106,7 @@ impl Debug for DcxHeader {
 }
 
 pub enum Decoder<R: Read> {
-    Kraken(DcxDecoderKraken<R>),
+    Kraken(OodleDecoder<R>),
     Deflate(DcxDecoderDeflate<R>),
 }
 

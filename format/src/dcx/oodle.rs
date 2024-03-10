@@ -4,15 +4,9 @@ use std::{
     ptr::null_mut,
 };
 
-use oodle_sys::{
-    OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
-    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Invalid,
-    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
-    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
-    OODLELZ_BLOCK_LEN,
-};
+use oodle_sys::{OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy, OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Invalid, OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OodleLZ_Verbosity_OodleLZ_Verbosity_None, OODLELZ_BLOCK_LEN, OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Compressor_OodleLZ_Compressor_Kraken};
 
-pub struct DcxDecoderKraken<R: Read> {
+pub struct OodleDecoder<R: Read> {
     reader: R,
 
     /// The total size of the raw data expected to be read from the underlying stream.
@@ -26,23 +20,27 @@ pub struct DcxDecoderKraken<R: Read> {
     decode_buffer: Box<[u8]>,
 
     /// The decoders position into the sliding window.
-    decode_buffer_pos: usize,
+    decode_buffer_writer_pos: usize,
 
     /// The number of bytes that the consuming reader is lagging behind the decoder.
-    decode_buffer_lag: usize,
+    decode_buffer_reader_pos: usize,
+
+    /// Oodle requires at least [OODLELZ_BLOCK_LEN] bytes available in the input buffer, which the
+    /// read buffer might not fit. Instead, we buffer to this intermediate buffer and treat it as a
+    /// sliding window to ensure there are always OODLELZ_BLOCK_LEN bytes available to read.
     io_buffer: Box<[u8]>,
 
     /// The number of bytes available to read from [io_buffer], ending at [io_buffer_pos].
-    io_buffer_end: usize,
+    io_buffer_writer_pos: usize,
 
     /// Current position within the IO buffer.
-    io_buffer_pos: usize,
+    io_buffer_reader_pos: usize,
 }
 
-impl<R: Read> DcxDecoderKraken<R> {
+impl<R: Read> OodleDecoder<R> {
     // TODO: fix vfs reader so it isn't producing padding
     pub fn new(reader: R, uncompressed_size: u32) -> Self {
-        let compressor = OodleLZ_Compressor_OodleLZ_Compressor_Invalid;
+        let compressor = OodleLZ_Compressor_OodleLZ_Compressor_Kraken;
         let decoder = unsafe {
             OodleLZDecoder_Create(compressor, uncompressed_size as i64, null_mut(), 0isize)
         };
@@ -58,17 +56,17 @@ impl<R: Read> DcxDecoderKraken<R> {
             decoder,
             reader,
             decode_buffer,
-            decode_buffer_pos: 0,
-            decode_buffer_lag: 0,
+            decode_buffer_writer_pos: 0,
+            decode_buffer_reader_pos: 0,
             io_buffer,
-            io_buffer_pos: 0,
-            io_buffer_end: 0,
+            io_buffer_reader_pos: 0,
+            io_buffer_writer_pos: 0,
             uncompressed_size,
         }
     }
 }
 
-impl<R: Read> Read for DcxDecoderKraken<R> {
+impl<R: Read> Read for OodleDecoder<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -78,12 +76,12 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
         let mut total_written = 0usize;
 
         while total_written < buf.len() {
-            let wpos = self.decode_buffer_pos;
+            let wpos = self.decode_buffer_writer_pos;
 
             // Check if there's data to be written from the sliding window first
-            if self.decode_buffer_lag > 0 {
-                let bytes_to_copy = min(self.decode_buffer_lag, buf.len() - total_written);
-                let start = wpos - self.decode_buffer_lag;
+            if self.decode_buffer_reader_pos > 0 {
+                let bytes_to_copy = min(self.decode_buffer_reader_pos, buf.len() - total_written);
+                let start = wpos - self.decode_buffer_reader_pos;
                 let end = start + bytes_to_copy;
 
                 let src = &self.decode_buffer[start..end];
@@ -91,17 +89,17 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
 
                 dest.copy_from_slice(src);
 
-                self.decode_buffer_lag -= bytes_to_copy;
+                self.decode_buffer_reader_pos -= bytes_to_copy;
                 total_written += bytes_to_copy;
 
                 continue;
             }
 
-            self.io_buffer_end += self
+            self.io_buffer_writer_pos += self
                 .reader
-                .read(&mut self.io_buffer[self.io_buffer_end..])?;
+                .read(&mut self.io_buffer[self.io_buffer_writer_pos..])?;
 
-            let data = &self.io_buffer[self.io_buffer_pos..self.io_buffer_end];
+            let data = &self.io_buffer[self.io_buffer_reader_pos..self.io_buffer_writer_pos];
             // Read and decode new data
             if data.is_empty() {
                 break; // EOF reached
@@ -126,8 +124,8 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
                     decode_buffer_avail as isize,
                     data.as_ptr() as *const _,
                     input_data_len,
-                    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes,
-                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
+                    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
+                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
                     OodleLZ_Verbosity_OodleLZ_Verbosity_None,
                     OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
                 )
@@ -140,7 +138,7 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
             let decoded_bytes = out.decodedCount as usize;
             let consumed_bytes = out.compBufUsed as usize;
 
-            self.io_buffer_pos += consumed_bytes;
+            self.io_buffer_reader_pos += consumed_bytes;
 
             if decoded_bytes > 0 {
                 let bytes_to_copy = min(decoded_bytes, buf.len() - total_written);
@@ -149,8 +147,8 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
 
                 dest.copy_from_slice(src);
 
-                self.decode_buffer_pos += decoded_bytes;
-                self.decode_buffer_lag = decoded_bytes - bytes_to_copy;
+                self.decode_buffer_writer_pos += decoded_bytes;
+                self.decode_buffer_reader_pos = decoded_bytes - bytes_to_copy;
                 total_written += bytes_to_copy;
             } else {
                 // Nothing more to decode.
@@ -158,21 +156,22 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
                     return Ok(0);
                 }
 
-                let remaining = self.io_buffer_end - self.io_buffer_pos;
+                let remaining = self.io_buffer_writer_pos - self.io_buffer_reader_pos;
 
-                self.io_buffer.rotate_left(self.io_buffer_pos);
-                self.io_buffer_pos = 0;
-                self.io_buffer_end = remaining;
+                self.io_buffer.rotate_left(self.io_buffer_reader_pos);
+                self.io_buffer_reader_pos = 0;
+                self.io_buffer_writer_pos = remaining;
             }
 
             // Manage sliding window
-            if self.decode_buffer_pos + OODLELZ_BLOCK_LEN as usize > self.decode_buffer.len() {
+            if self.decode_buffer_writer_pos + OODLELZ_BLOCK_LEN as usize > self.decode_buffer.len()
+            {
                 self.decode_buffer.copy_within(
-                    self.decode_buffer_pos - dictionary_size..self.decode_buffer_pos,
+                    self.decode_buffer_writer_pos - dictionary_size..self.decode_buffer_writer_pos,
                     0,
                 );
 
-                self.decode_buffer_pos = dictionary_size;
+                self.decode_buffer_writer_pos = dictionary_size;
             }
         }
 
@@ -180,7 +179,7 @@ impl<R: Read> Read for DcxDecoderKraken<R> {
     }
 }
 
-impl<R: Read> Drop for DcxDecoderKraken<R> {
+impl<R: Read> Drop for OodleDecoder<R> {
     fn drop(&mut self) {
         unsafe { OodleLZDecoder_Destroy(self.decoder) }
     }
