@@ -121,16 +121,6 @@ impl<'a> Matbin<'a> {
     }
 }
 
-pub struct ParameterIterElement<'a> {
-    pub name: Cow<'a, U16Str>,
-    pub value: ParameterValue<'a>,
-}
-
-pub struct SamplerIterElement<'a> {
-    pub sampler_type: Cow<'a, U16Str>,
-    pub path: Cow<'a, U16Str>,
-}
-
 impl<'a> std::fmt::Debug for Matbin<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Matbin")
@@ -143,7 +133,16 @@ impl<'a> std::fmt::Debug for Matbin<'a> {
     }
 }
 
-#[derive(Debug)]
+pub struct ParameterIterElement<'a> {
+    pub name: Cow<'a, U16Str>,
+    pub value: ParameterValue<'a>,
+}
+
+pub struct SamplerIterElement<'a> {
+    pub name: Cow<'a, U16Str>,
+    pub path: Cow<'a, U16Str>,
+}
+
 pub enum ParameterValue<'a> {
     Bool(bool),
     Int(&'a U32<LE>),
