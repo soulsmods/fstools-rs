@@ -25,10 +25,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Vfs::create(archives.clone(), &keys)
-        .expect("unable to create vfs");
-    let matbinbnd = vfs.open("/material/allmaterial.matbinbnd.dcx")
-        .unwrap();
+    let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    let matbinbnd = vfs.open("/material/allmaterial.matbinbnd.dcx").unwrap();
 
     let (_, mut decoder) = DcxHeader::read(matbinbnd)?;
 
@@ -56,9 +54,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             matbin.shader_path().unwrap().to_string().unwrap()
         );
 
-        let parameters = matbin.parameters().collect::<Result<Vec<_>, _>>()
+        let parameters = matbin
+            .parameters()
+            .collect::<Result<Vec<_>, _>>()
             .expect("Could not collect samplers");
-        for parameter in parameters.iter(){
+        for parameter in parameters.iter() {
             println!(
                 "   - Parameter: {} = {:?}",
                 parameter.name.to_string().unwrap(),
@@ -66,7 +66,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
         }
 
-        let samplers = matbin.samplers().collect::<Result<Vec<_>, _>>()
+        let samplers = matbin
+            .samplers()
+            .collect::<Result<Vec<_>, _>>()
             .expect("Could not collect samplers");
         for sampler in samplers.iter() {
             println!(

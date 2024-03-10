@@ -31,7 +31,7 @@ pub struct Matbin<'a> {
     bytes: &'a [u8],
 
     header: &'a Header,
-    
+
     parameters: &'a [Parameter],
 
     samplers: &'a [Sampler],
@@ -40,15 +40,10 @@ pub struct Matbin<'a> {
 impl<'a> Matbin<'a> {
     pub fn parse(bytes: &'a [u8]) -> Option<Self> {
         let (header, next) = Ref::<_, Header>::new_from_prefix(bytes)?;
-        let (parameters, next) = Parameter::slice_from_prefix(
-            next,
-            header.parameter_count.get() as usize,
-        )?;
+        let (parameters, next) =
+            Parameter::slice_from_prefix(next, header.parameter_count.get() as usize)?;
 
-        let (samplers, _) = Sampler::slice_from_prefix(
-            next,
-            header.sampler_count.get() as usize,
-        )?;
+        let (samplers, _) = Sampler::slice_from_prefix(next, header.sampler_count.get() as usize)?;
 
         Some(Self {
             bytes,
@@ -72,52 +67,37 @@ impl<'a> Matbin<'a> {
         Ok(read_utf16_string(bytes)?)
     }
 
-    pub fn samplers(
-        &self,
-    ) -> impl Iterator<Item=Result<SamplerIterElement, MatbinError>> {
-        self.samplers.iter()
-            .map(|e| {
-                let name = {
-                    let offset = e.name_offset.get() as usize;
-                    let bytes = &self.bytes[offset..];
-                    read_utf16_string(bytes)
-                }?;
+    pub fn samplers(&self) -> impl Iterator<Item = Result<SamplerIterElement, MatbinError>> {
+        self.samplers.iter().map(|e| {
+            let name = {
+                let offset = e.name_offset.get() as usize;
+                let bytes = &self.bytes[offset..];
+                read_utf16_string(bytes)
+            }?;
 
-                let path = {
-                    let offset = e.path_offset.get() as usize;
-                    let bytes = &self.bytes[offset..];
-                    read_utf16_string(bytes)
-                }?;
+            let path = {
+                let offset = e.path_offset.get() as usize;
+                let bytes = &self.bytes[offset..];
+                read_utf16_string(bytes)
+            }?;
 
-                Ok(SamplerIterElement {
-                    name,
-                    path,
-                })
-            })
+            Ok(SamplerIterElement { name, path })
+        })
     }
 
-    pub fn parameters(
-        &self,
-    ) -> impl Iterator<Item=Result<ParameterIterElement, MatbinError>> {
-        self.parameters.iter()
-            .map(|e| {
-                let name = {
-                    let offset = e.name_offset.get() as usize;
-                    let bytes = &self.bytes[offset..];
-                    read_utf16_string(bytes)
-                }?;
+    pub fn parameters(&self) -> impl Iterator<Item = Result<ParameterIterElement, MatbinError>> {
+        self.parameters.iter().map(|e| {
+            let name = {
+                let offset = e.name_offset.get() as usize;
+                let bytes = &self.bytes[offset..];
+                read_utf16_string(bytes)
+            }?;
 
-                let value_slice = &self.bytes[e.value_offset.get() as usize..];
-                let value = ParameterValue::from_type_and_slice(
-                    e.value_type.get(),
-                    value_slice,
-                )?;
+            let value_slice = &self.bytes[e.value_offset.get() as usize..];
+            let value = ParameterValue::from_type_and_slice(e.value_type.get(), value_slice)?;
 
-                Ok(ParameterIterElement {
-                    name,
-                    value,
-                })
-            })
+            Ok(ParameterIterElement { name, value })
+        })
     }
 }
 
@@ -160,40 +140,39 @@ impl<'a> ParameterValue<'a> {
         value_slice: &'a [u8],
     ) -> Result<Self, MatbinError> {
         Ok(match value_type {
-            0x0 => ParameterValue::Bool(
-                value_slice[0] != 0x0
-            ),
+            0x0 => ParameterValue::Bool(value_slice[0] != 0x0),
             0x4 => ParameterValue::Int(
-                U32::<LE>::ref_from_prefix(value_slice)
-                    .ok_or(MatbinError::UnalignedValue)?,
+                U32::<LE>::ref_from_prefix(value_slice).ok_or(MatbinError::UnalignedValue)?,
             ),
             0x5 => ParameterValue::IntVec2(
                 U32::<LE>::slice_from_prefix(value_slice, 2)
-                    .ok_or(MatbinError::UnalignedValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?
+                    .0,
             ),
             0x8 => ParameterValue::Float(
-                F32::<LE>::ref_from_prefix(value_slice)
-                    .ok_or(MatbinError::UnalignedValue)?,
+                F32::<LE>::ref_from_prefix(value_slice).ok_or(MatbinError::UnalignedValue)?,
             ),
             0x9 => ParameterValue::FloatVec2(
                 F32::<LE>::slice_from_prefix(value_slice, 2)
-                    .ok_or(MatbinError::UnalignedValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?
+                    .0,
             ),
             0xA => ParameterValue::FloatVec3(
                 F32::<LE>::slice_from_prefix(value_slice, 3)
-                    .ok_or(MatbinError::UnalignedValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?
+                    .0,
             ),
             0xB => ParameterValue::FloatVec4(
                 F32::<LE>::slice_from_prefix(value_slice, 4)
-                    .ok_or(MatbinError::UnalignedValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?
+                    .0,
             ),
             0xC => ParameterValue::FloatVec5(
                 F32::<LE>::slice_from_prefix(value_slice, 5)
-                    .ok_or(MatbinError::UnalignedValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?
+                    .0,
             ),
-            _ => {
-                return Err(MatbinError::UnknownParameterType(value_type))
-            }
+            _ => return Err(MatbinError::UnknownParameterType(value_type)),
         })
     }
 }
@@ -203,17 +182,9 @@ impl<'a> std::fmt::Debug for ParameterValue<'a> {
         f.write_str(&match self {
             ParameterValue::Bool(v) => format!("Bool({})", v),
             ParameterValue::Int(v) => format!("Int({})", v.get()),
-            ParameterValue::IntVec2(v) => format!(
-                "IntVec2([{}, {}])",
-                v[0].get(),
-                v[1].get(),
-            ),
+            ParameterValue::IntVec2(v) => format!("IntVec2([{}, {}])", v[0].get(), v[1].get(),),
             ParameterValue::Float(v) => format!("Float({})", v.get()),
-            ParameterValue::FloatVec2(v) => format!(
-                "FloatVec2([{}, {}])",
-                v[0].get(),
-                v[1].get(),
-            ),
+            ParameterValue::FloatVec2(v) => format!("FloatVec2([{}, {}])", v[0].get(), v[1].get(),),
             ParameterValue::FloatVec3(v) => format!(
                 "FloatVec3([{}, {}, {}])",
                 v[0].get(),
@@ -315,11 +286,10 @@ pub enum ReadUtf16StringError {
     Bytemuck,
 }
 
-fn read_utf16_string(
-    input: &[u8]
-) -> Result<Cow<'_, U16Str>, ReadUtf16StringError> {
+fn read_utf16_string(input: &[u8]) -> Result<Cow<'_, U16Str>, ReadUtf16StringError> {
     // Find the end of the input string
-    let length = input.chunks_exact(2)
+    let length = input
+        .chunks_exact(2)
         .position(|bytes| bytes[0] == 0x0 && bytes[1] == 0x0)
         .ok_or(ReadUtf16StringError::NoEndFound)?;
 
@@ -337,7 +307,8 @@ fn read_utf16_string(
                 return Err(ReadUtf16StringError::Bytemuck);
             }
 
-            let aligned_copy = string_bytes.chunks(2)
+            let aligned_copy = string_bytes
+                .chunks(2)
                 .map(|a| u16::from_le_bytes([a[0], a[1]]))
                 .collect::<Vec<u16>>();
 
