@@ -1,7 +1,7 @@
 use std::{collections::HashSet, error::Error, io::Read, path::PathBuf, sync::Arc};
 
-use fstools_formats::dcx::DcxError;
 use fstools::{formats::dcx::DcxHeader, prelude::*};
+use fstools_formats::dcx::DcxError;
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
 
