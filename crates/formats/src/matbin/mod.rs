@@ -20,7 +20,7 @@ pub enum MatbinError {
     UnknownParameterType(u32),
 
     #[error("Could not create reference to value")]
-    ParameterValue,
+    UnalignedValue,
 }
 
 #[derive(FromZeroes, FromBytes)]
@@ -168,31 +168,31 @@ impl<'buffer> ParameterValue<'buffer> {
             ),
             0x4 => ParameterValue::Int(
                 U32::<LE>::ref_from_prefix(value_slice)
-                    .ok_or(MatbinError::ParameterValue)?,
+                    .ok_or(MatbinError::UnalignedValue)?,
             ),
             0x5 => ParameterValue::IntVec2(
                 U32::<LE>::slice_from_prefix(value_slice, 2)
-                    .ok_or(MatbinError::ParameterValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?.0,
             ),
             0x8 => ParameterValue::Float(
                 F32::<LE>::ref_from_prefix(value_slice)
-                    .ok_or(MatbinError::ParameterValue)?,
+                    .ok_or(MatbinError::UnalignedValue)?,
             ),
             0x9 => ParameterValue::FloatVec2(
                 F32::<LE>::slice_from_prefix(value_slice, 2)
-                    .ok_or(MatbinError::ParameterValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?.0,
             ),
             0xA => ParameterValue::FloatVec3(
                 F32::<LE>::slice_from_prefix(value_slice, 3)
-                    .ok_or(MatbinError::ParameterValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?.0,
             ),
             0xB => ParameterValue::FloatVec4(
                 F32::<LE>::slice_from_prefix(value_slice, 4)
-                    .ok_or(MatbinError::ParameterValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?.0,
             ),
             0xC => ParameterValue::FloatVec5(
                 F32::<LE>::slice_from_prefix(value_slice, 5)
-                    .ok_or(MatbinError::ParameterValue)?.0,
+                    .ok_or(MatbinError::UnalignedValue)?.0,
             ),
             _ => {
                 return Err(MatbinError::UnknownParameterType(value_type))
@@ -273,7 +273,7 @@ pub enum ReadUtf16StringError {
     #[error("Could not find end of string")]
     NoEndFound,
 
-    #[error("Bytemuck could not cast the pod")]
+    #[error("Bytemuck could not cast pod")]
     Bytemuck,
 }
 
