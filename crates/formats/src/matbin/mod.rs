@@ -198,6 +198,47 @@ impl<'a> ParameterValue<'a> {
     }
 }
 
+impl<'a> std::fmt::Debug for ParameterValue<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            ParameterValue::Bool(v) => format!("Bool({})", v),
+            ParameterValue::Int(v) => format!("Int({})", v.get()),
+            ParameterValue::IntVec2(v) => format!(
+                "IntVec2([{}, {}])",
+                v[0].get(),
+                v[1].get(),
+            ),
+            ParameterValue::Float(v) => format!("Float({})", v.get()),
+            ParameterValue::FloatVec2(v) => format!(
+                "FloatVec2([{}, {}])",
+                v[0].get(),
+                v[1].get(),
+            ),
+            ParameterValue::FloatVec3(v) => format!(
+                "FloatVec3([{}, {}, {}])",
+                v[0].get(),
+                v[1].get(),
+                v[2].get(),
+            ),
+            ParameterValue::FloatVec4(v) => format!(
+                "FloatVec4([{}, {}, {}, {}])",
+                v[0].get(),
+                v[1].get(),
+                v[2].get(),
+                v[3].get(),
+            ),
+            ParameterValue::FloatVec5(v) => format!(
+                "FloatVec5([{}, {}, {}, {}, {}])",
+                v[0].get(),
+                v[1].get(),
+                v[2].get(),
+                v[3].get(),
+                v[4].get(),
+            ),
+        })
+    }
+}
+
 #[derive(FromZeroes, FromBytes, Debug)]
 #[repr(packed)]
 #[allow(unused)]
