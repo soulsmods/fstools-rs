@@ -3,7 +3,7 @@ use std::{fs, io::Read, path::PathBuf};
 use clap::Parser;
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use souls_vfs::{FileKeyProvider, Vfs};
+use fstools_vfs::{FileKeyProvider, Vfs};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

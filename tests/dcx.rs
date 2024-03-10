@@ -1,6 +1,6 @@
 use std::{collections::HashSet, error::Error, io::Read, path::PathBuf, sync::Arc};
 
-use format::dcx::DcxError;
+use fstools_formats::dcx::DcxError;
 use fstools::{formats::dcx::DcxHeader, prelude::*};
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};

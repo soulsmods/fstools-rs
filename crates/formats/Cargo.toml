@@ -1,8 +1,8 @@
 [package]
-name = "format"
+name = "fstools_formats"
 version.workspace = true
 license.workspace = true
-edition = "2021"
+edition.workspace = true
 build = "build.rs"
 
 [features]
@@ -10,17 +10,14 @@ default = []
 strict-padding = []
 
 [dependencies]
+aes = "0.8"
 bytemuck = "1"
 byteorder = "1"
-aes = "0.8"
-rayon = "1"
-rug = "1.24"
-rsa = "0.9"
-zerocopy = { version = "0.7.32", features = ["derive"] }
 flate2 = "1.0"
+oodle-sys = "0.1"
+rayon.workspace = true
+rsa = "0.9"
+rug = "1.24"
+zerocopy = { version = "0.7.32", features = ["derive"] }
+thiserror.workspace = true
 
-[dependencies.thiserror]
-workspace = true
-
-[dependencies.oodle-sys]
-version = "0.1"

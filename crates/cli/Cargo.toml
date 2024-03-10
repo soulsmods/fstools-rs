@@ -1,18 +1,14 @@
 [package]
-name = "cli"
+name = "fstools_cli"
 version.workspace = true
 license.workspace = true
-edition = "2021"
+edition.workspace = true
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-format = { path = "../format" }
 indicatif = { version = "0.17", features = ["rayon"] }
-rayon = "1"
-souls_vfs = { path = "../vfs" }
-util = { path = "../util" }
-
-[dependencies.memmap2]
-version = "0.7"
-
+fstools_formats.workspace = true
+fstools_vfs.workspace = true
+memmap2.workspace = true
+rayon.workspace = true
 

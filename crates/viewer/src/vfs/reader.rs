@@ -14,7 +14,7 @@ use bevy::{
     prelude::{Deref, DerefMut, Resource},
     tasks::futures_lite::{io::Cursor, AsyncRead},
 };
-use souls_vfs::{Vfs, VfsEntryReader as VfsEntryReaderImpl, VfsOpenError};
+use fstools_vfs::{Vfs, VfsEntryReader as VfsEntryReaderImpl, VfsOpenError};
 
 #[derive(Clone, Deref, DerefMut, Resource)]
 pub struct VfsAssetRepository(pub(crate) Arc<Vfs>);

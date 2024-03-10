@@ -3,7 +3,7 @@ use std::{
     io::{self, Cursor, Read},
 };
 
-use format::{
+use fstools_formats::{
     bnd4::BND4,
     dcx::{DcxError, DcxHeader},
 };
