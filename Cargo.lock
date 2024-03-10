@@ -2159,6 +2159,7 @@ dependencies = [
  "rsa",
  "rug",
  "thiserror",
+ "widestring",
  "zerocopy",
 ]
 
