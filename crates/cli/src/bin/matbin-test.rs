@@ -75,8 +75,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 sampler.path.to_string().unwrap(),
             );
         }
-
-        println!("");
     }
 
     Ok(())
