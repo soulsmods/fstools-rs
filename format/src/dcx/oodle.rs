@@ -4,7 +4,13 @@ use std::{
     ptr::null_mut,
 };
 
-use oodle_sys::{OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy, OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Invalid, OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_Yes, OodleLZ_Verbosity_OodleLZ_Verbosity_None, OODLELZ_BLOCK_LEN, OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Compressor_OodleLZ_Compressor_Kraken};
+use oodle_sys::{
+    OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
+    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
+    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
+    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
+    OODLELZ_BLOCK_LEN,
+};
 
 pub struct OodleDecoder<R: Read> {
     reader: R,
@@ -38,21 +44,21 @@ pub struct OodleDecoder<R: Read> {
 }
 
 impl<R: Read> OodleDecoder<R> {
-    // TODO: fix vfs reader so it isn't producing padding
-    pub fn new(reader: R, uncompressed_size: u32) -> Self {
+    pub fn new(reader: R, uncompressed_size: u32) -> Option<Self> {
         let compressor = OodleLZ_Compressor_OodleLZ_Compressor_Kraken;
         let decoder = unsafe {
             OodleLZDecoder_Create(compressor, uncompressed_size as i64, null_mut(), 0isize)
         };
 
+        // Oodle was unable to create a decoder for this compressor
         if decoder.is_null() {
-            panic!("return error here: failed to create decoder, check oodle error");
+            return None;
         }
 
         let decode_buffer = vec![0u8; 3 * 1024 * 1024].into_boxed_slice();
         let io_buffer = vec![0u8; OODLELZ_BLOCK_LEN as usize * 2].into_boxed_slice();
 
-        Self {
+        Some(Self {
             decoder,
             reader,
             decode_buffer,
@@ -62,7 +68,7 @@ impl<R: Read> OodleDecoder<R> {
             io_buffer_reader_pos: 0,
             io_buffer_writer_pos: 0,
             uncompressed_size,
-        }
+        })
     }
 }
 

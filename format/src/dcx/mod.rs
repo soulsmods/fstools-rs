@@ -27,6 +27,9 @@ pub enum DcxError {
 
     #[error("Could not properly parse DCX file")]
     ParserError,
+
+    #[error("Unable to create compression codec for DCX contents")]
+    DecoderError,
 }
 
 #[derive(Debug, Error)]
@@ -61,10 +64,10 @@ impl DcxHeader {
     pub fn create_decoder<R: Read>(&self, reader: R) -> Result<DcxContentDecoder<R>, DcxError> {
         let algorithm = &self.compression_parameters.algorithm;
         let decoder = match algorithm {
-            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(OodleDecoder::new(
-                reader,
-                self.sizes.uncompressed_size.get(),
-            )),
+            MAGIC_ALGORITHM_KRAKEN => Decoder::Kraken(
+                OodleDecoder::new(reader, self.sizes.uncompressed_size.get())
+                    .ok_or(DcxError::DecoderError)?,
+            ),
             MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DcxDecoderDeflate::new(reader)),
             _ => return Err(DcxError::UnknownAlgorithm(algorithm.to_owned())),
         };
