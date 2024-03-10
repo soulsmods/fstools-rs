@@ -27,18 +27,18 @@ pub enum MatbinError {
 // It does so by pointing at a shader and specifying the parameter/sampler
 // setup.
 #[allow(unused)]
-pub struct Matbin<'buffer> {
-    bytes: &'buffer [u8],
+pub struct Matbin<'a> {
+    bytes: &'a [u8],
 
-    header: &'buffer Header,
+    header: &'a Header,
     
-    parameters: &'buffer [Parameter],
+    parameters: &'a [Parameter],
 
-    samplers: &'buffer [Sampler],
+    samplers: &'a [Sampler],
 }
 
-impl<'buffer> Matbin<'buffer> {
-    pub fn parse(bytes: &'buffer [u8]) -> Option<Self> {
+impl<'a> Matbin<'a> {
+    pub fn parse(bytes: &'a [u8]) -> Option<Self> {
         let (header, next) = Ref::<_, Header>::new_from_prefix(bytes)?;
         let (parameters, next) = Parameter::slice_from_prefix(
             next,
@@ -121,17 +121,17 @@ impl<'buffer> Matbin<'buffer> {
     }
 }
 
-pub struct ParameterIterElement<'buffer> {
-    pub name: Cow<'buffer, U16Str>,
-    pub value: ParameterValue<'buffer>,
+pub struct ParameterIterElement<'a> {
+    pub name: Cow<'a, U16Str>,
+    pub value: ParameterValue<'a>,
 }
 
-pub struct SamplerIterElement<'buffer> {
-    pub sampler_type: Cow<'buffer, U16Str>,
-    pub path: Cow<'buffer, U16Str>,
+pub struct SamplerIterElement<'a> {
+    pub sampler_type: Cow<'a, U16Str>,
+    pub path: Cow<'a, U16Str>,
 }
 
-impl<'buffer> std::fmt::Debug for Matbin<'buffer> {
+impl<'a> std::fmt::Debug for Matbin<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Matbin")
             .field("shader_path", &self.shader_path())
@@ -144,21 +144,21 @@ impl<'buffer> std::fmt::Debug for Matbin<'buffer> {
 }
 
 #[derive(Debug)]
-pub enum ParameterValue<'buffer> {
+pub enum ParameterValue<'a> {
     Bool(bool),
-    Int(&'buffer U32<LE>),
-    IntVec2(&'buffer [U32<LE>]),
-    Float(&'buffer F32<LE>),
-    FloatVec2(&'buffer [F32<LE>]),
-    FloatVec3(&'buffer [F32<LE>]),
-    FloatVec4(&'buffer [F32<LE>]),
-    FloatVec5(&'buffer [F32<LE>]),
+    Int(&'a U32<LE>),
+    IntVec2(&'a [U32<LE>]),
+    Float(&'a F32<LE>),
+    FloatVec2(&'a [F32<LE>]),
+    FloatVec3(&'a [F32<LE>]),
+    FloatVec4(&'a [F32<LE>]),
+    FloatVec5(&'a [F32<LE>]),
 }
 
-impl<'buffer> ParameterValue<'buffer> {
+impl<'a> ParameterValue<'a> {
     pub fn from_type_and_slice(
         value_type: u32,
-        value_slice: &'buffer [u8],
+        value_slice: &'a [u8],
     ) -> Result<Self, MatbinError> {
         Ok(match value_type {
             0x0 => ParameterValue::Bool(
