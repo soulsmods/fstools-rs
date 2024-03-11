@@ -12,7 +12,7 @@ use aes::{
     Aes128,
 };
 use fstools_formats::bhd::Bhd;
-use memmap2::MmapOptions;
+use memmap2::{Advice, MmapOptions};
 use thiserror::Error;
 
 pub use self::{
@@ -152,6 +152,8 @@ impl DvdBnd {
 
                     data_cipher.decrypt_blocks(blocks);
                 }
+
+                let _ = mmap.advise(Advice::Sequential);
 
                 Ok(DvdBndEntryReader::new(mmap))
             }
