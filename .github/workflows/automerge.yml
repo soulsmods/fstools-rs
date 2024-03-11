@@ -4,7 +4,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: octokit/graphql-action@v2.x
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+        if: ${{ github.event.pull_request.draft == false }}
         id: enable_automerge
         with:
           query: |
