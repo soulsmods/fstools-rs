@@ -26,7 +26,7 @@ fn main() {
         er_path.join("sd/sd"),
     ];
 
-    let mut vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
+    let mut vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
 
     vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
         .expect("Could not mount bnd");

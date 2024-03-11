@@ -20,10 +20,10 @@ pub struct BndMountHost {
 
 #[derive(Debug, Error)]
 pub enum BndMountError {
-    #[error("Could not get vfs file reader: {0}")]
+    #[error("Could not get dvdbnd file reader: {0}")]
     VfsOpen(#[from] DvdBndEntryError),
 
-    #[error("Could not get copy bnd4 bytes from vfs reader: {0}")]
+    #[error("Could not get copy bnd4 bytes from dvdbnd reader: {0}")]
     DataCopy(io::Error),
 
     #[error("Could not parse Dcx: {0}")]

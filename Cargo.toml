@@ -28,7 +28,7 @@ members = [
     "crates/formats",
     "crates/cli",
     "crates/viewer",
-    "crates/vfs",
+    "crates/dvdbnd",
 ]
 
 [workspace.package]
@@ -48,7 +48,7 @@ ptr_cast_constness = "warn"
 
 [workspace.dependencies]
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
-fstools_dvdbnd = { path = "crates/vfs", version = "0.1.0" }
+fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
 memmap2 = "0.7"
 rayon = "1"
 thiserror = "1"

@@ -18,7 +18,7 @@ pub fn vfs_open_benchmark(c: &mut Criterion) {
                 er_path.join("sd/sd"),
             ];
 
-            let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
+            let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
 
             black_box(vfs)
         })

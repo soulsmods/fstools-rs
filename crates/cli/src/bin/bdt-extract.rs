@@ -30,7 +30,7 @@ fn main() -> Result<(), std::io::Error> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
 
     let dictionary = std::fs::read_to_string(args.dictionary)?;
     let lines = dictionary
@@ -53,7 +53,7 @@ fn main() -> Result<(), std::io::Error> {
                     let mut buffer = Vec::new();
                     entry
                         .read_to_end(&mut buffer)
-                        .expect("Could not read from vfs to file buffer");
+                        .expect("Could not read from dvdbnd to file buffer");
 
                     let output_path = std::path::PathBuf::from(format!("./extract/{}", path));
                     let directory = output_path.parent().unwrap();

@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
     let matbinbnd = vfs.open("/material/allmaterial.matbinbnd.dcx").unwrap();
 
     let (_, mut decoder) = DcxHeader::read(matbinbnd)?;
