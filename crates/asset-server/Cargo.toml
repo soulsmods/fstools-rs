@@ -1,0 +1,15 @@
+[package]
+name = "fstools_asset_server"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+bevy_app = "0.13"
+bevy_asset = { version = "0.13", features = ["multi-threaded", "asset_processor", "file_watcher"] }
+fstools_dvdbnd.workspace = true
+fstools_formats.workspace = true
+futures-lite = "2"
+
+[lints]
+workspace = true

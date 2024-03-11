@@ -5,7 +5,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
-use vfs::VfsAssetRepositoryPlugin;
 
 use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
 

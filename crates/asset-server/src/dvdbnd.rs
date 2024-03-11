@@ -1,39 +1,27 @@
-use std::{
-    io::{self, Read},
-    path::Path,
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
+use std::{io, io::Read, path::Path, pin::Pin, sync::Arc, task::Poll};
+
+use bevy_asset::{
+    io::{AssetReader, AssetReaderError, PathStream, Reader},
+    BoxedFuture,
 };
+use fstools_dvdbnd::{DvdBnd, DvdBndEntryError, DvdBndEntryReader};
+use futures_lite::AsyncRead;
 
-use bevy::{
-    asset::{
-        io::{AssetReader, AssetReaderError, PathStream, Reader},
-        BoxedFuture,
-    },
-    prelude::{Deref, DerefMut, Resource},
-    tasks::futures_lite::{io::Cursor, AsyncRead},
-};
-use fstools_dvdbnd::{DvdBnd, DvdBndEntryError, DvdBndEntryReader as VfsEntryReaderImpl};
+#[derive(Clone)]
+pub struct DvdBndAssetSource(pub(crate) Arc<DvdBnd>);
 
-#[derive(Clone, Deref, DerefMut, Resource)]
-pub struct VfsAssetRepository(pub(crate) Arc<DvdBnd>);
-
-impl AssetReader for VfsAssetRepository {
+impl AssetReader for DvdBndAssetSource {
     fn read<'a>(
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
             let path_str = path.to_string_lossy();
+            let dvd_bnd = &self.0;
 
-            self.open(&*path_str)
-                .map(|r| Box::new(VfsEntryReader(r)) as Box<Reader>)
-                .or_else(|_| {
-                    Ok(self
-                        .open_from_mounts(&path_str)
-                        .map(|r| Box::new(Cursor::new(r)))?)
-                })
+            dvd_bnd
+                .open(&*path_str)
+                .map(|r| Box::new(AsyncDvdBndEntryReader(r)) as Box<Reader>)
                 .map_err(|e| match e {
                     DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
                     _ => AssetReaderError::Io(Arc::new(io::Error::other(
@@ -65,9 +53,9 @@ impl AssetReader for VfsAssetRepository {
     }
 }
 
-struct VfsEntryReader(VfsEntryReaderImpl);
+struct AsyncDvdBndEntryReader(DvdBndEntryReader);
 
-impl AsyncRead for VfsEntryReader {
+impl AsyncRead for AsyncDvdBndEntryReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,

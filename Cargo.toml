@@ -28,7 +28,7 @@ members = [
     "crates/formats",
     "crates/cli",
     "crates/viewer",
-    "crates/dvdbnd",
+    "crates/dvdbnd", "crates/asset-server",
 ]
 
 [workspace.package]
