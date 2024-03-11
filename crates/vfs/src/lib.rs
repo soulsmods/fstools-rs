@@ -19,7 +19,7 @@ pub use self::{
     bnd::{undo_container_compression, BndMountHost},
     key_provider::{ArchiveKeyProvider, FileKeyProvider},
     name::Name,
-    reader::VfsEntryReader,
+    reader::DvdBndEntryReader,
 };
 
 mod bnd;
@@ -28,19 +28,25 @@ mod name;
 mod reader;
 
 #[derive(Debug, Error)]
-pub enum VfsOpenError {
+pub enum DvdBndEntryError {
+    #[error("Corrupt entry header")]
+    CorruptEntry,
+
     #[error("Entry was not found")]
     NotFound,
+
+    #[error("Failed to map file data")]
+    UnableToMap(#[from] Error),
 }
 
 /// A read-only virtual filesystem layered over the BHD/BDT archives of a FROMSOFTWARE game.
-pub struct Vfs {
+pub struct DvdBnd {
     archives: Vec<File>,
     entries: HashMap<Name, VfsFileEntry>,
     mount_host: BndMountHost,
 }
 
-impl Vfs {
+impl DvdBnd {
     fn load_archive<P: AsRef<Path>>(
         path: P,
         key_provider: &impl ArchiveKeyProvider,
@@ -60,7 +66,7 @@ impl Vfs {
     }
 
     /// Create a virtual filesystem from the archive files (BHD or BDT) pointed to by
-    /// [archive_paths].
+    /// [`archive_paths`].
     pub fn create<P: AsRef<Path>, K: ArchiveKeyProvider>(
         archive_paths: impl IntoIterator<Item = P>,
         key_provider: &K,
@@ -101,7 +107,7 @@ impl Vfs {
                 Ok::<_, Error>(())
             })?;
 
-        Ok(Vfs {
+        Ok(DvdBnd {
             archives,
             entries,
             mount_host: Default::default(),
@@ -109,40 +115,52 @@ impl Vfs {
     }
 
     /// Open a reader to the file identified by [name].
-    pub fn open<N: Into<Name>>(&self, name: N) -> Result<VfsEntryReader, VfsOpenError> {
+    pub fn open<N: Into<Name>>(&self, name: N) -> Result<DvdBndEntryReader, DvdBndEntryError> {
         match self.entries.get(&name.into()) {
             Some(entry) => {
                 let archive_file = &self.archives[entry.archive];
                 let offset = entry.file_offset as usize;
                 let encrypted_size = entry.file_size_with_padding as usize;
+
+                // SAFETY: no safety guarantees here. File could be modified while we read from it.
                 let mut mmap = unsafe {
                     MmapOptions::new()
                         .offset(offset as u64)
                         .len(encrypted_size)
-                        .map_copy(archive_file)
-                        .expect("mapping failed")
+                        .map_copy(archive_file)?
                 };
+
                 let data_ptr = mmap.as_mut_ptr();
                 let data_cipher = Aes128::new(&GenericArray::from(entry.aes_key));
 
                 for range in &entry.aes_ranges {
                     let size = (range.end - range.start) as usize;
-                    let start = unsafe { data_ptr.add(range.start as usize) };
+                    if range.start >= mmap.len() as u64 || range.end >= mmap.len() as u64 {
+                        return Err(DvdBndEntryError::CorruptEntry);
+                    }
 
                     let num_blocks = size / Aes128::block_size();
-                    let blocks = unsafe { slice::from_raw_parts_mut(start as *mut _, num_blocks) };
+
+                    // SAFETY: We check the offset added to `data_ptr` is within the bounds of a
+                    // valid pointer.
+                    let blocks = unsafe {
+                        slice::from_raw_parts_mut(
+                            data_ptr.add(range.start as usize).cast(),
+                            num_blocks,
+                        )
+                    };
 
                     data_cipher.decrypt_blocks(blocks);
                 }
 
-                Ok(VfsEntryReader::new(mmap))
+                Ok(DvdBndEntryReader::new(mmap))
             }
-            None => Err(VfsOpenError::NotFound),
+            None => Err(DvdBndEntryError::NotFound),
         }
     }
 
     /// Attaches a bnd4 to the mount host
-    pub fn mount<N: Into<Name>>(&mut self, name: N) -> Result<(), VfsOpenError> {
+    pub fn mount<N: Into<Name>>(&mut self, name: N) -> Result<(), DvdBndEntryError> {
         let name = name.into();
 
         let buffer = {
@@ -158,7 +176,7 @@ impl Vfs {
         Ok(())
     }
 
-    pub fn open_from_mounts(&self, name: &str) -> Result<&[u8], VfsOpenError> {
+    pub fn open_from_mounts(&self, name: &str) -> Result<&[u8], DvdBndEntryError> {
         self.mount_host.bytes_by_file_name(name)
     }
 }

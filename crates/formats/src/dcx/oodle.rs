@@ -46,6 +46,8 @@ pub struct OodleDecoder<R: Read> {
 impl<R: Read> OodleDecoder<R> {
     pub fn new(reader: R, uncompressed_size: u32) -> Option<Self> {
         let compressor = OodleLZ_Compressor_OodleLZ_Compressor_Kraken;
+
+        // SAFETY: Calling OodleLZDecoder_Create with any `uncompressed_size` is safe.
         let decoder = unsafe {
             OodleLZDecoder_Create(compressor, uncompressed_size as i64, null_mut(), 0isize)
         };
@@ -111,24 +113,26 @@ impl<R: Read> Read for OodleDecoder<R> {
                 break; // EOF reached
             }
 
+            // SAFETY: OodleLZ_DecodeSome_out is zero initialised by default.
             let mut out: OodleLZ_DecodeSome_Out = unsafe { std::mem::zeroed() };
+
+            // SAFETY:
+            // - Signedness conversions of offsets are all valid, given that `sliding_window.len()
+            //   <= i32::MAX` and `self.uncompressed_size < isize::MAX`.
+            // - Consumed `input_data_len` is caped at i32::MAX
             let result = unsafe {
                 // EXTREMELY unlikely, however unsound otherwise.
                 let input_data_len = isize::try_from(data.len()).unwrap_or(isize::MAX);
-
-                // SAFETY:
-                // - Signedness conversions of offsets are all valid, given that
-                //   `sliding_window.len() <= i32::MAX` and `self.uncompressed_size < isize::MAX`.
-                // - Consumed `input_data_len` is caped at i32::MAX
                 let decode_buffer_avail = self.decode_buffer.len() - wpos;
+
                 OodleLZDecoder_DecodeSome(
                     self.decoder,
                     &mut out as *mut _,
-                    self.decode_buffer.as_mut_ptr() as *mut _,
+                    self.decode_buffer.as_mut_ptr().cast(),
                     wpos as isize,
                     self.uncompressed_size as isize,
                     decode_buffer_avail as isize,
-                    data.as_ptr() as *const _,
+                    data.as_ptr().cast(),
                     input_data_len,
                     OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
                     OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
@@ -187,6 +191,7 @@ impl<R: Read> Read for OodleDecoder<R> {
 
 impl<R: Read> Drop for OodleDecoder<R> {
     fn drop(&mut self) {
+        // SAFETY: Guaranteed to be a valid pointer to a Decoder by [OodleDecoder::new].
         unsafe { OodleLZDecoder_Destroy(self.decoder) }
     }
 }

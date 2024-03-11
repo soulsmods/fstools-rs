@@ -14,10 +14,10 @@ use bevy::{
     prelude::{Deref, DerefMut, Resource},
     tasks::futures_lite::{io::Cursor, AsyncRead},
 };
-use fstools_vfs::{Vfs, VfsEntryReader as VfsEntryReaderImpl, VfsOpenError};
+use fstools_dvdbnd::{DvdBnd, DvdBndEntryError, DvdBndEntryReader as VfsEntryReaderImpl};
 
 #[derive(Clone, Deref, DerefMut, Resource)]
-pub struct VfsAssetRepository(pub(crate) Arc<Vfs>);
+pub struct VfsAssetRepository(pub(crate) Arc<DvdBnd>);
 
 impl AssetReader for VfsAssetRepository {
     fn read<'a>(
@@ -35,7 +35,10 @@ impl AssetReader for VfsAssetRepository {
                         .map(|r| Box::new(Cursor::new(r)))?)
                 })
                 .map_err(|e| match e {
-                    VfsOpenError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
+                    DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
+                    _ => AssetReaderError::Io(Arc::new(io::Error::other(
+                        "failed to get data from DVDBND",
+                    ))),
                 })
         })
     }

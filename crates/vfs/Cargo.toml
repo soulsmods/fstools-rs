@@ -1,5 +1,5 @@
 [package]
-name = "fstools_vfs"
+name = "fstools_dvdbnd"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
@@ -10,3 +10,6 @@ encoding_rs = "0.8"
 fstools_formats.workspace = true
 memmap2.workspace = true
 thiserror.workspace = true
+
+[lints]
+workspace = true

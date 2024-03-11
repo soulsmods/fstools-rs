@@ -18,6 +18,9 @@ oodle-sys = "0.1"
 rayon.workspace = true
 rsa = "0.9"
 rug = "1.24"
-zerocopy = { version = "0.7.32", features = ["derive"] }
 thiserror.workspace = true
 widestring = "1"
+zerocopy = { version = "0.7.32", features = ["derive"] }
+
+[lints]
+workspace = true

@@ -4,7 +4,7 @@ use bevy::{
     asset::io::{AssetSource, AssetSourceId},
     prelude::*,
 };
-use fstools_vfs::Vfs;
+use fstools_dvdbnd::DvdBnd;
 
 use self::reader::VfsAssetRepository;
 
@@ -15,7 +15,7 @@ pub struct VfsAssetRepositoryPlugin {
 }
 
 impl VfsAssetRepositoryPlugin {
-    pub fn new(vfs: Vfs) -> Self {
+    pub fn new(vfs: DvdBnd) -> Self {
         Self {
             repository: VfsAssetRepository(Arc::new(vfs)),
         }

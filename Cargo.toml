@@ -6,15 +6,19 @@ license.workspace = true
 
 [dependencies]
 fstools_formats.workspace = true
-fstools_vfs.workspace = true
+fstools_dvdbnd.workspace = true
 
 [dev-dependencies]
+criterion = "0.3"
 insta = "1"
 libtest-mimic = "0.7"
 
+[[bench]]
+name = "vfs"
+harness = false
+
 [[test]]
 name = "dcx"
-path = "tests/dcx.rs"
 harness = false
 
 [workspace]
@@ -32,9 +36,19 @@ version = "0.1.0"
 license = "MIT AND Apache-2.0"
 edition = "2021"
 
+[workspace.lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+undocumented_unsafe_blocks = "warn"
+redundant_else = "warn"
+match_same_arms = "warn"
+semicolon_if_nothing_returned = "warn"
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+
 [workspace.dependencies]
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
-fstools_vfs = { path = "crates/vfs", version = "0.1.0" }
+fstools_dvdbnd = { path = "crates/vfs", version = "0.1.0" }
 memmap2 = "0.7"
 rayon = "1"
 thiserror = "1"

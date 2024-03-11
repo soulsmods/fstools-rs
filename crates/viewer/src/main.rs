@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
-use fstools_vfs::{FileKeyProvider, Vfs};
+use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 use vfs::VfsAssetRepositoryPlugin;
 
 use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
@@ -26,7 +26,7 @@ fn main() {
         er_path.join("sd/sd"),
     ];
 
-    let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    let mut vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
 
     vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
         .expect("Could not mount bnd");

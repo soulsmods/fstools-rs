@@ -1,6 +1,5 @@
 use std::path::Path;
 
-// TODO: replace Name with Hasher attached to Archives, support 32 bit hash
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Name(pub u64);
 

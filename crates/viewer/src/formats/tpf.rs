@@ -12,8 +12,8 @@ use bevy::{
     },
     utils::BoxedFuture,
 };
+use fstools_dvdbnd::undo_container_compression;
 use fstools_formats::tpf::TPF;
-use fstools_vfs::undo_container_compression;
 use thiserror::Error;
 
 use crate::formats::TpfPlugin;

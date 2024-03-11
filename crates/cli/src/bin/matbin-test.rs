@@ -1,8 +1,8 @@
 use std::{error::Error, io::Read, path::PathBuf};
 
 use clap::Parser;
+use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader, matbin::Matbin};
-use fstools_vfs::{FileKeyProvider, Vfs};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
     let matbinbnd = vfs.open("/material/allmaterial.matbinbnd.dcx").unwrap();
 
     let (_, mut decoder) = DcxHeader::read(matbinbnd)?;

@@ -9,7 +9,7 @@ use fstools_formats::{
 };
 use thiserror::Error;
 
-use crate::{Name, VfsOpenError};
+use crate::{DvdBndEntryError, Name};
 
 /// Provides easy access into a collection of BND4 archives.
 #[derive(Default)]
@@ -21,7 +21,7 @@ pub struct BndMountHost {
 #[derive(Debug, Error)]
 pub enum BndMountError {
     #[error("Could not get vfs file reader: {0}")]
-    VfsOpen(#[from] VfsOpenError),
+    VfsOpen(#[from] DvdBndEntryError),
 
     #[error("Could not get copy bnd4 bytes from vfs reader: {0}")]
     DataCopy(io::Error),
@@ -56,14 +56,14 @@ impl BndMountHost {
         Ok(())
     }
 
-    fn entry_bytes(&self, entry: &BndFileEntry) -> Result<&[u8], VfsOpenError> {
+    fn entry_bytes(&self, entry: &BndFileEntry) -> Result<&[u8], DvdBndEntryError> {
         if let Some(mount) = self.mounted.get(&entry.container) {
             let start = entry.offset;
             let end = start + entry.size;
 
             Ok(&mount.0[start..end])
         } else {
-            Err(VfsOpenError::NotFound)
+            Err(DvdBndEntryError::NotFound)
         }
     }
 
@@ -75,13 +75,13 @@ impl BndMountHost {
         path.file_name().unwrap().to_string_lossy().to_string()
     }
 
-    pub fn bytes_by_file_name(&self, name: &str) -> Result<&[u8], VfsOpenError> {
+    pub fn bytes_by_file_name(&self, name: &str) -> Result<&[u8], DvdBndEntryError> {
         let normalized_name = name.to_ascii_lowercase();
         let entry = self
             .entries
             .iter()
             .find(|(k, _)| **k == normalized_name)
-            .ok_or(VfsOpenError::NotFound)?
+            .ok_or(DvdBndEntryError::NotFound)?
             .1;
 
         self.entry_bytes(entry)

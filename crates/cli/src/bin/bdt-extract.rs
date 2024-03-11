@@ -1,7 +1,7 @@
 use std::{fs, io::Read, path::PathBuf};
 
 use clap::Parser;
-use fstools_vfs::{FileKeyProvider, Vfs};
+use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -30,7 +30,7 @@ fn main() -> Result<(), std::io::Error> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
 
     let dictionary = std::fs::read_to_string(args.dictionary)?;
     let lines = dictionary
