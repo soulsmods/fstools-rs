@@ -6,11 +6,18 @@ use std::{
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
-    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
-    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
-    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
+    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
+    OodleLZ_Compressor_OodleLZ_Compressor_Kraken, OodleLZ_DecodeSome_Out,
+    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
+    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
+    OodleLZ_Verbosity_OodleLZ_Verbosity_Lots, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
     OODLELZ_BLOCK_LEN,
 };
+
+use crate::dcx::DcxContentDecoder;
+
+unsafe impl<R: Read> Sync for OodleDecoder<R> {}
+unsafe impl<R: Read> Send for OodleDecoder<R> {}
 
 pub struct OodleDecoder<R: Read> {
     reader: R,
@@ -29,7 +36,7 @@ pub struct OodleDecoder<R: Read> {
     decode_buffer_writer_pos: usize,
 
     /// The number of bytes that the consuming reader is lagging behind the decoder.
-    decode_buffer_reader_pos: usize,
+    decode_buffer_reader_lag: usize,
 
     /// Oodle requires at least [OODLELZ_BLOCK_LEN] bytes available in the input buffer, which the
     /// read buffer might not fit. Instead, we buffer to this intermediate buffer and treat it as a
@@ -65,7 +72,7 @@ impl<R: Read> OodleDecoder<R> {
             reader,
             decode_buffer,
             decode_buffer_writer_pos: 0,
-            decode_buffer_reader_pos: 0,
+            decode_buffer_reader_lag: 0,
             io_buffer,
             io_buffer_reader_pos: 0,
             io_buffer_writer_pos: 0,
@@ -87,9 +94,9 @@ impl<R: Read> Read for OodleDecoder<R> {
             let wpos = self.decode_buffer_writer_pos;
 
             // Check if there's data to be written from the sliding window first
-            if self.decode_buffer_reader_pos > 0 {
-                let bytes_to_copy = min(self.decode_buffer_reader_pos, buf.len() - total_written);
-                let start = wpos - self.decode_buffer_reader_pos;
+            if self.decode_buffer_reader_lag > 0 {
+                let bytes_to_copy = min(self.decode_buffer_reader_lag, buf.len() - total_written);
+                let start = wpos - self.decode_buffer_reader_lag;
                 let end = start + bytes_to_copy;
 
                 let src = &self.decode_buffer[start..end];
@@ -97,7 +104,7 @@ impl<R: Read> Read for OodleDecoder<R> {
 
                 dest.copy_from_slice(src);
 
-                self.decode_buffer_reader_pos -= bytes_to_copy;
+                self.decode_buffer_reader_lag -= bytes_to_copy;
                 total_written += bytes_to_copy;
 
                 continue;
@@ -135,9 +142,9 @@ impl<R: Read> Read for OodleDecoder<R> {
                     data.as_ptr().cast(),
                     input_data_len,
                     OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
-                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
-                    OodleLZ_Verbosity_OodleLZ_Verbosity_None,
-                    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
+                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
+                    OodleLZ_Verbosity_OodleLZ_Verbosity_Lots,
+                    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
                 )
             };
 
@@ -158,12 +165,12 @@ impl<R: Read> Read for OodleDecoder<R> {
                 dest.copy_from_slice(src);
 
                 self.decode_buffer_writer_pos += decoded_bytes;
-                self.decode_buffer_reader_pos = decoded_bytes - bytes_to_copy;
+                self.decode_buffer_reader_lag = decoded_bytes - bytes_to_copy;
                 total_written += bytes_to_copy;
             } else {
                 // Nothing more to decode.
                 if out.curQuantumCompLen == 0 {
-                    return Ok(0);
+                    return Ok(total_written);
                 }
 
                 let remaining = self.io_buffer_writer_pos - self.io_buffer_reader_pos;
