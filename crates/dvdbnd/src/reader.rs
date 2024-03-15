@@ -11,6 +11,10 @@ impl DvdBndEntryReader {
     pub fn new(mmap: MmapMut) -> Self {
         Self { mmap, position: 0 }
     }
+
+    pub fn data(&self) -> &[u8] {
+        &self.mmap[..]
+    }
 }
 
 impl Read for DvdBndEntryReader {

@@ -16,13 +16,11 @@ use memmap2::{Advice, MmapOptions};
 use thiserror::Error;
 
 pub use self::{
-    bnd::{undo_container_compression, BndMountHost},
     key_provider::{ArchiveKeyProvider, FileKeyProvider},
     name::Name,
     reader::DvdBndEntryReader,
 };
 
-mod bnd;
 mod key_provider;
 mod name;
 mod reader;
@@ -43,7 +41,6 @@ pub enum DvdBndEntryError {
 pub struct DvdBnd {
     archives: Vec<File>,
     entries: HashMap<Name, VfsFileEntry>,
-    mount_host: BndMountHost,
 }
 
 impl DvdBnd {
@@ -110,7 +107,6 @@ impl DvdBnd {
         Ok(DvdBnd {
             archives,
             entries,
-            mount_host: Default::default(),
         })
     }
 
@@ -135,7 +131,8 @@ impl DvdBnd {
 
                 for range in &entry.aes_ranges {
                     let size = (range.end - range.start) as usize;
-                    if range.start >= mmap.len() as u64 || range.end >= mmap.len() as u64 {
+
+                    if range.start >= mmap.len() as u64 || range.end > mmap.len() as u64 {
                         return Err(DvdBndEntryError::CorruptEntry);
                     }
 
@@ -159,27 +156,6 @@ impl DvdBnd {
             }
             None => Err(DvdBndEntryError::NotFound),
         }
-    }
-
-    /// Attaches a bnd4 to the mount host
-    pub fn mount<N: Into<Name>>(&mut self, name: N) -> Result<(), DvdBndEntryError> {
-        let name = name.into();
-
-        let buffer = {
-            let mut reader = self.open(name.clone())?;
-            let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer).unwrap();
-
-            buffer
-        };
-
-        self.mount_host.mount(name, buffer.as_slice()).unwrap();
-
-        Ok(())
-    }
-
-    pub fn open_from_mounts(&self, name: &str) -> Result<&[u8], DvdBndEntryError> {
-        self.mount_host.bytes_by_file_name(name)
     }
 }
 

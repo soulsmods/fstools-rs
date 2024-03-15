@@ -8,7 +8,6 @@ use bevy::{
         render_asset::RenderAssetUsages,
     },
 };
-use byteorder::LE;
 use fstools_formats::flver::{
     face_set::FaceSetIndices,
     mesh::Mesh as FlverMesh,
@@ -60,15 +59,7 @@ impl FlverLoader {
         bytes: &'data [u8],
         load_context: &'a mut LoadContext<'ctx>,
     ) -> Result<FlverAsset, Box<dyn Error + Send + Sync>> {
-        let mut reader = Cursor::new(bytes);
-        let flver1 = FLVER::from_reader(&mut reader)?;
-        let flver = Flver::parse(bytes).expect("failed to parse flver");
-
-        println!("{:#?}", flver1.buffer_layouts);
-        println!(
-            "{:#?}",
-            flver.vertex_attributes(&flver.vertex_buffer_layouts[0])
-        );
+        let flver = Flver::parse(bytes)?;
         let mut meshes = Vec::with_capacity(flver.mesh_count());
 
         for (index, flver_mesh) in flver.meshes.iter().enumerate() {
@@ -82,7 +73,7 @@ impl FlverLoader {
     }
 }
 
-fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh<LE>) -> Mesh {
+fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh) -> Mesh {
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,

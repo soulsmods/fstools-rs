@@ -5,11 +5,14 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-bevy_app = "0.13"
-bevy_asset = { version = "0.13", features = ["multi-threaded", "asset_processor", "file_watcher"] }
+bevy = "0.13"
+byteorder = "1.5.0"
 fstools_dvdbnd.workspace = true
 fstools_formats.workspace = true
 futures-lite = "2"
+futures-locks = "0.7"
+generational-arena = "0.2.9"
+typed-path = "0.8"
 
 [lints]
 workspace = true

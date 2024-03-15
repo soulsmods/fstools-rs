@@ -12,6 +12,7 @@ byteorder = "1"
 bevy = { version = "0.13", features = ["dds"] }
 bevy_panorbit_camera = "0.14"
 bevy-inspector-egui = "0.23"
+fstools_asset_server.workspace = true
 fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
 thiserror.workspace = true

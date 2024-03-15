@@ -12,7 +12,6 @@ use bevy::{
     },
     utils::BoxedFuture,
 };
-use fstools_dvdbnd::undo_container_compression;
 use fstools_formats::tpf::TPF;
 use thiserror::Error;
 
@@ -48,9 +47,7 @@ impl AssetLoader for TPFAssetLoader {
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer).await?;
 
-            // Account for DCX compression
-            let decompressed = undo_container_compression(&buffer).unwrap();
-            let mut cursor = Cursor::new(&decompressed);
+            let mut cursor = Cursor::new(&buffer);
 
             let tpf = TPF::from_reader(&mut cursor)?;
             for texture in tpf.textures.iter() {

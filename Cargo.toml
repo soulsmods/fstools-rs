@@ -49,6 +49,7 @@ ptr_cast_constness = "warn"
 [workspace.dependencies]
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
 fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
+fstools_asset_server = { path = "crates/asset-server", version = "0.1.0" }
 memmap2 = "0.7"
 rayon = "1"
 thiserror = "1"

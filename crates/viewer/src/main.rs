@@ -4,13 +4,22 @@ use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
+use fstools_asset_server::{
+    types::{
+        bnd4::{Archive, ArchiveEntry},
+        flver::FlverAsset,
+        part::PartsAsset,
+    },
+    vfs::Vfs,
+    FsAssetSourcePlugin, FsFormatsPlugin,
+};
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 
-use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
+use crate::formats::FormatsPlugins;
+use crate::preload::{ArchivesLoading, PreloadingState, vfs_mount_system};
 
-pub mod flver;
 mod formats;
-mod vfs;
+mod preload;
 
 fn main() {
     let args = Args::parse();
@@ -25,22 +34,17 @@ fn main() {
         er_path.join("sd/sd"),
     ];
 
-    let mut vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
-
-    vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
-        .expect("Could not mount bnd");
-
-    vfs.mount("/chr/c3660_l.texbnd.dcx")
-        .expect("Could not mount bnd");
-
     App::new()
-        .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
+        .add_plugins(FsAssetSourcePlugin::new(&archives, keys).expect("assets_failure"))
+        .add_plugins(DefaultPlugins)
         .add_plugins(FormatsPlugins)
+        .add_plugins(FsFormatsPlugin)
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(PanOrbitCameraPlugin)
         .init_resource::<AssetCollection>()
+        .init_resource::<ArchivesLoading>()
         .add_systems(Startup, setup)
-        .add_systems(Update, spawn_flvers)
+        .add_systems(PreUpdate, vfs_mount_system)
         .run();
 }
 
@@ -62,54 +66,16 @@ pub enum AssetLoadError {
 
 #[derive(Resource, Default)]
 pub struct AssetCollection {
-    assets: Vec<Handle<FlverAsset>>,
+    assets: Vec<UntypedHandle>,
 }
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut assets: ResMut<AssetCollection>,
+    mut archives: ResMut<ArchivesLoading>,
     asset_server: Res<AssetServer>,
 ) {
-    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
-
-    assets.assets.push(flver);
-    // From mounted BND
-    {
-        let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            material: material_handle,
-            ..default()
-        });
-    }
-
-    // From DCX'd TPF
-    {
-        let texture: Handle<Image> =
-            asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            transform: Transform::from_xyz(0.0, 3.0, 0.0),
-            material: material_handle,
-            ..default()
-        });
-    }
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
+    archives.0.push(archive);
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -133,24 +99,4 @@ fn setup(
         },
         PanOrbitCamera::default(),
     ));
-}
-
-pub fn spawn_flvers(
-    mut commands: Commands,
-    mut events: EventReader<AssetEvent<FlverAsset>>,
-    flvers: Res<Assets<FlverAsset>>,
-) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let flver = flvers.get(*id).expect("flver wasn't loaded");
-
-            for mesh in flver.meshes() {
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    transform: Transform::from_xyz(0.0, 5.0, 0.0),
-                    ..PbrBundle::default()
-                });
-            }
-        }
-    }
 }
