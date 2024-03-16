@@ -29,16 +29,16 @@ pub fn extract(
         .expect("Could not create progress bar style");
 
     lines.par_iter().progress_with_style(style).for_each(|l| {
-        let path = l.to_str().unwrap();
+        let path = l.to_string_lossy();
 
-        match dvd_bnd.open(path) {
+        match dvd_bnd.open(path.as_ref()) {
             Ok(mut entry) => {
                 let mut buffer = Vec::new();
                 entry
                     .read_to_end(&mut buffer)
                     .expect("Could not read from dvdbnd to file buffer");
 
-                let fs_path = output_path.join(path);
+                let fs_path = output_path.join(path.as_ref());
                 if let Some(directory) = fs_path.parent() {
                     let _ = fs::create_dir_all(directory);
                 }

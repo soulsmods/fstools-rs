@@ -13,34 +13,41 @@ pub struct ArchivesLoading(pub(crate) Vec<Handle<Archive>>);
 
 pub fn vfs_mount_system(
     mut archives_loading: ResMut<ArchivesLoading>,
-    archives: Res<Assets<Archive>>,
-    archive_entries: Res<Assets<ArchiveEntry>>,
+    mut archives: ResMut<Assets<Archive>>,
+    mut archive_entries: ResMut<Assets<ArchiveEntry>>,
     asset_server: Res<AssetServer>,
     vfs: ResMut<Vfs>,
 ) {
     let mut still_loading = vec![];
 
-    for archive in archives_loading.drain(..) {
-        if !asset_server.is_loaded_with_dependencies(&archive) {
-            still_loading.push(archive);
+    for archive_handle in archives_loading.drain(..) {
+        if !asset_server.is_loaded_with_dependencies(&archive_handle) {
+            still_loading.push(archive_handle);
             continue;
         }
 
-        let archive = archives.get(archive).expect("bad archive id");
+        let archive = archives.remove(archive_handle).expect("bad archive id");
+        let entries: Vec<_> = archive
+            .files
+            .iter()
+            .map(|(name, handle)| {
+                (
+                    name.clone(),
+                    archive_entries.remove(handle).expect("no data").data,
+                )
+            })
+            .collect();
 
-        for (name, entry) in archive.files.iter() {
-            let io_pool = IoTaskPool::get();
+        let io_pool = IoTaskPool::get();
+        let mut vfs = vfs.clone();
 
-            let name = name.clone();
-            let data = archive_entries.get(entry).expect("no data").data.clone();
-            let mut vfs = vfs.clone();
-
-            io_pool
-                .spawn(async move {
+        io_pool
+            .spawn(async move {
+                for (name, data) in entries {
                     vfs.mount_file(name, data);
-                })
-                .detach();
-        }
+                }
+            })
+            .detach();
     }
 
     archives_loading.extend(still_loading);

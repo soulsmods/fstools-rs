@@ -13,16 +13,12 @@ use bevy::{
     prelude::{Deref, DerefMut, Resource},
 };
 use crossbeam_channel::Sender;
+use memmap2::{Mmap, MmapOptions};
 use typed_path::Utf8WindowsPathBuf;
 
 use crate::SimpleReader;
 
-mod bnd4_mount;
 pub mod watcher;
-
-pub trait IntoArchive {
-    fn files(&self) -> impl Iterator<Item = (String, Vec<u8>)>;
-}
 
 #[derive(Clone, Resource)]
 pub struct Vfs {
@@ -36,7 +32,7 @@ pub enum VfsEvent {
 
 #[derive(Default)]
 pub struct VfsInner {
-    entries: HashMap<String, Box<[u8]>>,
+    entries: HashMap<String, Mmap>,
 }
 
 impl Vfs {
@@ -50,20 +46,30 @@ impl Vfs {
     pub fn mount_file(&mut self, name: String, data: Vec<u8>) {
         let mut inner = self.inner.write().expect("vfs_write_lock");
 
+        // TODO: this is specific to Elden Ring
         let path = Utf8WindowsPathBuf::from(&name);
-        let filename = path
-            .file_name()
-            .expect("no filename")
-            .to_string()
-            .to_ascii_lowercase();
+        let normalized_path = path
+            .strip_prefix("N:/GR/data/INTERROOT_win64")
+            .map(|path| path.with_unix_encoding().into_string())
+            .expect("path_not_expected");
 
-        info!("Mounting {filename} into vfs");
+        info!("Mounting {normalized_path} into vfs");
 
         let _ = self
             .event_sender
-            .send(VfsEvent::Added(PathBuf::from(filename.clone())));
+            .send(VfsEvent::Added(PathBuf::from(&normalized_path)));
 
-        inner.entries.insert(filename, data.into_boxed_slice());
+        let mut mmap = MmapOptions::default()
+            .len(data.len())
+            .map_anon()
+            .expect("failed to allocate memory");
+        mmap.copy_from_slice(&data[..]);
+
+        inner.entries.insert(
+            normalized_path,
+            mmap.make_read_only()
+                .expect("failed to make memory read-only"),
+        );
     }
 
     pub fn entry_bytes<P: AsRef<str>>(&self, name: P) -> Option<&[u8]> {
@@ -79,8 +85,6 @@ impl Vfs {
         })
     }
 }
-
-impl VfsInner {}
 
 #[derive(Deref, DerefMut)]
 pub struct VfsAssetSource(pub(crate) Vfs);

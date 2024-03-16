@@ -27,7 +27,7 @@ impl AssetLoader for Bnd4Loader {
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        settings: &'a Self::Settings,
+        _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
@@ -38,7 +38,7 @@ impl AssetLoader for Bnd4Loader {
 
             let bnd = BND4::from_reader(Cursor::new(&data))?;
             for file in bnd.files {
-                let handle = load_context.labeled_asset_scope(file.path.clone(), |ctx| {
+                let handle = load_context.labeled_asset_scope(file.path.clone(), |_| {
                     let file_offset = file.data_offset as usize;
                     let file_end = file_offset + file.compressed_size as usize;
                     let file_data = data[file_offset..file_end].to_vec();

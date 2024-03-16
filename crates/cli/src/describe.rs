@@ -24,6 +24,6 @@ pub fn describe_bnd(dvd_bnd: DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn describe_matbin(dvd_bnd: DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
-    Ok(())
+pub fn describe_matbin(_dvd_bnd: DvdBnd, _name: &str) -> Result<(), Box<dyn Error>> {
+    todo!()
 }

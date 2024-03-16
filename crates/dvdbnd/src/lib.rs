@@ -1,11 +1,4 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{Error, Read},
-    ops::Range,
-    path::Path,
-    slice,
-};
+use std::{collections::HashMap, fs::File, io::Error, ops::Range, path::Path, slice};
 
 use aes::{
     cipher::{generic_array::GenericArray, BlockDecrypt, BlockSizeUser, KeyInit},

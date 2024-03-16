@@ -69,7 +69,7 @@ impl AssetLoader for TPFAssetLoader {
                         }),
                         RenderAssetUsages::MAIN_WORLD,
                     )
-                    .unwrap()
+                    .expect("invalid_image")
                 });
             }
 

@@ -9,7 +9,7 @@ fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.5"
 insta = "1"
 libtest-mimic = "0.7"
 
@@ -19,16 +19,18 @@ harness = false
 
 [[test]]
 name = "dcx"
+path = "tests/dcx.rs"
 harness = false
 
 [workspace]
 resolver = "2"
 default-members = ["crates/cli", "crates/viewer"]
 members = [
-    "crates/formats",
+    "crates/asset-server",
     "crates/cli",
+    "crates/dvdbnd",
+    "crates/formats",
     "crates/viewer",
-    "crates/dvdbnd", "crates/asset-server",
 ]
 
 [workspace.package]
@@ -45,6 +47,7 @@ match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
+unwrap_used = "warn"
 
 [workspace.dependencies]
 fstools_formats = { path = "crates/formats", version = "0.1.0" }

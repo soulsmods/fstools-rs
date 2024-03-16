@@ -4,6 +4,7 @@ mod extract;
 use std::{error::Error, path::PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
+use describe::describe_matbin;
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 
 use crate::{describe::describe_bnd, extract::extract};
@@ -71,9 +72,9 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         }
         Command::Describe {
             ty: AssetType::Matbin,
-            ..
+            name,
         } => {
-            // describe_matbin(dvd_bnd, &name)?;
+            describe_matbin(dvd_bnd, &name)?;
         }
         Command::Extract {
             recursive,

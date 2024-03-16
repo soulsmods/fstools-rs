@@ -1,4 +1,4 @@
-use std::{io, io::Read, path::Path, sync::Arc};
+use std::{io, path::Path, sync::Arc};
 
 use bevy::asset::{
     io::{AssetReader, AssetReaderError, PathStream, Reader},
@@ -23,25 +23,26 @@ impl AssetReader for DvdBndAssetSource {
 
             dvd_bnd
                 .open(&*path_str)
-                .map(|r| {
+                .map_err(|err| match err {
+                    DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
+                    err => AssetReaderError::Io(Arc::new(io::Error::other(err))),
+                })
+                .and_then(|r| {
                     let is_dcx = {
                         let bytes = r.data();
                         &bytes[..4] == b"DCX\0"
                     };
 
-                    if is_dcx {
-                        let (dcx, dcx_reader) = DcxHeader::read(r).unwrap();
+                    let reader = if is_dcx {
+                        let (_dcx_header, dcx_reader) = DcxHeader::read(r)
+                            .map_err(|err| AssetReaderError::Io(Arc::new(io::Error::other(err))))?;
 
                         Box::new(SimpleReader(dcx_reader)) as Box<Reader>
                     } else {
                         Box::new(SimpleReader(r)) as Box<Reader>
-                    }
-                })
-                .map_err(|e| match e {
-                    DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
-                    _ => AssetReaderError::Io(Arc::new(io::Error::other(
-                        "failed to get data from DVDBND",
-                    ))),
+                    };
+
+                    Ok(reader)
                 })
         })
     }

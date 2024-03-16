@@ -1,6 +1,6 @@
-use std::{f32::consts::PI, io, path::PathBuf};
+use std::{f32::consts::PI, path::PathBuf};
 
-use bevy::{prelude::*, scene::SceneInstance};
+use bevy::prelude::*;
 use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
@@ -8,7 +8,7 @@ use fstools_asset_server::{
     types::{bnd4::Archive, flver::FlverAsset},
     FsAssetSourcePlugin, FsFormatsPlugin,
 };
-use fstools_dvdbnd::{FileKeyProvider, Name};
+use fstools_dvdbnd::FileKeyProvider;
 
 use crate::{
     formats::FormatsPlugins,
@@ -39,7 +39,7 @@ fn main() {
         }))
         .add_plugins(FormatsPlugins)
         .add_plugins(FsFormatsPlugin)
-        .add_plugins(AssetInspectorPlugin::<StandardMaterial>::default())
+        .add_plugins(AssetInspectorPlugin::<FlverAsset>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(PanOrbitCameraPlugin)
         .init_resource::<ArchivesLoading>()
@@ -62,6 +62,8 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
+    archives.push(archive);
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://material/allmaterial.matbinbnd.dcx");
     archives.push(archive);
 
     let flver: Handle<FlverAsset> = asset_server.load("vfs://am_m_1100.flver");

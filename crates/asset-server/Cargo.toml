@@ -11,8 +11,7 @@ crossbeam-channel = "0.5"
 fstools_dvdbnd.workspace = true
 fstools_formats.workspace = true
 futures-lite = "2"
-futures-locks = "0.7"
-generational-arena = "0.2.9"
+memmap2.workspace = true
 typed-path = "0.8"
 
 [lints]

@@ -1,9 +1,8 @@
 use std::{
     cmp::min,
     io::{Error, Read, Result},
-    ptr::null_mut,
+    ptr::{null_mut, NonNull},
 };
-use std::ptr::NonNull;
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
@@ -68,6 +67,7 @@ impl<R: Read> OodleDecoder<R> {
         let io_buffer = vec![0u8; OODLELZ_BLOCK_LEN as usize * 2].into_boxed_slice();
 
         Some(Self {
+            // SAFETY: Pointer is validated to be non-null above.
             decoder: unsafe { NonNull::new_unchecked(decoder) },
             reader,
             decode_buffer,

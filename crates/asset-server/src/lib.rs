@@ -16,7 +16,6 @@ use crate::{
     types::{
         bnd4::{Archive, ArchiveEntry, Bnd4Loader},
         flver::{FlverAsset, FlverLoader},
-        part::{PartsArchiveLoader, PartsAsset},
     },
     vfs::{watcher::VfsWatcher, Vfs, VfsAssetSource},
 };
@@ -49,7 +48,7 @@ impl Plugin for FsAssetSourcePlugin {
             AssetSource::build().with_reader(move || Box::new(DvdBndAssetSource(dvd_bnd.clone()))),
         );
 
-        let (event_sender, event_receiver) = crossbeam_channel::bounded(100);
+        let (event_sender, event_receiver) = crossbeam_channel::unbounded();
         let vfs = Vfs::new(event_sender);
 
         app.insert_resource(vfs.clone());
@@ -74,11 +73,9 @@ impl Plugin for FsFormatsPlugin {
         app.init_asset::<FlverAsset>()
             .register_type::<FlverAsset>()
             .register_type::<Handle<FlverAsset>>()
-            .init_asset::<PartsAsset>()
             .init_asset::<Archive>()
             .init_asset::<ArchiveEntry>()
             .register_asset_loader(FlverLoader)
-            .register_asset_loader(PartsArchiveLoader)
             .register_asset_loader(Bnd4Loader);
     }
 }
