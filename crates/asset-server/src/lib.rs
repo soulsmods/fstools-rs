@@ -4,7 +4,7 @@ use bevy::{
     app::{App, Plugin},
     asset::{
         io::{AssetSource, AssetSourceId},
-        AssetApp,
+        AssetApp, Handle,
     },
     prelude::{Deref, DerefMut},
 };
@@ -14,13 +14,12 @@ use futures_lite::AsyncRead;
 use crate::{
     dvdbnd::DvdBndAssetSource,
     types::{
-        bnd4::{Archive, Bnd4Loader},
+        bnd4::{Archive, ArchiveEntry, Bnd4Loader},
         flver::{FlverAsset, FlverLoader},
         part::{PartsArchiveLoader, PartsAsset},
     },
-    vfs::{Vfs, VfsAssetSource},
+    vfs::{watcher::VfsWatcher, Vfs, VfsAssetSource},
 };
-use crate::types::bnd4::ArchiveEntry;
 
 mod dvdbnd;
 pub mod types;
@@ -44,17 +43,26 @@ impl FsAssetSourcePlugin {
 impl Plugin for FsAssetSourcePlugin {
     fn build(&self, app: &mut App) {
         let dvd_bnd = self.dvd_bnd.clone();
-        let vfs = Vfs::default();
 
-        app.insert_resource(vfs.clone());
         app.register_asset_source(
             AssetSourceId::from("dvdbnd"),
             AssetSource::build().with_reader(move || Box::new(DvdBndAssetSource(dvd_bnd.clone()))),
         );
 
+        let (event_sender, event_receiver) = crossbeam_channel::bounded(100);
+        let vfs = Vfs::new(event_sender);
+
+        app.insert_resource(vfs.clone());
         app.register_asset_source(
             AssetSourceId::from("vfs"),
-            AssetSource::build().with_reader(move || Box::new(VfsAssetSource(vfs.clone()))),
+            AssetSource::build()
+                .with_reader(move || Box::new(VfsAssetSource(vfs.clone())))
+                .with_watcher(move |sender| {
+                    let mut watcher = Box::new(VfsWatcher::new(event_receiver.clone(), sender));
+                    watcher.start();
+
+                    Some(watcher)
+                }),
         );
     }
 }
@@ -64,6 +72,8 @@ pub struct FsFormatsPlugin;
 impl Plugin for FsFormatsPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<FlverAsset>()
+            .register_type::<FlverAsset>()
+            .register_type::<Handle<FlverAsset>>()
             .init_asset::<PartsAsset>()
             .init_asset::<Archive>()
             .init_asset::<ArchiveEntry>()

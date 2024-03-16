@@ -2250,6 +2250,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "byteorder",
+ "crossbeam-channel",
  "fstools_dvdbnd",
  "fstools_formats",
  "futures-lite",

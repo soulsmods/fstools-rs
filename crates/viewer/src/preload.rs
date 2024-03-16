@@ -1,7 +1,6 @@
 use bevy::{
-    asset::{AssetEvent, Assets, Handle},
-    log::info,
-    prelude::{AssetServer, EventReader, NextState, Res, ResMut, Resource, States},
+    asset::{Assets, Handle},
+    prelude::{AssetServer, Res, ResMut, Resource, States},
     tasks::IoTaskPool,
 };
 use fstools_asset_server::{

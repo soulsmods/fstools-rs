@@ -1,31 +1,37 @@
 use std::{
     collections::HashMap,
-    marker::PhantomPinned,
     path::{Path, PathBuf},
-    pin::{pin, Pin},
     sync::{Arc, RwLock},
 };
 
 use bevy::{
     asset::{
-        BoxedFuture,
         io::{AssetReader, AssetReaderError, PathStream, Reader},
+        BoxedFuture,
     },
-    log::{debug, info},
+    log::info,
     prelude::{Deref, DerefMut, Resource},
 };
-use typed_path::{Utf8WindowsPathBuf, WindowsPath, WindowsPathBuf};
+use crossbeam_channel::Sender;
+use typed_path::Utf8WindowsPathBuf;
 
 use crate::SimpleReader;
 
 mod bnd4_mount;
+pub mod watcher;
+
 pub trait IntoArchive {
     fn files(&self) -> impl Iterator<Item = (String, Vec<u8>)>;
 }
 
-#[derive(Clone, Default, Resource)]
+#[derive(Clone, Resource)]
 pub struct Vfs {
     inner: Arc<RwLock<VfsInner>>,
+    event_sender: Sender<VfsEvent>,
+}
+
+pub enum VfsEvent {
+    Added(PathBuf),
 }
 
 #[derive(Default)]
@@ -34,6 +40,13 @@ pub struct VfsInner {
 }
 
 impl Vfs {
+    pub fn new(event_sender: Sender<VfsEvent>) -> Self {
+        Self {
+            event_sender,
+            inner: Default::default(),
+        }
+    }
+
     pub fn mount_file(&mut self, name: String, data: Vec<u8>) {
         let mut inner = self.inner.write().expect("vfs_write_lock");
 
@@ -45,6 +58,10 @@ impl Vfs {
             .to_ascii_lowercase();
 
         info!("Mounting {filename} into vfs");
+
+        let _ = self
+            .event_sender
+            .send(VfsEvent::Added(PathBuf::from(filename.clone())));
 
         inner.entries.insert(filename, data.into_boxed_slice());
     }
@@ -87,20 +104,20 @@ impl AssetReader for VfsAssetSource {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        todo!()
+        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
     }
 
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        todo!()
+        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
     }
 
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        todo!()
+        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
     }
 }

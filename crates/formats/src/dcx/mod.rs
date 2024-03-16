@@ -207,8 +207,6 @@ pub struct CompressionParameters {
     settings: [u8; 20],
 }
 
-
-
 impl Debug for CompressionParameters {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let algorithm_name = String::from_utf8_lossy(&self.algorithm);

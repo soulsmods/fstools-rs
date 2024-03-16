@@ -6,15 +6,11 @@ use std::{
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
-    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
-    OodleLZ_Compressor_OodleLZ_Compressor_Kraken, OodleLZ_DecodeSome_Out,
-    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
-    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded, OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
-    OodleLZ_Verbosity_OodleLZ_Verbosity_Lots, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
+    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
+    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
+    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Verbosity_OodleLZ_Verbosity_Lots,
     OODLELZ_BLOCK_LEN,
 };
-
-use crate::dcx::DcxContentDecoder;
 
 unsafe impl<R: Read> Sync for OodleDecoder<R> {}
 unsafe impl<R: Read> Send for OodleDecoder<R> {}

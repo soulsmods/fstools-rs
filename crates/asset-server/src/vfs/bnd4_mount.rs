@@ -1,6 +1,6 @@
 use fstools_formats::bnd4::BND4;
-use crate::vfs::IntoArchive;
 
+use crate::vfs::IntoArchive;
 
 impl IntoArchive for BND4 {
     fn files(&self) -> impl Iterator<Item = (String, Vec<u8>)> {

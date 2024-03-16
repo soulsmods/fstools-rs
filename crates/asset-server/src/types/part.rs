@@ -1,9 +1,8 @@
 use std::io::Cursor;
 
 use bevy::{
-    asset::{io::Reader, ron, AssetLoader, BoxedFuture, LoadContext},
+    asset::{io::Reader, AssetLoader, BoxedFuture, LoadContext},
     prelude::*,
-    scene::serde::SceneDeserializer,
 };
 use fstools_formats::bnd4::BND4;
 use futures_lite::AsyncReadExt;
@@ -40,7 +39,6 @@ impl AssetLoader for PartsArchiveLoader {
                 .iter()
                 .find(|file| file.path.ends_with("flver"))
                 .expect("no_flver");
-            //
             // let tpf = bnd
             //     .files
             //     .iter()

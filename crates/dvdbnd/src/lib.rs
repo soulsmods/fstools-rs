@@ -104,10 +104,7 @@ impl DvdBnd {
                 Ok::<_, Error>(())
             })?;
 
-        Ok(DvdBnd {
-            archives,
-            entries,
-        })
+        Ok(DvdBnd { archives, entries })
     }
 
     /// Open a reader to the file identified by [name].

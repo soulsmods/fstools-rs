@@ -1,8 +1,12 @@
 use std::{io, io::Read, path::Path, sync::Arc};
-use bevy::asset::BoxedFuture;
-use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader};
+
+use bevy::asset::{
+    io::{AssetReader, AssetReaderError, PathStream, Reader},
+    BoxedFuture,
+};
 use fstools_dvdbnd::{DvdBnd, DvdBndEntryError};
 use fstools_formats::dcx::DcxHeader;
+
 use crate::SimpleReader;
 
 #[derive(Clone)]

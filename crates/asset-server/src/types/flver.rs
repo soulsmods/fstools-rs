@@ -1,25 +1,22 @@
-use std::{error::Error, io::Cursor};
+use std::error::Error;
 
 use bevy::{
     asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext},
-    prelude::{Mesh, TypePath},
+    prelude::{Mesh, Reflect},
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         render_asset::RenderAssetUsages,
     },
 };
 use fstools_formats::flver::{
-    face_set::FaceSetIndices,
-    mesh::Mesh as FlverMesh,
-    reader::{VertexAttributeSemantic, FLVER},
-    vertex_buffer::accessor::VertexAttributeAccessor,
-    Flver,
+    face_set::FaceSetIndices, mesh::Mesh as FlverMesh, reader::VertexAttributeSemantic,
+    vertex_buffer::accessor::VertexAttributeAccessor, Flver,
 };
 
 #[derive(Default)]
 pub struct FlverLoader;
 
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Reflect)]
 pub struct FlverAsset {
     meshes: Vec<Handle<Mesh>>,
 }
