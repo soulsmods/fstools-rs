@@ -8,8 +8,8 @@ use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
     OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
     OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
-    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Verbosity_OodleLZ_Verbosity_Lots,
-    OODLELZ_BLOCK_LEN,
+    OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
+    OodleLZ_Verbosity_OodleLZ_Verbosity_None, OODLELZ_BLOCK_LEN,
 };
 
 // SAFETY: `OodleLZDecoder` pointer is safe to use across several threads.
@@ -143,7 +143,7 @@ impl<R: Read> Read for OodleDecoder<R> {
                     input_data_len,
                     OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
                     OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
-                    OodleLZ_Verbosity_OodleLZ_Verbosity_Lots,
+                    OodleLZ_Verbosity_OodleLZ_Verbosity_None,
                     OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
                 )
             };
