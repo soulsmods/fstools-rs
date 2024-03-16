@@ -3,6 +3,7 @@ use std::{
     io::{Error, Read, Result},
     ptr::null_mut,
 };
+use std::ptr::NonNull;
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
@@ -12,7 +13,10 @@ use oodle_sys::{
     OODLELZ_BLOCK_LEN,
 };
 
+// SAFETY: `OodleLZDecoder` pointer is safe to use across several threads.
 unsafe impl<R: Read> Sync for OodleDecoder<R> {}
+
+// SAFETY: See above.
 unsafe impl<R: Read> Send for OodleDecoder<R> {}
 
 pub struct OodleDecoder<R: Read> {
@@ -22,7 +26,7 @@ pub struct OodleDecoder<R: Read> {
     uncompressed_size: u32,
 
     /// The Oodle decoder instance created for this buffer.
-    decoder: *mut OodleLZDecoder,
+    decoder: NonNull<OodleLZDecoder>,
 
     /// A sliding window of bytes decoded by the compressor, large enough to keep the past block in
     /// memory while the next block is decoded.
@@ -64,7 +68,7 @@ impl<R: Read> OodleDecoder<R> {
         let io_buffer = vec![0u8; OODLELZ_BLOCK_LEN as usize * 2].into_boxed_slice();
 
         Some(Self {
-            decoder,
+            decoder: unsafe { NonNull::new_unchecked(decoder) },
             reader,
             decode_buffer,
             decode_buffer_writer_pos: 0,
@@ -129,7 +133,7 @@ impl<R: Read> Read for OodleDecoder<R> {
                 let decode_buffer_avail = self.decode_buffer.len() - wpos;
 
                 OodleLZDecoder_DecodeSome(
-                    self.decoder,
+                    self.decoder.as_ptr(),
                     &mut out as *mut _,
                     self.decode_buffer.as_mut_ptr().cast(),
                     wpos as isize,
@@ -195,6 +199,6 @@ impl<R: Read> Read for OodleDecoder<R> {
 impl<R: Read> Drop for OodleDecoder<R> {
     fn drop(&mut self) {
         // SAFETY: Guaranteed to be a valid pointer to a Decoder by [OodleDecoder::new].
-        unsafe { OodleLZDecoder_Destroy(self.decoder) }
+        unsafe { OodleLZDecoder_Destroy(self.decoder.as_ptr()) }
     }
 }
