@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, io, path::PathBuf};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, scene::SceneInstance};
 use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
@@ -8,7 +8,7 @@ use fstools_asset_server::{
     types::{bnd4::Archive, flver::FlverAsset},
     FsAssetSourcePlugin, FsFormatsPlugin,
 };
-use fstools_dvdbnd::FileKeyProvider;
+use fstools_dvdbnd::{FileKeyProvider, Name};
 
 use crate::{
     formats::FormatsPlugins,
@@ -42,10 +42,10 @@ fn main() {
         .add_plugins(AssetInspectorPlugin::<StandardMaterial>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(PanOrbitCameraPlugin)
-        .init_resource::<AssetCollection>()
         .init_resource::<ArchivesLoading>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, vfs_mount_system)
+        .add_systems(PreUpdate, spawn_flvers)
         .run();
 }
 
@@ -53,21 +53,7 @@ fn main() {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long)]
-    dcx: String,
-
-    #[arg(long)]
     erpath: Option<PathBuf>,
-}
-
-#[derive(Debug)]
-pub enum AssetLoadError {
-    Io(io::Error),
-    NotFound,
-}
-
-#[derive(Resource, Default)]
-pub struct AssetCollection {
-    assets: Vec<UntypedHandle>,
 }
 
 fn setup(
@@ -76,10 +62,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
-    archives.0.push(archive);
+    archives.push(archive);
 
     let flver: Handle<FlverAsset> = asset_server.load("vfs://am_m_1100.flver");
-    commands.spawn(flver);
+    commands.spawn((SpatialBundle::default(), flver));
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -105,21 +91,34 @@ fn setup(
     ));
 }
 
+#[derive(Component)]
+pub struct FlverInstance;
+
+#[allow(clippy::type_complexity)]
 pub fn spawn_flvers(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<FlverAsset>>,
+    mut flvers_to_spawn: Query<
+        (Entity, &Handle<FlverAsset>),
+        Or<(Without<FlverInstance>, Changed<Handle<FlverAsset>>)>,
+    >,
     flvers: Res<Assets<FlverAsset>>,
 ) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let flver = flvers.get(*id).expect("flver wasn't loaded");
+    for (entity, flver) in &mut flvers_to_spawn {
+        let Some(flver_asset) = flvers.get(flver) else {
+            continue;
+        };
 
-            for mesh in flver.meshes() {
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    ..PbrBundle::default()
-                });
-            }
-        }
+        commands
+            .entity(entity)
+            .despawn_descendants()
+            .insert(FlverInstance)
+            .with_children(|parent| {
+                for mesh in flver_asset.meshes() {
+                    parent.spawn(PbrBundle {
+                        mesh: mesh.clone(),
+                        ..PbrBundle::default()
+                    });
+                }
+            });
     }
 }

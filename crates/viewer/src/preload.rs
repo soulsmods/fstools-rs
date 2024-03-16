@@ -1,20 +1,14 @@
 use bevy::{
     asset::{Assets, Handle},
-    prelude::{AssetServer, Res, ResMut, Resource, States},
+    prelude::{AssetServer, Deref, DerefMut, Res, ResMut, Resource},
     tasks::IoTaskPool,
 };
 use fstools_asset_server::{
     types::bnd4::{Archive, ArchiveEntry},
     vfs::Vfs,
 };
-#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PreloadingState {
-    #[default]
-    Preloading,
-    Loaded,
-}
 
-#[derive(Default, Resource)]
+#[derive(Default, Deref, DerefMut, Resource)]
 pub struct ArchivesLoading(pub(crate) Vec<Handle<Archive>>);
 
 pub fn vfs_mount_system(
@@ -26,7 +20,7 @@ pub fn vfs_mount_system(
 ) {
     let mut still_loading = vec![];
 
-    for archive in archives_loading.0.drain(..) {
+    for archive in archives_loading.drain(..) {
         if !asset_server.is_loaded_with_dependencies(&archive) {
             still_loading.push(archive);
             continue;
@@ -49,5 +43,5 @@ pub fn vfs_mount_system(
         }
     }
 
-    archives_loading.0.extend(still_loading);
+    archives_loading.extend(still_loading);
 }

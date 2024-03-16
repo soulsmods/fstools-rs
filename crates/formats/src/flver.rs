@@ -129,6 +129,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
 
         use vertex_buffer::VertexFormat::*;
 
+        #[allow(clippy::match_same_arms)]
         attribute.format().map(|format| match format {
             Float32x3 => Accessor::Float3(Iter::new(data, vertex_size, vertex_offset)),
             Float32x2 => Accessor::Float2(Iter::new(data, vertex_size, vertex_offset)),
