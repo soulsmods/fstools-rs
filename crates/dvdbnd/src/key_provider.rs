@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf};
 
 use fstools_formats::bhd::BhdKey;
 
-// TODO: replace Option with Result
 pub trait ArchiveKeyProvider {
     fn get_key(&self, name: &str) -> Result<BhdKey, std::io::Error>;
 }

@@ -4,10 +4,9 @@ use bevy::{
     utils::BoxedFuture,
 };
 use fstools_formats::msb::{parts::PartData, Msb, MsbError};
-use fstools_vfs::undo_container_compression;
 use thiserror::Error;
+use crate::types::flver::FlverAsset;
 
-use crate::{flver::asset::FlverAsset, formats::MsbPlugin};
 
 #[derive(Asset, TypePath, Debug)]
 pub struct MsbAsset {
@@ -89,8 +88,7 @@ impl AssetLoader for MsbAssetLoader {
             reader.read_to_end(&mut buffer).await?;
 
             // Account for DCX compression
-            let decompressed = undo_container_compression(&buffer).unwrap();
-            let msb = Msb::parse(&decompressed)?;
+            let msb = Msb::parse(&buffer)?;
 
             let models = msb
                 .models()
@@ -177,11 +175,3 @@ impl AssetLoader for MsbAssetLoader {
     }
 }
 
-impl Plugin for MsbPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<MsbAsset>()
-            .init_asset::<MsbPointAsset>()
-            .init_asset::<MsbPartAsset>()
-            .init_asset_loader::<MsbAssetLoader>();
-    }
-}

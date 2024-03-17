@@ -47,6 +47,7 @@ pub struct VertexBufferAttribute<O: ByteOrder> {
 }
 
 impl<O: ByteOrder> VertexBufferAttribute<O> {
+    #[allow(clippy::match_same_arms)]
     pub fn format(&self) -> Option<VertexFormat> {
         use VertexAttributeSemantic::*;
         use VertexFormat::*;

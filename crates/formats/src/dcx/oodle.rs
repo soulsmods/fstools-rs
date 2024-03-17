@@ -1,16 +1,22 @@
 use std::{
     cmp::min,
     io::{Error, Read, Result},
-    ptr::null_mut,
+    ptr::{null_mut, NonNull},
 };
 
 use oodle_sys::{
     OodleLZDecoder, OodleLZDecoder_Create, OodleLZDecoder_DecodeSome, OodleLZDecoder_Destroy,
-    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
-    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
+    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes, OodleLZ_Compressor_OodleLZ_Compressor_Kraken,
+    OodleLZ_DecodeSome_Out, OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
     OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No, OodleLZ_Verbosity_OodleLZ_Verbosity_None,
     OODLELZ_BLOCK_LEN,
 };
+
+// SAFETY: `OodleLZDecoder` pointer is safe to use across several threads.
+unsafe impl<R: Read> Sync for OodleDecoder<R> {}
+
+// SAFETY: See above.
+unsafe impl<R: Read> Send for OodleDecoder<R> {}
 
 pub struct OodleDecoder<R: Read> {
     reader: R,
@@ -19,7 +25,7 @@ pub struct OodleDecoder<R: Read> {
     uncompressed_size: u32,
 
     /// The Oodle decoder instance created for this buffer.
-    decoder: *mut OodleLZDecoder,
+    decoder: NonNull<OodleLZDecoder>,
 
     /// A sliding window of bytes decoded by the compressor, large enough to keep the past block in
     /// memory while the next block is decoded.
@@ -29,7 +35,7 @@ pub struct OodleDecoder<R: Read> {
     decode_buffer_writer_pos: usize,
 
     /// The number of bytes that the consuming reader is lagging behind the decoder.
-    decode_buffer_reader_pos: usize,
+    decode_buffer_reader_lag: usize,
 
     /// Oodle requires at least [OODLELZ_BLOCK_LEN] bytes available in the input buffer, which the
     /// read buffer might not fit. Instead, we buffer to this intermediate buffer and treat it as a
@@ -46,6 +52,8 @@ pub struct OodleDecoder<R: Read> {
 impl<R: Read> OodleDecoder<R> {
     pub fn new(reader: R, uncompressed_size: u32) -> Option<Self> {
         let compressor = OodleLZ_Compressor_OodleLZ_Compressor_Kraken;
+
+        // SAFETY: Calling OodleLZDecoder_Create with any `uncompressed_size` is safe.
         let decoder = unsafe {
             OodleLZDecoder_Create(compressor, uncompressed_size as i64, null_mut(), 0isize)
         };
@@ -59,11 +67,12 @@ impl<R: Read> OodleDecoder<R> {
         let io_buffer = vec![0u8; OODLELZ_BLOCK_LEN as usize * 2].into_boxed_slice();
 
         Some(Self {
-            decoder,
+            // SAFETY: Pointer is validated to be non-null above.
+            decoder: unsafe { NonNull::new_unchecked(decoder) },
             reader,
             decode_buffer,
             decode_buffer_writer_pos: 0,
-            decode_buffer_reader_pos: 0,
+            decode_buffer_reader_lag: 0,
             io_buffer,
             io_buffer_reader_pos: 0,
             io_buffer_writer_pos: 0,
@@ -85,9 +94,9 @@ impl<R: Read> Read for OodleDecoder<R> {
             let wpos = self.decode_buffer_writer_pos;
 
             // Check if there's data to be written from the sliding window first
-            if self.decode_buffer_reader_pos > 0 {
-                let bytes_to_copy = min(self.decode_buffer_reader_pos, buf.len() - total_written);
-                let start = wpos - self.decode_buffer_reader_pos;
+            if self.decode_buffer_reader_lag > 0 {
+                let bytes_to_copy = min(self.decode_buffer_reader_lag, buf.len() - total_written);
+                let start = wpos - self.decode_buffer_reader_lag;
                 let end = start + bytes_to_copy;
 
                 let src = &self.decode_buffer[start..end];
@@ -95,7 +104,7 @@ impl<R: Read> Read for OodleDecoder<R> {
 
                 dest.copy_from_slice(src);
 
-                self.decode_buffer_reader_pos -= bytes_to_copy;
+                self.decode_buffer_reader_lag -= bytes_to_copy;
                 total_written += bytes_to_copy;
 
                 continue;
@@ -111,29 +120,31 @@ impl<R: Read> Read for OodleDecoder<R> {
                 break; // EOF reached
             }
 
+            // SAFETY: OodleLZ_DecodeSome_out is zero initialised by default.
             let mut out: OodleLZ_DecodeSome_Out = unsafe { std::mem::zeroed() };
+
+            // SAFETY:
+            // - Signedness conversions of offsets are all valid, given that `sliding_window.len()
+            //   <= i32::MAX` and `self.uncompressed_size < isize::MAX`.
+            // - Consumed `input_data_len` is caped at i32::MAX
             let result = unsafe {
                 // EXTREMELY unlikely, however unsound otherwise.
                 let input_data_len = isize::try_from(data.len()).unwrap_or(isize::MAX);
-
-                // SAFETY:
-                // - Signedness conversions of offsets are all valid, given that
-                //   `sliding_window.len() <= i32::MAX` and `self.uncompressed_size < isize::MAX`.
-                // - Consumed `input_data_len` is caped at i32::MAX
                 let decode_buffer_avail = self.decode_buffer.len() - wpos;
+
                 OodleLZDecoder_DecodeSome(
-                    self.decoder,
+                    self.decoder.as_ptr(),
                     &mut out as *mut _,
-                    self.decode_buffer.as_mut_ptr() as *mut _,
+                    self.decode_buffer.as_mut_ptr().cast(),
                     wpos as isize,
                     self.uncompressed_size as isize,
                     decode_buffer_avail as isize,
-                    data.as_ptr() as *const _,
+                    data.as_ptr().cast(),
                     input_data_len,
                     OodleLZ_FuzzSafe_OodleLZ_FuzzSafe_No,
-                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_No,
+                    OodleLZ_CheckCRC_OodleLZ_CheckCRC_Yes,
                     OodleLZ_Verbosity_OodleLZ_Verbosity_None,
-                    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_Unthreaded,
+                    OodleLZ_Decode_ThreadPhase_OodleLZ_Decode_ThreadPhaseAll,
                 )
             };
 
@@ -154,7 +165,7 @@ impl<R: Read> Read for OodleDecoder<R> {
                 dest.copy_from_slice(src);
 
                 self.decode_buffer_writer_pos += decoded_bytes;
-                self.decode_buffer_reader_pos = decoded_bytes - bytes_to_copy;
+                self.decode_buffer_reader_lag = decoded_bytes - bytes_to_copy;
                 total_written += bytes_to_copy;
             } else {
                 // Nothing more to decode.
@@ -187,6 +198,7 @@ impl<R: Read> Read for OodleDecoder<R> {
 
 impl<R: Read> Drop for OodleDecoder<R> {
     fn drop(&mut self) {
-        unsafe { OodleLZDecoder_Destroy(self.decoder) }
+        // SAFETY: Guaranteed to be a valid pointer to a Decoder by [OodleDecoder::new].
+        unsafe { OodleLZDecoder_Destroy(self.decoder.as_ptr()) }
     }
 }

@@ -1,26 +1,23 @@
-use std::{
-    io::{self, Read},
-    path::PathBuf,
-};
+use std::{io::Read, path::PathBuf};
 
-use bevy::{
-    pbr::wireframe::{Wireframe, WireframeColor, WireframePlugin},
-    prelude::*,
-    transform::TransformSystem,
-};
+use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 use bevy_basic_camera::{CameraController, CameraControllerPlugin};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use clap::Parser;
-use formats::msb::{MsbAsset, MsbPartAsset, MsbPointAsset};
-use fstools_formats::{dcx::DcxHeader, msb::Msb};
-use fstools_vfs::{FileKeyProvider, Vfs};
-use vfs::VfsAssetRepositoryPlugin;
 
-use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
+use fstools_asset_server::{
+    types::{bnd4::Archive, flver::FlverAsset},
+    FsAssetSourcePlugin, FsFormatsPlugin,
+};
+use fstools_dvdbnd::FileKeyProvider;
 
-pub mod flver;
+use crate::{
+    formats::FormatsPlugins,
+    preload::{vfs_mount_system, ArchivesLoading},
+};
+
 mod formats;
-mod vfs;
+mod preload;
 
 fn main() {
     let args = Args::parse();
@@ -34,68 +31,21 @@ fn main() {
         er_path.join("Data3"),
         er_path.join("sd/sd"),
     ];
-
-    let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
-    // TODO: get rid of this
-    let path = format!("/map/mapstudio/{}.msb.dcx", args.msb);
-    let mut msb = vfs.open(path).unwrap();
-    let mut dcx_file = vec![];
-    msb.read_to_end(&mut dcx_file).unwrap();
-
-    let (_, mut decoder) = DcxHeader::read(dcx_file.as_slice()).unwrap();
-
-    let mut decompressed = Vec::with_capacity(decoder.hint_size());
-    decoder.read_to_end(&mut decompressed).unwrap();
-
-    let msb = Msb::parse(&decompressed).unwrap();
-
-    // Load all dependencies for this MSB
-    // TODO: this can be much more optimized and cleaner lmao
-    msb.models()
-        .unwrap()
-        .map(|m| {
-            let model = m.unwrap();
-            let model_name = model.name.to_string_lossy();
-
-            if model_name.starts_with("AEG") {
-                let lower = model_name.to_lowercase();
-                vec![format!("/asset/aeg/{}/{}.geombnd.dcx", &lower[..6], lower)]
-            } else if model_name.starts_with("m") {
-                let lower = model_name.to_lowercase();
-
-                vec![format!(
-                    "/map/{}/{}/{}_{}.mapbnd.dcx",
-                    &args.msb[..3],
-                    &args.msb,
-                    &args.msb,
-                    &lower[1..]
-                )]
-            } else {
-                println!("Couldn't match asset for {}", model_name);
-                vec![]
-            }
-        })
-        .flatten()
-        .for_each(|dep| match vfs.mount(&dep) {
-            Ok(_) => println!("Loaded dependency {}", dep),
-            Err(_) => println!("Could not load dependency {}", dep),
-        });
-
     App::new()
-        .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
+        .add_plugins(FsAssetSourcePlugin::new(&archives, keys).expect("assets_failure"))
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        }))
         .add_plugins(FormatsPlugins)
+        .add_plugins(FsFormatsPlugin)
+        .add_plugins(AssetInspectorPlugin::<FlverAsset>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(CameraControllerPlugin)
         .add_plugins(WireframePlugin)
-        .init_resource::<AssetCollection>()
-        .init_resource::<PartsModelLoading>()
+        .init_resource::<ArchivesLoading>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (spawn_parts, spawn_parts_models))
-        .add_systems(Update, (spawn_points, render_points))
-        .add_systems(
-            PostUpdate,
-            update_point_labels.after(TransformSystem::TransformPropagate),
-        )
+        .add_systems(PreUpdate, vfs_mount_system)
         .run();
 }
 
@@ -109,27 +59,18 @@ struct Args {
     msb: String,
 }
 
-#[derive(Debug)]
-pub enum AssetLoadError {
-    Io(io::Error),
-    NotFound,
-}
-
-#[derive(Resource, Default)]
-pub struct AssetCollection {
-    msb: Vec<Handle<MsbAsset>>,
-}
-
 fn setup(
     mut commands: Commands,
-    mut assets: ResMut<AssetCollection>,
+    mut archives: ResMut<ArchivesLoading>,
     asset_server: Res<AssetServer>,
 ) {
-    let args = Args::parse();
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
+    archives.push(archive);
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://material/allmaterial.matbinbnd.dcx");
+    archives.push(archive);
 
-    let path = format!("vfs:///map/mapstudio/{}.msb.dcx", args.msb);
-    let map: Handle<MsbAsset> = asset_server.load(path);
-    assets.msb.push(map);
+    let flver: Handle<FlverAsset> = asset_server.load("vfs://am_m_1100.flver");
+    commands.spawn((SpatialBundle::default(), flver));
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -157,118 +98,34 @@ fn setup(
     ));
 }
 
-#[derive(Default, Resource)]
-struct PartsModelLoading(Vec<PartsModelInstance>);
+#[derive(Component)]
+pub struct FlverInstance;
 
-struct PartsModelInstance {
-    model: Handle<FlverAsset>,
-    msb_transform: Transform,
-}
-
-fn spawn_parts(
-    mut events: EventReader<AssetEvent<MsbPartAsset>>,
-    mut loading: ResMut<PartsModelLoading>,
-    parts: Res<Assets<MsbPartAsset>>,
-) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let part = parts.get(*id).expect("part wasn't loaded");
-
-            loading.0.push(PartsModelInstance {
-                model: part.model.clone(),
-                msb_transform: part.transform,
-            });
-        }
-    }
-}
-
-fn spawn_parts_models(
+#[allow(clippy::type_complexity)]
+pub fn spawn_flvers(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<FlverAsset>>,
-    mut loading: ResMut<PartsModelLoading>,
+    mut flvers_to_spawn: Query<
+        (Entity, &Handle<FlverAsset>),
+        Or<(Without<FlverInstance>, Changed<Handle<FlverAsset>>)>,
+    >,
     flvers: Res<Assets<FlverAsset>>,
 ) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let instances_for_model = loading.0.iter().filter(|i| i.model.id() == *id);
-            for instance in instances_for_model {
-                let flver = flvers.get(*id).expect("flver wasn't loaded");
+    for (entity, flver) in &mut flvers_to_spawn {
+        let Some(flver_asset) = flvers.get(flver) else {
+            continue;
+        };
 
-                for mesh in flver.meshes() {
-                    commands.spawn((
-                        PbrBundle {
-                            mesh: mesh.clone(),
-                            transform: instance.msb_transform,
-                            ..PbrBundle::default()
-                        },
-                        Wireframe,
-                        WireframeColor {
-                            color: Color::WHITE.into(),
-                        },
-                    ));
+        commands
+            .entity(entity)
+            .despawn_descendants()
+            .insert(FlverInstance)
+            .with_children(|parent| {
+                for mesh in flver_asset.meshes() {
+                    parent.spawn(PbrBundle {
+                        mesh: mesh.clone(),
+                        ..PbrBundle::default()
+                    });
                 }
-            }
-
-            let _ = loading.0.retain(|i| i.model.id() != *id);
-        }
-    }
-}
-
-fn spawn_points(
-    mut commands: Commands,
-    mut events: EventReader<AssetEvent<MsbPointAsset>>,
-    points: Res<Assets<MsbPointAsset>>,
-    asset_server: Res<AssetServer>,
-) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let point = points.get(*id).expect("point wasn't loaded");
-
-            commands.spawn((
-                LabelPosition { position: point.position },
-                TextBundle::from_section(
-                    format!("{}", point.name.to_string()),
-                    TextStyle {
-                        font: asset_server.load("fonts/NotoSansJP-Medium.ttf"),
-                        font_size: 16.0,
-                        color: Color::BLACK,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            ));
-        }
-    }
-}
-
-#[derive(Component)]
-struct LabelPosition {
-    position: Vec3,
-}
-
-fn render_points(mut query: Query<&LabelPosition>, mut gizmos: Gizmos) {
-    for point_data in query.iter_mut() {
-        gizmos.sphere(point_data.position, Quat::IDENTITY, 0.1, Color::RED);
-    }
-}
-
-fn update_point_labels(
-    cameras: Query<(&Camera, &GlobalTransform)>,
-    mut query: Query<(&LabelPosition, &mut Style, &mut Visibility)>,
-) {
-    let (camera, camera_global_transform) = cameras.single();
-
-    for (label, mut style, mut visibility) in query.iter_mut() {
-        let distance_to_camera = (label.position - camera_global_transform.translation()).length();
-
-        if distance_to_camera < 50.0 {
-            if let Some(v) = camera.world_to_viewport(camera_global_transform, label.position) {
-                style.top = Val::Px(v.y);
-                style.left = Val::Px(v.x);
-                *visibility = Visibility::Visible;
-            }
-        } else {
-            *visibility = Visibility::Hidden;
-        }
+            });
     }
 }

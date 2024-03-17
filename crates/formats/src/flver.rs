@@ -105,12 +105,14 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
     ) -> &'a [VertexBufferAttribute<O>] {
         let attribute_count = vertex_buffer_layout.member_count.get() as usize;
         let attribute_offset = vertex_buffer_layout.member_offset.get() as usize;
-        let attributes_length = std::mem::size_of::<VertexBufferAttribute<O>>() * attribute_count;
 
-        VertexBufferAttribute::slice_from(
-            &self.bytes[attribute_offset..attribute_offset + attributes_length],
+        let (attrs, _) = VertexBufferAttribute::slice_from_prefix(
+            &self.bytes[attribute_offset..],
+            attribute_count,
         )
-        .unwrap()
+        .expect("unaligned_vertex_attributes");
+
+        attrs
     }
 
     pub fn vertex_attribute_accessor(
@@ -127,6 +129,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
 
         use vertex_buffer::VertexFormat::*;
 
+        #[allow(clippy::match_same_arms)]
         attribute.format().map(|format| match format {
             Float32x3 => Accessor::Float3(Iter::new(data, vertex_size, vertex_offset)),
             Float32x2 => Accessor::Float2(Iter::new(data, vertex_size, vertex_offset)),

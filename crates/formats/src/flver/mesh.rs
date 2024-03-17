@@ -1,4 +1,4 @@
-use byteorder::ByteOrder;
+use byteorder::{ByteOrder, LE};
 use zerocopy::{FromBytes, FromZeroes, U32};
 
 use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
@@ -6,7 +6,7 @@ use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 #[derive(Debug, FromZeroes, FromBytes)]
 #[repr(packed)]
 #[allow(unused)]
-pub struct Mesh<O: ByteOrder> {
+pub struct Mesh<O: ByteOrder = LE> {
     pub(crate) dynamic: u8,
     pub(crate) _padding1: Padding<3>,
     pub(crate) material_index: U32<O>,

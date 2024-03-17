@@ -1,6 +1,3 @@
-#![feature(c_variadic)]
-#![feature(trait_alias)]
-#![feature(ptr_metadata)]
 pub mod bhd;
 pub mod bnd4;
 pub mod dcx;

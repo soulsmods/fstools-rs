@@ -1,16 +1,15 @@
 [package]
-name = "fstools_cli"
+name = "fstools_dvdbnd"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
-indicatif = { version = "0.17", features = ["rayon"] }
+aes = "0.8"
+encoding_rs = "0.8"
 fstools_formats.workspace = true
-fstools_dvdbnd.workspace = true
 memmap2.workspace = true
-rayon.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true
