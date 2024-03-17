@@ -5,8 +5,8 @@ use bevy::{
 };
 use fstools_formats::msb::{parts::PartData, Msb, MsbError};
 use thiserror::Error;
-use crate::types::flver::FlverAsset;
 
+use crate::types::flver::FlverAsset;
 
 #[derive(Asset, TypePath, Debug)]
 pub struct MsbAsset {
@@ -174,4 +174,3 @@ impl AssetLoader for MsbAssetLoader {
         &["msb", "msb.dcx"]
     }
 }
-

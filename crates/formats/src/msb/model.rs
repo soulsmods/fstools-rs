@@ -4,9 +4,8 @@ use byteorder::LE;
 use widestring::U16Str;
 use zerocopy::{FromBytes, FromZeroes, U32, U64};
 
-use crate::io_ext::read_widestring;
-
 use super::{MsbError, MsbParam};
+use crate::io_ext::read_widestring;
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]

@@ -4,7 +4,6 @@ use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 use bevy_basic_camera::{CameraController, CameraControllerPlugin};
 use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use clap::Parser;
-
 use fstools_asset_server::{
     types::{bnd4::Archive, flver::FlverAsset},
     FsAssetSourcePlugin, FsFormatsPlugin,

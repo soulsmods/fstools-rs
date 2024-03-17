@@ -8,12 +8,11 @@ use byteorder::LE;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, Ref, U32, U64};
 
-use crate::io_ext::{read_widestring, ReadWidestringError};
-
 use self::{
     event::EVENT_PARAM_ST, model::MODEL_PARAM_ST, parts::PARTS_PARAM_ST, point::POINT_PARAM_ST,
     route::ROUTE_PARAM_ST,
 };
+use crate::io_ext::{read_widestring, ReadWidestringError};
 
 #[derive(Debug, Error)]
 pub enum MsbError {

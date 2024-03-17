@@ -7,7 +7,7 @@ use bevy::asset::{
 use fstools_dvdbnd::{DvdBnd, DvdBndEntryError};
 use fstools_formats::dcx::DcxHeader;
 
-use crate::SimpleReader;
+use crate::asset_source::SimpleReader;
 
 #[derive(Clone)]
 pub struct DvdBndAssetSource(pub(crate) Arc<DvdBnd>);

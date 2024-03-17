@@ -1,6 +1,7 @@
 use std::borrow::Cow;
-use thiserror::Error;
+
 use bytemuck::PodCastError;
+use thiserror::Error;
 use widestring::{U16Str, U16String};
 
 #[derive(Debug, Error)]
@@ -13,10 +14,10 @@ pub enum ReadWidestringError {
 }
 
 /// Reads a widestring from an input slice.
-/// Attempts to read a widestring in-place and copies the string bytes 
+/// Attempts to read a widestring in-place and copies the string bytes
 /// to aligned memory when that fails.
 pub fn read_widestring(input: &[u8]) -> Result<Cow<'_, U16Str>, ReadWidestringError> {
-    // Find the end of the input string. Unfortunately we need the end to be 
+    // Find the end of the input string. Unfortunately we need the end to be
     // known as U16Str seems to behave inconsistently (sometimes yields garble
     // at the end of a read string) when the slice doesn't end at the terminator.
     let length = input

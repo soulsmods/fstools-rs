@@ -3,7 +3,7 @@ use std::{sync::Arc, thread};
 use bevy::asset::io::{AssetSourceEvent, AssetWatcher};
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::vfs::VfsEvent;
+use super::VfsEvent;
 
 impl AssetWatcher for VfsWatcher {}
 

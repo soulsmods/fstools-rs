@@ -16,7 +16,7 @@ use crossbeam_channel::Sender;
 use memmap2::{Mmap, MmapOptions};
 use typed_path::Utf8WindowsPathBuf;
 
-use crate::SimpleReader;
+use crate::asset_source::SimpleReader;
 
 pub mod watcher;
 
