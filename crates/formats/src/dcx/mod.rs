@@ -8,7 +8,7 @@ use byteorder::BE;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, U32};
 
-use self::{deflate::DcxDecoderDeflate, oodle::OodleDecoder};
+use self::{deflate::DeflateDecoder, oodle::OodleDecoder};
 
 pub mod deflate;
 pub mod oodle;
@@ -68,7 +68,7 @@ impl DcxHeader {
                 OodleDecoder::new(reader, self.sizes.uncompressed_size.get())
                     .ok_or(DcxError::DecoderError)?,
             ),
-            MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DcxDecoderDeflate::new(reader)),
+            MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DeflateDecoder::new(reader)),
             _ => return Err(DcxError::UnknownAlgorithm(algorithm.to_owned())),
         };
 
@@ -110,7 +110,7 @@ impl Debug for DcxHeader {
 
 pub enum Decoder<R: Read> {
     Kraken(OodleDecoder<R>),
-    Deflate(DcxDecoderDeflate<R>),
+    Deflate(DeflateDecoder<R>),
 }
 
 pub struct DcxContentDecoder<R: Read> {

@@ -2,18 +2,22 @@ use std::io::{Error, Read, Seek, SeekFrom};
 
 use memmap2::MmapMut;
 
-pub struct VfsEntryReader {
+pub struct DvdBndEntryReader {
     mmap: MmapMut,
     position: usize,
 }
 
-impl VfsEntryReader {
+impl DvdBndEntryReader {
     pub fn new(mmap: MmapMut) -> Self {
         Self { mmap, position: 0 }
     }
+
+    pub fn data(&self) -> &[u8] {
+        &self.mmap[..]
+    }
 }
 
-impl Read for VfsEntryReader {
+impl Read for DvdBndEntryReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let mut data = &self.mmap[self.position..];
         let read = data.read(buf)?;
@@ -24,7 +28,7 @@ impl Read for VfsEntryReader {
     }
 }
 
-impl Seek for VfsEntryReader {
+impl Seek for DvdBndEntryReader {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         let new_pos = match pos {
             SeekFrom::Start(start_offset) => Some(start_offset as usize),

@@ -1,17 +1,22 @@
-use std::{f32::consts::PI, io, path::PathBuf};
+use std::{f32::consts::PI, path::PathBuf};
 
 use bevy::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
-use fstools_vfs::{FileKeyProvider, Vfs};
-use vfs::VfsAssetRepositoryPlugin;
+use fstools_asset_server::{
+    types::{bnd4::Archive, flver::FlverAsset},
+    FsAssetSourcePlugin, FsFormatsPlugin,
+};
+use fstools_dvdbnd::FileKeyProvider;
 
-use crate::{flver::asset::FlverAsset, formats::FormatsPlugins};
+use crate::{
+    formats::FormatsPlugins,
+    preload::{vfs_mount_system, ArchivesLoading},
+};
 
-pub mod flver;
 mod formats;
-mod vfs;
+mod preload;
 
 fn main() {
     let args = Args::parse();
@@ -26,22 +31,21 @@ fn main() {
         er_path.join("sd/sd"),
     ];
 
-    let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
-
-    vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
-        .expect("Could not mount bnd");
-
-    vfs.mount("/chr/c3660_l.texbnd.dcx")
-        .expect("Could not mount bnd");
-
     App::new()
-        .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
+        .add_plugins(FsAssetSourcePlugin::new(&archives, keys).expect("assets_failure"))
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        }))
         .add_plugins(FormatsPlugins)
+        .add_plugins(FsFormatsPlugin)
+        .add_plugins(AssetInspectorPlugin::<FlverAsset>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(PanOrbitCameraPlugin)
-        .init_resource::<AssetCollection>()
+        .init_resource::<ArchivesLoading>()
         .add_systems(Startup, setup)
-        .add_systems(Update, spawn_flvers)
+        .add_systems(PreUpdate, vfs_mount_system)
+        .add_systems(PreUpdate, spawn_flvers)
         .run();
 }
 
@@ -49,68 +53,21 @@ fn main() {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long)]
-    dcx: String,
-
-    #[arg(long)]
     erpath: Option<PathBuf>,
-}
-
-#[derive(Debug)]
-pub enum AssetLoadError {
-    Io(io::Error),
-    NotFound,
-}
-
-#[derive(Resource, Default)]
-pub struct AssetCollection {
-    assets: Vec<Handle<FlverAsset>>,
 }
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut assets: ResMut<AssetCollection>,
+    mut archives: ResMut<ArchivesLoading>,
     asset_server: Res<AssetServer>,
 ) {
-    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
+    archives.push(archive);
+    let archive: Handle<Archive> = asset_server.load("dvdbnd://material/allmaterial.matbinbnd.dcx");
+    archives.push(archive);
 
-    assets.assets.push(flver);
-    // From mounted BND
-    {
-        let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            material: material_handle,
-            ..default()
-        });
-    }
-
-    // From DCX'd TPF
-    {
-        let texture: Handle<Image> =
-            asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            transform: Transform::from_xyz(0.0, 3.0, 0.0),
-            material: material_handle,
-            ..default()
-        });
-    }
+    let flver: Handle<FlverAsset> = asset_server.load("vfs://am_m_1100.flver");
+    commands.spawn((SpatialBundle::default(), flver));
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -136,22 +93,34 @@ fn setup(
     ));
 }
 
+#[derive(Component)]
+pub struct FlverInstance;
+
+#[allow(clippy::type_complexity)]
 pub fn spawn_flvers(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<FlverAsset>>,
+    mut flvers_to_spawn: Query<
+        (Entity, &Handle<FlverAsset>),
+        Or<(Without<FlverInstance>, Changed<Handle<FlverAsset>>)>,
+    >,
     flvers: Res<Assets<FlverAsset>>,
 ) {
-    for ev in events.read() {
-        if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let flver = flvers.get(*id).expect("flver wasn't loaded");
+    for (entity, flver) in &mut flvers_to_spawn {
+        let Some(flver_asset) = flvers.get(flver) else {
+            continue;
+        };
 
-            for mesh in flver.meshes() {
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    transform: Transform::from_xyz(0.0, 5.0, 0.0),
-                    ..PbrBundle::default()
-                });
-            }
-        }
+        commands
+            .entity(entity)
+            .despawn_descendants()
+            .insert(FlverInstance)
+            .with_children(|parent| {
+                for mesh in flver_asset.meshes() {
+                    parent.spawn(PbrBundle {
+                        mesh: mesh.clone(),
+                        ..PbrBundle::default()
+                    });
+                }
+            });
     }
 }

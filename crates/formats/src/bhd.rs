@@ -79,6 +79,7 @@ impl Bhd {
 
                 let mut decrypted_with_padding = vec![MaybeUninit::<u8>::uninit(); key_size];
                 decrypted.write_digits(
+                    // SAFETY: data is never dereferenced before being initialized by write_digits.
                     unsafe { transmute::<_, &mut [u8]>(&mut decrypted_with_padding[..]) },
                     Order::Msf,
                 );
@@ -193,7 +194,7 @@ pub fn read_toc<R: Read + Seek, O: ByteOrder>(
                 offset,
                 aes_key,
                 encrypted_ranges,
-            })
+            });
         }
 
         reader.seek(SeekFrom::Start(next_bucket_pos))?;

@@ -2,10 +2,10 @@ pub mod formats {
     pub use fstools_formats::*;
 }
 
-pub mod vfs {
-    pub use fstools_vfs::*;
+pub mod dvdbnd {
+    pub use fstools_dvdbnd::*;
 }
 
 pub mod prelude {
-    pub use super::{formats::*, vfs::*};
+    pub use super::{dvdbnd::*, formats::*};
 }

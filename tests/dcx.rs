@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Arc::new(Vfs::create(archives.clone(), &keys).expect("unable to create vfs"));
+    let vfs = Arc::new(DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd"));
 
     let dictionary = include_str!("data/EldenRingDictionary.txt");
     let lines = dictionary
@@ -40,10 +40,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     libtest_mimic::run(&args, tests).exit();
 }
 
-pub fn check_file(vfs: Arc<Vfs>, file: &str) -> Result<(), Failed> {
+pub fn check_file(vfs: Arc<DvdBnd>, file: &str) -> Result<(), Failed> {
     let file = match vfs.open(file) {
         Ok(file) => file,
-        Err(VfsOpenError::NotFound) => {
+        Err(_) => {
             return Ok(());
         }
     };

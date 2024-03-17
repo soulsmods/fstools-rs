@@ -8,7 +8,9 @@ edition.workspace = true
 clap = { version = "4", features = ["derive"] }
 indicatif = { version = "0.17", features = ["rayon"] }
 fstools_formats.workspace = true
-fstools_vfs.workspace = true
+fstools_dvdbnd.workspace = true
 memmap2.workspace = true
 rayon.workspace = true
 
+[lints]
+workspace = true

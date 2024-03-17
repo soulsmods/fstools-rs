@@ -25,7 +25,7 @@ pub struct BND4 {
 }
 
 impl BND4 {
-    pub fn from_reader(r: &mut BND4Reader) -> io::Result<Self> {
+    pub fn from_reader<R: Read + Seek>(mut r: R) -> io::Result<Self> {
         r.read_magic(b"BND4")?;
 
         let unk04 = r.read_u8()?;
@@ -52,7 +52,7 @@ impl BND4 {
 
         let mut files = vec![];
         for _ in 0..file_count {
-            files.push(BND4Entry::from_reader(r)?);
+            files.push(BND4Entry::from_reader(&mut r)?);
         }
 
         let mut data = vec![];
@@ -111,7 +111,7 @@ pub struct BND4Entry {
 }
 
 impl BND4Entry {
-    pub fn from_reader(r: &mut BND4Reader) -> Result<Self, io::Error> {
+    pub fn from_reader<R: Read + Seek>(mut r: R) -> Result<Self, io::Error> {
         let flags = r.read_u8()?;
         r.read_padding(3)?;
 
