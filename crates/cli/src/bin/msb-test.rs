@@ -2,7 +2,7 @@ use std::{error::Error, io::Read, path::PathBuf};
 
 use clap::Parser;
 use fstools_formats::{dcx::DcxHeader, msb::{point::PointData, Msb}};
-use fstools_vfs::{FileKeyProvider, Vfs};
+use fstools_dvdbnd::{FileKeyProvider, DvdBnd};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
 
     for msb_path in MSBS.iter() {
         // println!("Parsing MSB {}", msb_path);
