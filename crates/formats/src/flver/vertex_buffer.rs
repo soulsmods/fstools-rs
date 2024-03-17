@@ -72,6 +72,7 @@ impl<O: ByteOrder> VertexBufferAttribute<O> {
             (BoneWeights, 0x16 | 0x1A) => Snorm16x4,
             (BoneIndices, 0x11 | 0x24) => Uint8x4,
             (BoneIndices, 0x18) => Sint16x4,
+            (Tangent, 0x10 | 0x11 | 0x13 | 0x2F) => Snorm8x4,
             _ => return None,
         };
 

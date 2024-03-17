@@ -543,6 +543,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_basic_camera"
+version = "0.1.0"
+source = "git+https://github.com/DGriffin91/bevy_basic_camera#1d50123861922fca2fe819bdd4c3797871afa34c"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_core"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -856,15 +864,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3075c01f2b1799945892d5310fc1836e47c045dfe6af5878a304a475931a0c5f"
 dependencies = [
  "glam",
-]
-
-[[package]]
-name = "bevy_panorbit_camera"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf9b6fb5c5e024aa3f8633b8316e0664b46f5328ad64865c0e3fdd6eb1f327e"
-dependencies = [
- "bevy",
 ]
 
 [[package]]
@@ -2227,6 +2226,7 @@ dependencies = [
  "fstools_formats",
  "futures-lite",
  "memmap2",
+ "thiserror",
  "typed-path",
 ]
 
@@ -2276,7 +2276,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
- "bevy_panorbit_camera",
+ "bevy_basic_camera",
  "byteorder",
  "clap",
  "fstools_asset_server",

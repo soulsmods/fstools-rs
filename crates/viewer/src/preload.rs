@@ -4,8 +4,8 @@ use bevy::{
     tasks::IoTaskPool,
 };
 use fstools_asset_server::{
+    asset_source::vfs::Vfs,
     types::bnd4::{Archive, ArchiveEntry},
-    vfs::Vfs,
 };
 
 #[derive(Default, Deref, DerefMut, Resource)]

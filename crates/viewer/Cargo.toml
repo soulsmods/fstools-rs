@@ -10,7 +10,7 @@ license.workspace = true
 clap = { version = "4", features = ["derive"] }
 byteorder = "1"
 bevy = { version = "0.13", features = ["dds"] }
-bevy_panorbit_camera = "0.14"
+bevy_basic_camera = { git = "https://github.com/DGriffin91/bevy_basic_camera" }
 bevy-inspector-egui = "0.23"
 fstools_asset_server.workspace = true
 fstools_formats.workspace = true

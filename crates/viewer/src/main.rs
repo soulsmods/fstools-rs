@@ -1,8 +1,8 @@
-use std::{f32::consts::PI, path::PathBuf};
+use std::path::PathBuf;
 
-use bevy::prelude::*;
+use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
+use bevy_basic_camera::{CameraController, CameraControllerPlugin};
 use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
 use fstools_asset_server::{
     types::{bnd4::Archive, flver::FlverAsset},
@@ -30,7 +30,6 @@ fn main() {
         er_path.join("Data3"),
         er_path.join("sd/sd"),
     ];
-
     App::new()
         .add_plugins(FsAssetSourcePlugin::new(&archives, keys).expect("assets_failure"))
         .add_plugins(DefaultPlugins.set(AssetPlugin {
@@ -41,11 +40,11 @@ fn main() {
         .add_plugins(FsFormatsPlugin)
         .add_plugins(AssetInspectorPlugin::<FlverAsset>::default())
         .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(PanOrbitCameraPlugin)
+        .add_plugins(CameraControllerPlugin)
+        .add_plugins(WireframePlugin)
         .init_resource::<ArchivesLoading>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, vfs_mount_system)
-        .add_systems(PreUpdate, spawn_flvers)
         .run();
 }
 
@@ -54,6 +53,9 @@ fn main() {
 struct Args {
     #[arg(long)]
     erpath: Option<PathBuf>,
+
+    #[arg(long)]
+    msb: String,
 }
 
 fn setup(
@@ -71,15 +73,12 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::OVERCAST_DAY,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            color: Color::WHITE,
             shadows_enabled: false,
             ..default()
         },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-PI / 4.),
-            ..default()
-        },
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -1.5, 0.4, 0.0)),
         ..default()
     });
 
@@ -89,7 +88,12 @@ fn setup(
                 .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
-        PanOrbitCamera::default(),
+        CameraController {
+            walk_speed: 10.0,
+            run_speed: 50.0,
+            ..default()
+        }
+        .print_controls(),
     ));
 }
 

@@ -106,6 +106,10 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh) -> Mesh {
                 Mesh::ATTRIBUTE_NORMAL,
                 VertexAttributeValues::Float32x3(it.collect()),
             ),
+            (Normal, VertexAttributeAccessor::SNorm8x4(it)) => (
+                Mesh::ATTRIBUTE_NORMAL,
+                VertexAttributeValues::Float32x3(it.map(|f| [f[0], f[1], f[2]]).collect()),
+            ),
             (UV, VertexAttributeAccessor::UV(it)) => (
                 Mesh::ATTRIBUTE_UV_0,
                 VertexAttributeValues::Float32x2(it.collect()),
