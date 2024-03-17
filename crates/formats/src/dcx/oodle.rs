@@ -159,7 +159,7 @@ impl<R: Read> Read for OodleDecoder<R> {
             } else {
                 // Nothing more to decode.
                 if out.curQuantumCompLen == 0 {
-                    return Ok(0);
+                    return Ok(total_written);
                 }
 
                 let remaining = self.io_buffer_writer_pos - self.io_buffer_reader_pos;

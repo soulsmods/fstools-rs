@@ -28,7 +28,7 @@ impl Plugin for VfsAssetRepositoryPlugin {
 
         app.insert_resource(repository.clone());
         app.register_asset_source(
-            AssetSourceId::Default,
+            AssetSourceId::from("vfs"),
             AssetSource::build().with_reader(move || Box::new(repository.clone())),
         );
     }

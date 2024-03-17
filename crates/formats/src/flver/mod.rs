@@ -105,7 +105,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
     ) -> &'a [VertexBufferAttribute<O>] {
         let attribute_count = vertex_buffer_layout.member_count.get() as usize;
         let attribute_offset = vertex_buffer_layout.member_offset.get() as usize;
-        let attributes_length = std::mem::size_of::<VertexBufferLayout<O>>() * attribute_count;
+        let attributes_length = std::mem::size_of::<VertexBufferAttribute<O>>() * attribute_count;
 
         VertexBufferAttribute::slice_from(
             &self.bytes[attribute_offset..attribute_offset + attributes_length],
@@ -133,7 +133,11 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
             Float32x4 => Accessor::Float4(Iter::new(data, vertex_size, vertex_offset)),
             Unorm8x4 => Accessor::UNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
             Snorm8x4 => Accessor::SNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
-            _ => unimplemented!(),
+            Snorm16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
+            Uint8x4 => Accessor::UNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
+            Sint16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
+            Sscale16x2 => Accessor::SNorm16x2(Iter::new(data, vertex_size, vertex_offset)),
+            Sscale16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
         })
     }
 

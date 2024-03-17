@@ -1,12 +1,11 @@
 use std::{borrow::Cow, io};
 
-use bytemuck::PodCastError;
 use byteorder::LE;
 use thiserror::Error;
-use widestring::{U16Str, U16String};
+use widestring::U16Str;
 use zerocopy::{FromBytes, FromZeroes, Ref, F32, U32, U64};
 
-use crate::io_ext::zerocopy::Padding;
+use crate::io_ext::{read_widestring, zerocopy::Padding, ReadWidestringError};
 
 #[derive(Debug, Error)]
 pub enum MatbinError {
@@ -14,7 +13,7 @@ pub enum MatbinError {
     Io(#[from] io::Error),
 
     #[error("Could not read string")]
-    String(#[from] ReadUtf16StringError),
+    String(#[from] ReadWidestringError),
 
     #[error("Got unknown parameter type {0}")]
     UnknownParameterType(u32),
@@ -57,14 +56,14 @@ impl<'a> Matbin<'a> {
         let offset = self.header.shader_path_offset.get() as usize;
         let bytes = &self.bytes[offset..];
 
-        Ok(read_utf16_string(bytes)?)
+        Ok(read_widestring(bytes)?)
     }
 
     pub fn source_path(&self) -> Result<Cow<'_, U16Str>, MatbinError> {
         let offset = self.header.source_path_offset.get() as usize;
         let bytes = &self.bytes[offset..];
 
-        Ok(read_utf16_string(bytes)?)
+        Ok(read_widestring(bytes)?)
     }
 
     pub fn samplers(&self) -> impl Iterator<Item = Result<SamplerIterElement, MatbinError>> {
@@ -72,13 +71,13 @@ impl<'a> Matbin<'a> {
             let name = {
                 let offset = e.name_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_utf16_string(bytes)
+                read_widestring(bytes)
             }?;
 
             let path = {
                 let offset = e.path_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_utf16_string(bytes)
+                read_widestring(bytes)
             }?;
 
             Ok(SamplerIterElement { name, path })
@@ -90,7 +89,7 @@ impl<'a> Matbin<'a> {
             let name = {
                 let offset = e.name_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_utf16_string(bytes)
+                read_widestring(bytes)
             }?;
 
             let value_slice = &self.bytes[e.value_offset.get() as usize..];
@@ -275,44 +274,4 @@ pub struct Sampler {
     unkxy: [F32<LE>; 2],
 
     _padding1c: Padding<20>,
-}
-
-#[derive(Debug, Error)]
-pub enum ReadUtf16StringError {
-    #[error("Could not find end of string")]
-    NoEndFound,
-
-    #[error("Bytemuck could not cast pod")]
-    Bytemuck,
-}
-
-fn read_utf16_string(input: &[u8]) -> Result<Cow<'_, U16Str>, ReadUtf16StringError> {
-    // Find the end of the input string
-    let length = input
-        .chunks_exact(2)
-        .position(|bytes| bytes[0] == 0x0 && bytes[1] == 0x0)
-        .ok_or(ReadUtf16StringError::NoEndFound)?;
-
-    // Create a view that has a proper end so we don't copy
-    // the entire input slice if required and so we don't have to deal with
-    // bytemuck freaking out over the end not being aligned
-    let string_bytes = &input[..length * 2];
-
-    Ok(match bytemuck::try_cast_slice::<u8, u16>(string_bytes) {
-        Ok(s) => Cow::Borrowed(U16Str::from_slice(s)),
-        Err(e) => {
-            // We should probably return the error if it isn't strictly
-            // about the alignment of the input.
-            if e != PodCastError::TargetAlignmentGreaterAndInputNotAligned {
-                return Err(ReadUtf16StringError::Bytemuck);
-            }
-
-            let aligned_copy = string_bytes
-                .chunks(2)
-                .map(|a| u16::from_le_bytes([a[0], a[1]]))
-                .collect::<Vec<u16>>();
-
-            Cow::Owned(U16String::from_vec(aligned_copy))
-        }
-    })
 }

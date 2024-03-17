@@ -1,9 +1,18 @@
-use std::{f32::consts::PI, io, path::PathBuf};
+use std::{
+    io::{self, Read},
+    path::PathBuf,
+};
 
-use bevy::prelude::*;
+use bevy::{
+    pbr::wireframe::{Wireframe, WireframeColor, WireframePlugin},
+    prelude::*,
+    transform::TransformSystem,
+};
+use bevy_basic_camera::{CameraController, CameraControllerPlugin};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use clap::Parser;
+use formats::msb::{MsbAsset, MsbPartAsset, MsbPointAsset};
+use fstools_formats::{dcx::DcxHeader, msb::Msb};
 use fstools_vfs::{FileKeyProvider, Vfs};
 use vfs::VfsAssetRepositoryPlugin;
 
@@ -27,21 +36,66 @@ fn main() {
     ];
 
     let mut vfs = Vfs::create(archives.clone(), &keys).expect("unable to create vfs");
+    // TODO: get rid of this
+    let path = format!("/map/mapstudio/{}.msb.dcx", args.msb);
+    let mut msb = vfs.open(path).unwrap();
+    let mut dcx_file = vec![];
+    msb.read_to_end(&mut dcx_file).unwrap();
 
-    vfs.mount("/parts/wp_a_0210.partsbnd.dcx")
-        .expect("Could not mount bnd");
+    let (_, mut decoder) = DcxHeader::read(dcx_file.as_slice()).unwrap();
 
-    vfs.mount("/chr/c3660_l.texbnd.dcx")
-        .expect("Could not mount bnd");
+    let mut decompressed = Vec::with_capacity(decoder.hint_size());
+    decoder.read_to_end(&mut decompressed).unwrap();
+
+    let msb = Msb::parse(&decompressed).unwrap();
+
+    // Load all dependencies for this MSB
+    // TODO: this can be much more optimized and cleaner lmao
+    msb.models()
+        .unwrap()
+        .map(|m| {
+            let model = m.unwrap();
+            let model_name = model.name.to_string_lossy();
+
+            if model_name.starts_with("AEG") {
+                let lower = model_name.to_lowercase();
+                vec![format!("/asset/aeg/{}/{}.geombnd.dcx", &lower[..6], lower)]
+            } else if model_name.starts_with("m") {
+                let lower = model_name.to_lowercase();
+
+                vec![format!(
+                    "/map/{}/{}/{}_{}.mapbnd.dcx",
+                    &args.msb[..3],
+                    &args.msb,
+                    &args.msb,
+                    &lower[1..]
+                )]
+            } else {
+                println!("Couldn't match asset for {}", model_name);
+                vec![]
+            }
+        })
+        .flatten()
+        .for_each(|dep| match vfs.mount(&dep) {
+            Ok(_) => println!("Loaded dependency {}", dep),
+            Err(_) => println!("Could not load dependency {}", dep),
+        });
 
     App::new()
         .add_plugins((VfsAssetRepositoryPlugin::new(vfs), DefaultPlugins))
         .add_plugins(FormatsPlugins)
         .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(PanOrbitCameraPlugin)
+        .add_plugins(CameraControllerPlugin)
+        .add_plugins(WireframePlugin)
         .init_resource::<AssetCollection>()
+        .init_resource::<PartsModelLoading>()
         .add_systems(Startup, setup)
-        .add_systems(Update, spawn_flvers)
+        .add_systems(Update, (spawn_parts, spawn_parts_models))
+        .add_systems(Update, (spawn_points, render_points))
+        .add_systems(
+            PostUpdate,
+            update_point_labels.after(TransformSystem::TransformPropagate),
+        )
         .run();
 }
 
@@ -49,10 +103,10 @@ fn main() {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(long)]
-    dcx: String,
+    erpath: Option<PathBuf>,
 
     #[arg(long)]
-    erpath: Option<PathBuf>,
+    msb: String,
 }
 
 #[derive(Debug)]
@@ -63,66 +117,28 @@ pub enum AssetLoadError {
 
 #[derive(Resource, Default)]
 pub struct AssetCollection {
-    assets: Vec<Handle<FlverAsset>>,
+    msb: Vec<Handle<MsbAsset>>,
 }
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut assets: ResMut<AssetCollection>,
     asset_server: Res<AssetServer>,
 ) {
-    let flver: Handle<FlverAsset> = asset_server.load("wp_a_0210.flver");
+    let args = Args::parse();
 
-    assets.assets.push(flver);
-    // From mounted BND
-    {
-        let texture: Handle<Image> = asset_server.load("wp_a_0210.tpf#WP_A_0210_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            material: material_handle,
-            ..default()
-        });
-    }
-
-    // From DCX'd TPF
-    {
-        let texture: Handle<Image> =
-            asset_server.load("/asset/aet/aet230/aet230_557.tpf.dcx#AET230_557_a");
-        let material_handle = materials.add(StandardMaterial {
-            base_color_texture: Some(texture.clone()),
-            alpha_mode: AlphaMode::Blend,
-            unlit: true,
-            ..default()
-        });
-
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 2.0, 2.0)),
-            transform: Transform::from_xyz(0.0, 3.0, 0.0),
-            material: material_handle,
-            ..default()
-        });
-    }
+    let path = format!("vfs:///map/mapstudio/{}.msb.dcx", args.msb);
+    let map: Handle<MsbAsset> = asset_server.load(path);
+    assets.msb.push(map);
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: light_consts::lux::OVERCAST_DAY,
+            illuminance: light_consts::lux::FULL_DAYLIGHT,
+            color: Color::WHITE,
             shadows_enabled: false,
             ..default()
         },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-PI / 4.),
-            ..default()
-        },
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -1.5, 0.4, 0.0)),
         ..default()
     });
 
@@ -132,26 +148,127 @@ fn setup(
                 .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
             ..default()
         },
-        PanOrbitCamera::default(),
+        CameraController {
+            walk_speed: 10.0,
+            run_speed: 50.0,
+            ..default()
+        }
+        .print_controls(),
     ));
 }
 
-pub fn spawn_flvers(
+#[derive(Default, Resource)]
+struct PartsModelLoading(Vec<PartsModelInstance>);
+
+struct PartsModelInstance {
+    model: Handle<FlverAsset>,
+    msb_transform: Transform,
+}
+
+fn spawn_parts(
+    mut events: EventReader<AssetEvent<MsbPartAsset>>,
+    mut loading: ResMut<PartsModelLoading>,
+    parts: Res<Assets<MsbPartAsset>>,
+) {
+    for ev in events.read() {
+        if let AssetEvent::LoadedWithDependencies { id } = ev {
+            let part = parts.get(*id).expect("part wasn't loaded");
+
+            loading.0.push(PartsModelInstance {
+                model: part.model.clone(),
+                msb_transform: part.transform,
+            });
+        }
+    }
+}
+
+fn spawn_parts_models(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<FlverAsset>>,
+    mut loading: ResMut<PartsModelLoading>,
     flvers: Res<Assets<FlverAsset>>,
 ) {
     for ev in events.read() {
         if let AssetEvent::LoadedWithDependencies { id } = ev {
-            let flver = flvers.get(*id).expect("flver wasn't loaded");
+            let instances_for_model = loading.0.iter().filter(|i| i.model.id() == *id);
+            for instance in instances_for_model {
+                let flver = flvers.get(*id).expect("flver wasn't loaded");
 
-            for mesh in flver.meshes() {
-                commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    transform: Transform::from_xyz(0.0, 5.0, 0.0),
-                    ..PbrBundle::default()
-                });
+                for mesh in flver.meshes() {
+                    commands.spawn((
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            transform: instance.msb_transform,
+                            ..PbrBundle::default()
+                        },
+                        Wireframe,
+                        WireframeColor {
+                            color: Color::WHITE.into(),
+                        },
+                    ));
+                }
             }
+
+            let _ = loading.0.retain(|i| i.model.id() != *id);
+        }
+    }
+}
+
+fn spawn_points(
+    mut commands: Commands,
+    mut events: EventReader<AssetEvent<MsbPointAsset>>,
+    points: Res<Assets<MsbPointAsset>>,
+    asset_server: Res<AssetServer>,
+) {
+    for ev in events.read() {
+        if let AssetEvent::LoadedWithDependencies { id } = ev {
+            let point = points.get(*id).expect("point wasn't loaded");
+
+            commands.spawn((
+                LabelPosition { position: point.position },
+                TextBundle::from_section(
+                    format!("{}", point.name.to_string()),
+                    TextStyle {
+                        font: asset_server.load("fonts/NotoSansJP-Medium.ttf"),
+                        font_size: 16.0,
+                        color: Color::BLACK,
+                        ..default()
+                    },
+                )
+                .with_text_justify(JustifyText::Center),
+            ));
+        }
+    }
+}
+
+#[derive(Component)]
+struct LabelPosition {
+    position: Vec3,
+}
+
+fn render_points(mut query: Query<&LabelPosition>, mut gizmos: Gizmos) {
+    for point_data in query.iter_mut() {
+        gizmos.sphere(point_data.position, Quat::IDENTITY, 0.1, Color::RED);
+    }
+}
+
+fn update_point_labels(
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    mut query: Query<(&LabelPosition, &mut Style, &mut Visibility)>,
+) {
+    let (camera, camera_global_transform) = cameras.single();
+
+    for (label, mut style, mut visibility) in query.iter_mut() {
+        let distance_to_camera = (label.position - camera_global_transform.translation()).length();
+
+        if distance_to_camera < 50.0 {
+            if let Some(v) = camera.world_to_viewport(camera_global_transform, label.position) {
+                style.top = Val::Px(v.y);
+                style.left = Val::Px(v.x);
+                *visibility = Visibility::Visible;
+            }
+        } else {
+            *visibility = Visibility::Hidden;
         }
     }
 }
