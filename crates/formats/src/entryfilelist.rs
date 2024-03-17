@@ -1,17 +1,42 @@
 use std::{
     char,
-    io::{self, Cursor, ErrorKind, Read, Seek},
+    io::{self, BufReader, Read},
+    mem::size_of,
 };
 
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use thiserror::Error;
-use zerocopy::{FromBytes, FromZeroes, Ref, U32};
+use zerocopy::{FromBytes, FromZeroes, U32};
 
-use crate::io_ext::{ReadWidestringError, SeekExt};
+use crate::io_ext::ReadWidestringError;
+
+pub struct EntryFileListIterator<R: Read> {
+    decompressor: BufReader<ZlibDecoder<R>>,
+}
+
+impl<R: Read> Iterator for EntryFileListIterator<R> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut string = String::new();
+
+        loop {
+            let c = self.decompressor.read_u16::<LE>().ok()?;
+            // Read until NULL terminator
+            if c == 0x0 {
+                break;
+            }
+
+            string.push(char::from_u32(c as u32)?);
+        }
+
+        Some(string)
+    }
+}
 
 #[derive(Debug, Error)]
-pub enum EntryfilelistError {
+pub enum EntryFileListError {
     #[error("Could not read string")]
     String(#[from] ReadWidestringError),
 
@@ -26,49 +51,38 @@ pub enum EntryfilelistError {
 }
 
 #[allow(unused)]
-pub struct EntryfilelistContainer<'a> {
-    bytes: &'a [u8],
+pub struct EntryFileListContainer;
 
-    header: &'a ContainerHeader,
+impl EntryFileListContainer {
+    pub fn read<R: Read>(
+        mut reader: R,
+    ) -> Result<(ContainerHeader, EntryFileListIterator<R>), EntryFileListError> {
+        let mut header_data = [0u8; size_of::<ContainerHeader>()];
+        reader.read_exact(&mut header_data)?;
 
-    compressed: &'a [u8],
-}
+        let header =
+            ContainerHeader::read_from(&header_data).ok_or(EntryFileListError::UnalignedValue)?;
+        let mut decompressor = BufReader::new(ZlibDecoder::new(reader));
 
-impl<'a> EntryfilelistContainer<'a> {
-    pub fn parse(bytes: &'a [u8]) -> Result<Self, EntryfilelistError> {
-        let (header, compressed) = Ref::<_, ContainerHeader>::new_from_prefix(bytes)
-            .ok_or(EntryfilelistError::UnalignedValue)?;
+        let _unk0 = decompressor.read_u32::<LE>()?;
+        let unk1_count = decompressor.read_u32::<LE>()?;
+        let unk2_count = decompressor.read_u32::<LE>()?;
+        let _unkc = decompressor.read_u32::<LE>()?;
 
-        Ok(Self {
-            bytes,
-            header: header.into_ref(),
-            compressed,
-        })
-    }
+        for _ in 0..unk1_count {
+            let _ = Unk1::parse(&mut decompressor)?;
+        }
+        // FIXME: decompressor.seek_until_alignment(0x10)?;
 
-    fn hint_size(&self) -> usize {
-        self.header.decompressed_size.get() as usize
-    }
+        for _ in 0..unk2_count {
+            let _ = decompressor.read_u64::<LE>()?;
+        }
+        // FIXME: decompressor.seek_until_alignment(0x10)?;
 
-    pub fn decompress(&self) -> Result<Entryfilelist, EntryfilelistError> {
-        let mut buf: Vec<u8> = Vec::with_capacity(self.hint_size());
-        let mut decoder = ZlibDecoder::new(self.compressed);
+        let _unk = decompressor.read_u16::<LE>()?;
+        let iter = EntryFileListIterator { decompressor };
 
-        decoder
-            .read_to_end(&mut buf)
-            .map_err(|_| EntryfilelistError::Zlib)?;
-
-        Ok(Entryfilelist::parse(Cursor::new(buf))?)
-    }
-}
-
-impl<'a> std::fmt::Debug for EntryfilelistContainer<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Entryfilelist")
-            .field("unk04", &self.header.unk04.get())
-            .field("compressed_size", &self.header.compressed_size.get())
-            .field("decompressed_size", &self.header.decompressed_size.get())
-            .finish()
+        Ok((header, iter))
     }
 }
 
@@ -83,73 +97,6 @@ pub struct ContainerHeader {
     compressed_size: U32<LE>,
 
     decompressed_size: U32<LE>,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub struct Entryfilelist {
-    pub unk1: Vec<Unk1>,
-    pub unk2: Vec<u64>,
-    pub strings: Vec<String>,
-}
-
-impl Entryfilelist {
-    pub fn parse<R: Read + Seek>(mut reader: R) -> Result<Self, io::Error> {
-        let _unk0 = reader.read_u32::<LE>()?;
-        let unk1_count = reader.read_u32::<LE>()?;
-        let unk2_count = reader.read_u32::<LE>()?;
-        let _unkc = reader.read_u32::<LE>()?;
-
-        let unk1 = (0..unk1_count)
-            .map(|_| Unk1::parse(&mut reader))
-            .collect::<Result<_, _>>()?;
-        reader.seek_until_alignment(0x10)?;
-
-        let unk2 = (0..unk2_count)
-            .map(|_| reader.read_u64::<LE>())
-            .collect::<Result<_, _>>()?;
-        reader.seek_until_alignment(0x10)?;
-
-        let _unk = reader.read_u16::<LE>()?;
-
-        let strings = (0..unk2_count)
-            .map(|_| Self::read_string(&mut reader))
-            .collect::<Result<_, _>>()?;
-
-        Ok(Self {
-            unk1,
-            unk2,
-            strings,
-        })
-    }
-
-    pub fn read_string<R: Read>(mut reader: R) -> Result<String, io::Error> {
-        let mut string = String::new();
-
-        loop {
-            // We always know read the right amount of strings so we
-            // shouldn't encounter EOF
-            let c = reader.read_u16::<LE>()?;
-            // Read until NULL terminator
-            if c == 0x0 {
-                break;
-            }
-
-            string.push(char::from_u32(c as u32).ok_or(io::Error::from(ErrorKind::InvalidData))?);
-        }
-
-        Ok(string)
-    }
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct Header {
-    unk0: U32<LE>,
-    count_unk1: U32<LE>,
-    count_unk2: U32<LE>,
-    unkc: U32<LE>,
 }
 
 #[derive(Debug)]

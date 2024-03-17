@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf};
 
 use clap::Parser;
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
-use fstools_formats::entryfilelist::EntryfilelistContainer;
+use fstools_formats::entryfilelist::EntryFileListContainer;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Parsing: {}", l.to_str().unwrap());
 
             let reader = vfs.open(l).expect("Could not open dvdbnd entry");
-            let container = EntryfilelistContainer::parse(reader.data())
+            let container = EntryFileListContainer::parse(reader.data())
                 .expect("Could not parse entryfilelist");
 
             let entryfilelist = container.decompress().unwrap();
