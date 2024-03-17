@@ -1,20 +1,33 @@
 use std::{collections::HashMap, io::Cursor};
 
 use bevy::{
+    app::{App, Plugin},
     asset::{io::Reader, AssetLoader, BoxedFuture, Handle, LoadContext},
-    prelude::{Asset, TypePath},
+    prelude::{Asset, AssetApp, Reflect},
 };
 use fstools_formats::bnd4::BND4;
 use futures_lite::AsyncReadExt;
 
+pub struct Bnd4Plugin;
+
+impl Plugin for Bnd4Plugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<Archive>()
+            .register_type::<Archive>()
+            .init_asset::<ArchiveEntry>()
+            .register_type::<ArchiveEntry>()
+            .register_asset_loader(Bnd4Loader);
+    }
+}
+
 pub struct Bnd4Loader;
 
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Reflect)]
 pub struct ArchiveEntry {
     pub data: Vec<u8>,
 }
 
-#[derive(Asset, Debug, Default, TypePath)]
+#[derive(Asset, Debug, Default, Reflect)]
 pub struct Archive {
     pub files: HashMap<String, Handle<ArchiveEntry>>,
 }

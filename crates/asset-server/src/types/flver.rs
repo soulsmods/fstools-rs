@@ -1,7 +1,10 @@
 use std::error::Error;
 
 use bevy::{
-    asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext},
+    app::{App, Plugin},
+    asset::{
+        io::Reader, Asset, AssetApp, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext,
+    },
     prelude::{Mesh, Reflect},
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -12,6 +15,16 @@ use fstools_formats::flver::{
     face_set::FaceSetIndices, mesh::Mesh as FlverMesh, reader::VertexAttributeSemantic,
     vertex_buffer::accessor::VertexAttributeAccessor, Flver,
 };
+
+pub struct FlverPlugin;
+
+impl Plugin for FlverPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<FlverAsset>()
+            .register_type::<FlverAsset>()
+            .register_asset_loader(FlverLoader);
+    }
+}
 
 #[derive(Default)]
 pub struct FlverLoader;

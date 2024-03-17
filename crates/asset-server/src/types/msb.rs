@@ -1,17 +1,31 @@
+mod scene;
+
 use bevy::{
     asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
     utils::BoxedFuture,
 };
-use fstools_formats::msb::{parts::PartData, Msb, MsbError};
+use fstools_formats::msb::{Msb, MsbError};
 use thiserror::Error;
 
-use crate::types::flver::FlverAsset;
+use crate::types::{
+    flver::FlverAsset,
+    msb::scene::{PartBundle, PointBundle},
+};
 
-#[derive(Asset, TypePath, Debug)]
+pub struct MsbPlugin;
+
+impl Plugin for MsbPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<MsbAsset>()
+            .register_type::<MsbAsset>()
+            .register_asset_loader(MsbAssetLoader);
+    }
+}
+
+#[derive(Asset, Debug, Reflect)]
 pub struct MsbAsset {
-    pub points: Vec<Handle<MsbPointAsset>>,
-    pub parts: Vec<Handle<MsbPartAsset>>,
+    scene: Handle<Scene>,
 }
 
 #[derive(Asset, Clone, TypePath, Debug)]
@@ -90,86 +104,67 @@ impl AssetLoader for MsbAssetLoader {
             // Account for DCX compression
             let msb = Msb::parse(&buffer)?;
 
-            let models = msb
-                .models()
-                .expect("Could not get model set from MSB")
-                .map(|m| {
-                    let mut name = m
-                        .expect("Could not get name bytes from model entry")
-                        .name
-                        .to_string_lossy();
-                    if name.starts_with('m') {
-                        let msb_name = load_context.asset_path().to_string();
-                        name = format!(
-                            "{}_{}",
-                            &msb_name[21..33], // Lets fucking pray
-                            &name[1..],
-                        );
-                    }
+            let mut world = World::new();
+            let mut children = vec![];
 
-                    let model_name = format!("vfs://{}.flver", name);
+            for point in msb.points()? {
+                let Ok(point) = point else { continue };
+                let point_entity = world.spawn(PointBundle::new(
+                    point.name.to_string_lossy(),
+                    Transform::from_xyz(
+                        point.position[0].get(),
+                        point.position[1].get(),
+                        point.position[2].get(),
+                    ),
+                ));
 
-                    load_context.load(model_name)
-                })
-                .collect::<Vec<Handle<FlverAsset>>>();
+                children.push(point_entity.id());
+            }
 
-            Ok(MsbAsset {
-                points: msb
-                    .points()
-                    .expect("Could not get point set from MSB")
-                    .map(|p| {
-                        let point = p.as_ref().expect("Could not get point entry from MSB");
-                        load_context.labeled_asset_scope(point.name.to_string_lossy(), |_| {
-                            MsbPointAsset {
-                                name: point.name.to_string_lossy(),
-                                position: Vec3::new(
-                                    point.position[0].get(),
-                                    point.position[1].get(),
-                                    point.position[2].get(),
-                                ),
-                            }
-                        })
-                    })
-                    .collect(),
+            for part in msb.parts()? {
+                let Ok(part) = part else { continue };
+                let part_entity = world.spawn(PartBundle::new(
+                    part.name.to_string_lossy(),
+                    Handle::default(),
+                    Self::make_msb_transform(
+                        Vec3::new(
+                            part.position[0].get(),
+                            part.position[1].get(),
+                            part.position[2].get(),
+                        ),
+                        Some(Vec3::new(
+                            part.rotation[0].get(),
+                            part.rotation[1].get(),
+                            part.rotation[2].get(),
+                        )),
+                        Some(Vec3::new(
+                            part.scale[0].get(),
+                            part.scale[1].get(),
+                            part.scale[2].get(),
+                        )),
+                    ),
+                ));
 
-                parts: msb
-                    .parts()
-                    .expect("Could not get parts set from MSB")
-                    .filter_map(|p| {
-                        let part = p.as_ref().expect("Could not get point entry from MSB");
+                children.push(part_entity.id());
+            }
 
-                        if let PartData::DummyAsset(_) = part.part {
-                            return None;
-                        }
+            let mut root = world.spawn(Name::from(
+                load_context
+                    .path()
+                    .file_name()
+                    .expect("requested asset must have a filename")
+                    .to_string_lossy()
+                    .to_string(),
+            ));
 
-                        Some(
-                            load_context.labeled_asset_scope(part.name.to_string_lossy(), |_| {
-                                MsbPartAsset {
-                                    name: part.name.to_string_lossy(),
-                                    transform: Self::make_msb_transform(
-                                        Vec3::new(
-                                            part.position[0].get(),
-                                            part.position[1].get(),
-                                            part.position[2].get(),
-                                        ),
-                                        Some(Vec3::new(
-                                            part.rotation[0].get(),
-                                            part.rotation[1].get(),
-                                            part.rotation[2].get(),
-                                        )),
-                                        Some(Vec3::new(
-                                            part.scale[0].get(),
-                                            part.scale[1].get(),
-                                            part.scale[2].get(),
-                                        )),
-                                    ),
-                                    model: models[part.model_index.get() as usize].clone(),
-                                }
-                            }),
-                        )
-                    })
-                    .collect(),
-            })
+            for child in children.drain(..) {
+                root.add_child(child);
+            }
+
+            let scene = load_context
+                .labeled_asset_scope("MainScene".to_string(), move |_| Scene::new(world));
+
+            Ok(MsbAsset { scene })
         })
     }
 

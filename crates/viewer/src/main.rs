@@ -1,21 +1,14 @@
 use std::path::PathBuf;
 
-use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
+use bevy::{audio::AudioPlugin, log::LogPlugin, pbr::wireframe::WireframePlugin, prelude::*};
 use bevy_basic_camera::{CameraController, CameraControllerPlugin};
 use bevy_inspector_egui::quick::{AssetInspectorPlugin, WorldInspectorPlugin};
 use clap::Parser;
-use fstools_asset_server::{
-    types::{bnd4::Archive, flver::FlverAsset},
-    FsAssetSourcePlugin, FsFormatsPlugin,
-};
+use fstools_asset_server::{types::flver::FlverAsset, FsAssetSourcePlugin, FsFormatsPlugins};
 use fstools_dvdbnd::FileKeyProvider;
 
-use crate::{
-    formats::FormatsPlugins,
-    preload::{vfs_mount_system, ArchivesLoading},
-};
+use crate::preload::{vfs_mount_system, ArchivesLoading};
 
-mod formats;
 mod preload;
 
 fn main() {
@@ -32,12 +25,16 @@ fn main() {
     ];
     App::new()
         .add_plugins(FsAssetSourcePlugin::new(&archives, keys).expect("assets_failure"))
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            watch_for_changes_override: Some(true),
-            ..Default::default()
-        }))
-        .add_plugins(FormatsPlugins)
-        .add_plugins(FsFormatsPlugin)
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    watch_for_changes_override: Some(true),
+                    ..Default::default()
+                })
+                .disable::<AudioPlugin>()
+                .disable::<LogPlugin>(),
+        )
+        .add_plugins(FsFormatsPlugins)
         .add_plugins(AssetInspectorPlugin::<FlverAsset>::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(CameraControllerPlugin)
@@ -53,24 +50,9 @@ fn main() {
 struct Args {
     #[arg(long)]
     erpath: Option<PathBuf>,
-
-    #[arg(long)]
-    msb: String,
 }
 
-fn setup(
-    mut commands: Commands,
-    mut archives: ResMut<ArchivesLoading>,
-    asset_server: Res<AssetServer>,
-) {
-    let archive: Handle<Archive> = asset_server.load("dvdbnd://parts/am_m_1100.partsbnd.dcx");
-    archives.push(archive);
-    let archive: Handle<Archive> = asset_server.load("dvdbnd://material/allmaterial.matbinbnd.dcx");
-    archives.push(archive);
-
-    let flver: Handle<FlverAsset> = asset_server.load("vfs://am_m_1100.flver");
-    commands.spawn((SpatialBundle::default(), flver));
-
+fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
