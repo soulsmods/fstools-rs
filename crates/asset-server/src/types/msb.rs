@@ -50,7 +50,7 @@ impl MsbAssetLoader {
         let translation = Mat4::from_translation(translation);
         let scale = Mat4::from_scale(scale.unwrap_or(Vec3::new(1.0, 1.0, 1.0)));
 
-        let rotation = rotation.unwrap_or(Vec3::default());
+        let rotation = rotation.unwrap_or_default();
         let rotation = Mat4::from_euler(
             EulerRot::ZYX,
             rotation[0].to_radians(),
@@ -92,10 +92,10 @@ impl AssetLoader for MsbAssetLoader {
 
             let models = msb
                 .models()
-                .unwrap()
+                .expect("Could not get model set from MSB")
                 .map(|m| {
-                    let mut name = m.unwrap().name.to_string_lossy();
-                    if name.starts_with("m") {
+                    let mut name = m.expect("Could not get name bytes from model entry").name.to_string_lossy();
+                    if name.starts_with('m') {
                         let msb_name = load_context.asset_path().to_string();
                         name = format!(
                             "{}_{}",
@@ -113,9 +113,9 @@ impl AssetLoader for MsbAssetLoader {
             Ok(MsbAsset {
                 points: msb
                     .points()
-                    .unwrap()
+                    .expect("Could not get point set from MSB")
                     .map(|p| {
-                        let point = p.as_ref().unwrap();
+                        let point = p.as_ref().expect("Could not get point entry from MSB");
                         load_context.labeled_asset_scope(point.name.to_string_lossy(), |_| {
                             MsbPointAsset {
                                 name: point.name.to_string_lossy(),
@@ -131,9 +131,9 @@ impl AssetLoader for MsbAssetLoader {
 
                 parts: msb
                     .parts()
-                    .unwrap()
+                    .expect("Could not get parts set from MSB")
                     .filter_map(|p| {
-                        let part = p.as_ref().unwrap();
+                        let part = p.as_ref().expect("Could not get point entry from MSB");
 
                         if let PartData::DummyAsset(_) = part.part {
                             return None;

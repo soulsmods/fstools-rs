@@ -181,7 +181,7 @@ impl<'a> PartData<'a> {
             11 => Self::ConnectCollision(
                 PartDataConnectCollision::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
             ),
-            13 => Self::Asset(PartDataAsset::read_from_slice(data)?),
+            13 => Self::Asset(PartDataAsset::from_slice(data)?),
             _ => return Err(MsbError::UnknownPartDataType(part_type)),
         })
     }
@@ -329,8 +329,8 @@ pub struct PartDataAsset {
 }
 
 impl PartDataAsset {
-    fn read_from_slice(data: &[u8]) -> Result<Self, MsbError> {
-        let header = PartDataAssetHeader::ref_from_suffix(data).ok_or(MsbError::UnalignedValue);
+    fn from_slice(data: &[u8]) -> Result<Self, MsbError> {
+        let _header = PartDataAssetHeader::ref_from_suffix(data).ok_or(MsbError::UnalignedValue);
 
         Ok(Self {})
     }

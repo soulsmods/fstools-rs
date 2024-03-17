@@ -1,4 +1,4 @@
-use std::{io::Read, path::PathBuf};
+use std::path::PathBuf;
 
 use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 use bevy_basic_camera::{CameraController, CameraControllerPlugin};

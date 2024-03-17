@@ -1,4 +1,3 @@
-
 pub mod event;
 pub mod model;
 pub mod parts;
@@ -12,8 +11,8 @@ use zerocopy::{FromBytes, FromZeroes, Ref, U32, U64};
 use crate::io_ext::{read_widestring, ReadWidestringError};
 
 use self::{
-    event::EVENT_PARAM_ST, model::MODEL_PARAM_ST, parts::PARTS_PARAM_ST,
-    point::POINT_PARAM_ST, route::ROUTE_PARAM_ST,
+    event::EVENT_PARAM_ST, model::MODEL_PARAM_ST, parts::PARTS_PARAM_ST, point::POINT_PARAM_ST,
+    route::ROUTE_PARAM_ST,
 };
 
 #[derive(Debug, Error)]
@@ -58,35 +57,46 @@ impl<'a> Msb<'a> {
         })
     }
 
-    pub fn models(&self) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST, MsbError>>, MsbError> {
+    pub fn models(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
-    pub fn events(&self) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST, MsbError>>, MsbError> {
+    pub fn events(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
-    pub fn points(&self) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST, MsbError>>, MsbError> {
+    pub fn points(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
-    pub fn routes(&self) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST, MsbError>>, MsbError> {
+    pub fn routes(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
-    pub fn parts(&self) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST, MsbError>>, MsbError> {
+    pub fn parts(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
+    /// Cycles over all the param sets until it's found one with a matching type identifier
     fn param_set<T>(&'a self) -> Result<impl Iterator<Item = Result<T, MsbError>> + 'a, MsbError>
-        where
-            T: MsbParam<'a> + Sized,
+    where
+        T: MsbParam<'a> + Sized,
     {
         let mut current_slice = self.set_data;
 
         for _ in 0..6 {
             let (header, next) = Ref::<_, SetHeader>::new_from_prefix(current_slice)
-                    .ok_or(MsbError::UnalignedValue)?;
+                .ok_or(MsbError::UnalignedValue)?;
 
             let header = header.into_ref();
 
@@ -96,14 +106,10 @@ impl<'a> Msb<'a> {
 
             let name_offset = header.name_offset.get() as usize;
 
-            if read_widestring(&self.bytes[name_offset..])?
-                .to_string_lossy()
-                == T::NAME
-            {
-                return Ok(
-                    offsets.iter()
-                        .map(|o| T::read_entry(&self.bytes[o.get() as usize..]))
-                );
+            if read_widestring(&self.bytes[name_offset..])?.to_string_lossy() == T::NAME {
+                return Ok(offsets
+                    .iter()
+                    .map(|o| T::read_entry(&self.bytes[o.get() as usize..])));
             }
 
             let next_header_offset = U64::<LE>::ref_from_prefix(next)

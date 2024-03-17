@@ -1,8 +1,11 @@
 use std::{error::Error, io::Read, path::PathBuf};
 
 use clap::Parser;
-use fstools_formats::{dcx::DcxHeader, msb::{point::PointData, Msb}};
-use fstools_dvdbnd::{FileKeyProvider, DvdBnd};
+use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
+use fstools_formats::{
+    dcx::DcxHeader,
+    msb::{point::PointData, Msb},
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -29,25 +32,26 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for msb_path in MSBS.iter() {
         // println!("Parsing MSB {}", msb_path);
-        let msbdcx = vfs.open(msb_path).unwrap();
+        let msbdcx = vfs
+            .open(msb_path)
+            .expect("Could not open dvdbnd entry for MSB");
         let (_, mut decoder) = DcxHeader::read(msbdcx)?;
 
         let mut decompressed = Vec::with_capacity(decoder.hint_size());
         decoder.read_to_end(&mut decompressed)?;
 
-        let msb = Msb::parse(&decompressed).unwrap();
+        let msb = Msb::parse(&decompressed).expect("Could not parse MSB");
 
-        for point in msb.points().unwrap() {
-            match point.unwrap().point {
-                PointData::Message(message) => {
-                    println!(
-                        "  - Message: msb = {}, fmg_id = {}, event_flag = {} ",
-                        msb_path,
-                        message.message_id.get(),
-                        message.event_flag.get(),
-                    );
-                },
-                _ => {}
+        for point in msb.points().expect("Could not get point set from MSB") {
+            if let PointData::Message(message) =
+                point.expect("Could not retrieve point from MSB").point
+            {
+                println!(
+                    "  - Message: msb = {}, fmg_id = {}, event_flag = {} ",
+                    msb_path,
+                    message.message_id.get(),
+                    message.event_flag.get(),
+                );
             }
         }
     }
@@ -55,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-const MSBS: [&'static str; 1409] = [
+const MSBS: [&str; 1409] = [
     "/map/mapstudio/m10_00_00_00.msb.dcx",
     "/map/mapstudio/m10_00_00_99.msb.dcx",
     "/map/mapstudio/m10_01_00_00.msb.dcx",
