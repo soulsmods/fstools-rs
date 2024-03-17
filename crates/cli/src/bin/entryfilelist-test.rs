@@ -1,8 +1,8 @@
 use std::{error::Error, path::PathBuf};
 
 use clap::Parser;
+use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 use fstools_formats::entryfilelist::EntryfilelistContainer;
-use fstools_dvdbnd::{FileKeyProvider, DvdBnd};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -36,7 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
-    lines.iter()
+    lines
+        .iter()
         .filter(|l| l.to_str().unwrap().ends_with("entryfilelist"))
         .for_each(|l| {
             println!("Parsing: {}", l.to_str().unwrap());

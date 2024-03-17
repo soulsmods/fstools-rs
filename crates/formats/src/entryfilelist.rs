@@ -1,11 +1,14 @@
-use std::{char, io::{self, Cursor, ErrorKind, Read, Seek}};
+use std::{
+    char,
+    io::{self, Cursor, ErrorKind, Read, Seek},
+};
 
 use byteorder::{ReadBytesExt, LE};
 use flate2::read::ZlibDecoder;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, Ref, U32};
 
-use crate::io_ext::{ReadFormatsExt, ReadWidestringError, SeekExt};
+use crate::io_ext::{ReadWidestringError, SeekExt};
 
 #[derive(Debug, Error)]
 pub enum EntryfilelistError {
@@ -51,7 +54,8 @@ impl<'a> EntryfilelistContainer<'a> {
         let mut buf: Vec<u8> = Vec::with_capacity(self.hint_size());
         let mut decoder = ZlibDecoder::new(self.compressed);
 
-        decoder.read_to_end(&mut buf)
+        decoder
+            .read_to_end(&mut buf)
             .map_err(|_| EntryfilelistError::Zlib)?;
 
         Ok(Entryfilelist::parse(Cursor::new(buf))?)
@@ -95,7 +99,7 @@ impl Entryfilelist {
         let unk1_count = reader.read_u32::<LE>()?;
         let unk2_count = reader.read_u32::<LE>()?;
         let _unkc = reader.read_u32::<LE>()?;
-        
+
         let unk1 = (0..unk1_count)
             .map(|_| Unk1::parse(&mut reader))
             .collect::<Result<_, _>>()?;
@@ -131,10 +135,7 @@ impl Entryfilelist {
                 break;
             }
 
-            string.push(
-                char::from_u32(c as u32)
-                    .ok_or(io::Error::from(ErrorKind::InvalidData))?
-            );
+            string.push(char::from_u32(c as u32).ok_or(io::Error::from(ErrorKind::InvalidData))?);
         }
 
         Ok(string)
