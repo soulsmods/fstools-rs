@@ -94,7 +94,10 @@ impl AssetLoader for MsbAssetLoader {
                 .models()
                 .expect("Could not get model set from MSB")
                 .map(|m| {
-                    let mut name = m.expect("Could not get name bytes from model entry").name.to_string_lossy();
+                    let mut name = m
+                        .expect("Could not get name bytes from model entry")
+                        .name
+                        .to_string_lossy();
                     if name.starts_with('m') {
                         let msb_name = load_context.asset_path().to_string();
                         name = format!(
