@@ -1,10 +1,10 @@
 use std::error::Error;
 
-use clap::{CommandFactory, FromArgMatches, Subcommand};
+use clap::{FromArgMatches, Subcommand};
 use fstools_dvdbnd::DvdBnd;
 use rustyline::{error::ReadlineError, DefaultEditor};
 
-use crate::{Action, Cli};
+use crate::Action;
 
 pub fn begin(dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
     let mut rl = DefaultEditor::new()?;

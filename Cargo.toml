@@ -10,6 +10,7 @@ fstools_dvdbnd.workspace = true
 
 [dev-dependencies]
 criterion = "0.5"
+fstools_elden_ring_support.workspace = true
 insta = "1"
 libtest-mimic = "0.7"
 
@@ -50,9 +51,11 @@ ptr_cast_constness = "warn"
 unwrap_used = "warn"
 
 [workspace.dependencies]
+fstools = { path = ".", version = "0.1.0" }
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
 fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
 fstools_asset_server = { path = "crates/asset-server", version = "0.1.0" }
+fstools_elden_ring_support = { path = "crates/support/elden_ring", version = "0.1.0" }
 memmap2 = "0.9.4"
 rayon = "1"
 serde = "1"
