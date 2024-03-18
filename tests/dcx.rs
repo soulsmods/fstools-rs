@@ -1,6 +1,7 @@
 use std::{collections::HashSet, error::Error, path::PathBuf, sync::Arc};
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
+use fstools_elden_ring_support::dictionary;
 use fstools_formats::dcx::DcxError;
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
@@ -9,21 +10,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Arguments::from_args();
     let er_path = PathBuf::from(std::env::var("ER_PATH").expect("er_path"));
     let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").expect("er_keys_path"));
-    let keys = FileKeyProvider::new(keys_path);
-    let archives = [
-        er_path.join("Data0"),
-        er_path.join("Data1"),
-        er_path.join("Data2"),
-        er_path.join("Data3"),
-        er_path.join("sd/sd"),
-    ];
+    let vfs = Arc::new(fstools_elden_ring_support::load_dvd_bnd(
+        er_path,
+        FileKeyProvider::new(keys_path),
+    )?);
 
-    let vfs = Arc::new(DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd"));
-
-    let dictionary = include_str!("data/EldenRingDictionary.txt");
-    let lines = dictionary
-        .lines()
-        .filter(|line| line.ends_with(".dcx"))
+    let lines = dictionary()
+        .filter(|line| line.extension() == Some(OsStr::new("dcx")))
         .collect::<HashSet<_>>();
 
     let mut tests = vec![];
@@ -32,7 +25,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for line in lines {
         let vfs = vfs.clone();
-        let test = Trial::test(line, move || check_file(vfs.clone(), line)).with_kind("dcx");
+        let test = Trial::test(line.to_string_lossy().to_string(), move || {
+            check_file(vfs.clone(), &line)
+        })
+        .with_kind("dcx");
 
         tests.push(test);
     }
@@ -40,8 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     libtest_mimic::run(&args, tests).exit();
 }
 
-pub fn check_file(vfs: Arc<DvdBnd>, file: &str) -> Result<(), Failed> {
-    let file = match vfs.open(file) {
+pub fn check_file(vfs: Arc<DvdBnd>, file: &PathBuf) -> Result<(), Failed> {
+    let file = match vfs.open(file.to_string_lossy().as_ref()) {
         Ok(file) => file,
         Err(_) => {
             return Ok(());

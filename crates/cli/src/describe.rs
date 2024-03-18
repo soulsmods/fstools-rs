@@ -6,7 +6,7 @@ use std::{
 use fstools_dvdbnd::DvdBnd;
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 
-pub fn describe_bnd(dvd_bnd: DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
+pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
     let (dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
 
     let mut data = vec![];
@@ -24,6 +24,6 @@ pub fn describe_bnd(dvd_bnd: DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn describe_matbin(_dvd_bnd: DvdBnd, _name: &str) -> Result<(), Box<dyn Error>> {
+pub fn describe_matbin(_dvd_bnd: &DvdBnd, _name: &str) -> Result<(), Box<dyn Error>> {
     todo!()
 }

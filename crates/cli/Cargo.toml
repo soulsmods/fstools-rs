@@ -9,8 +9,11 @@ clap = { version = "4", features = ["derive"] }
 indicatif = { version = "0.17", features = ["rayon"] }
 fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
+fstools_elden_ring_support.workspace = true
 memmap2.workspace = true
 rayon.workspace = true
+rustyline = "14.0.0"
+shlex = "1.3.0"
 
 [lints]
 workspace = true
