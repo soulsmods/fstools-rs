@@ -16,7 +16,7 @@ use crossbeam_channel::Sender;
 use memmap2::{Mmap, MmapOptions};
 use typed_path::Utf8WindowsPathBuf;
 
-use crate::asset_source::SimpleReader;
+use crate::asset_source::fast_path::FastPathReader;
 
 pub mod watcher;
 
@@ -98,7 +98,7 @@ impl AssetReader for VfsAssetSource {
             let bytes = self.entry_bytes(path.to_str().expect("invalid path"));
 
             match bytes {
-                Some(data) => Ok(Box::new(SimpleReader(data)) as Box<Reader>),
+                Some(data) => Ok(Box::new(FastPathReader::Slice(data)) as Box<Reader>),
                 None => Err(AssetReaderError::NotFound(path.to_path_buf())),
             }
         })

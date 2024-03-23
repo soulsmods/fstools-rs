@@ -1,9 +1,13 @@
 use bevy::prelude::*;
 
-use crate::types::{
-    bnd4::{Archive, ArchiveEntry, Bnd4Loader},
-    flver::{FlverAsset, FlverLoader},
-    msb::{MsbAsset, MsbAssetLoader, MsbPartAsset, MsbPointAsset},
+use self::{flver::FlverAssetLoader, msb::MsbAssetLoader};
+use crate::{
+    asset_source::fast_path::FastPathAppExt,
+    types::{
+        bnd4::{Archive, ArchiveEntry, Bnd4Loader},
+        flver::FlverAsset,
+        msb::MsbAsset,
+    },
 };
 
 pub mod bnd4;
@@ -20,12 +24,8 @@ impl Plugin for FsFormatsPlugin {
             .init_asset::<Archive>()
             .init_asset::<ArchiveEntry>()
             .init_asset::<MsbAsset>()
-            .register_asset_loader(MsbAssetLoader)
-            .register_asset_loader(FlverLoader)
+            .register_fast_path_loader(MsbAssetLoader)
+            .register_fast_path_loader(FlverAssetLoader)
             .register_asset_loader(Bnd4Loader);
-        app.init_asset::<MsbAsset>()
-            .init_asset::<MsbPointAsset>()
-            .init_asset::<MsbPartAsset>()
-            .init_asset_loader::<MsbAssetLoader>();
     }
 }

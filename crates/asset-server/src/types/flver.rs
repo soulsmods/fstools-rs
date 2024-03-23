@@ -1,8 +1,9 @@
 use std::error::Error;
 
 use bevy::{
-    asset::{io::Reader, Asset, AssetLoader, AsyncReadExt, BoxedFuture, Handle, LoadContext},
-    prelude::{Mesh, Reflect},
+    asset::{Asset, Handle, LoadContext},
+    prelude::Mesh,
+    reflect::Reflect,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         render_asset::RenderAssetUsages,
@@ -13,8 +14,7 @@ use fstools_formats::flver::{
     vertex_buffer::accessor::VertexAttributeAccessor, Flver,
 };
 
-#[derive(Default)]
-pub struct FlverLoader;
+use crate::asset_source::fast_path::FastPathAssetLoader;
 
 #[derive(Asset, Debug, Reflect)]
 pub struct FlverAsset {
@@ -27,36 +27,21 @@ impl FlverAsset {
     }
 }
 
-impl AssetLoader for FlverLoader {
+pub struct FlverAssetLoader;
+
+impl FastPathAssetLoader for FlverAssetLoader {
     type Asset = FlverAsset;
+
     type Settings = ();
+
     type Error = Box<dyn Error + Send + Sync>;
 
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        _: &'a (),
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<FlverAsset, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-
-            FlverLoader::load_flver(&bytes, load_context).await
-        })
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["flver"]
-    }
-}
-
-impl FlverLoader {
-    async fn load_flver<'a, 'data, 'ctx>(
-        bytes: &'data [u8],
-        load_context: &'a mut LoadContext<'ctx>,
-    ) -> Result<FlverAsset, Box<dyn Error + Send + Sync>> {
-        let flver = Flver::parse(bytes)?;
+    async fn load_from_bytes<'a>(
+        reader: &'a [u8],
+        _settings: &'a Self::Settings,
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let flver = Flver::parse(reader)?;
         let mut meshes = Vec::with_capacity(flver.mesh_count());
 
         for (index, flver_mesh) in flver.meshes.iter().enumerate() {

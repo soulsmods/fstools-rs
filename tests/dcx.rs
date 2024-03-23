@@ -1,4 +1,4 @@
-use std::{collections::HashSet, error::Error, io::Read, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, error::Error, path::PathBuf, sync::Arc};
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
 use fstools_formats::dcx::DcxError;
@@ -54,17 +54,7 @@ pub fn check_file(vfs: Arc<DvdBnd>, file: &str) -> Result<(), Failed> {
         Err(_) => return Err("failed to parse DCX header".into()),
     };
 
-    let mut buffer = [0u8; 4096 * 4];
-
-    loop {
-        match reader.read(&mut buffer) {
-            Ok(0) => break, // End of file
-            Ok(_) => {}
-            Err(e) => {
-                return Err(e.into());
-            }
-        }
-    }
+    std::io::copy(&mut reader, &mut std::io::sink())?;
 
     Ok(())
 }

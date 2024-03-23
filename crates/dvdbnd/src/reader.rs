@@ -1,19 +1,25 @@
 use std::io::{Error, Read, Seek, SeekFrom};
 
-use memmap2::MmapMut;
+use memmap2::Mmap;
 
 pub struct DvdBndEntryReader {
-    mmap: MmapMut,
+    mmap: Mmap,
     position: usize,
 }
 
 impl DvdBndEntryReader {
-    pub fn new(mmap: MmapMut) -> Self {
+    pub fn new(mmap: Mmap) -> Self {
         Self { mmap, position: 0 }
     }
 
     pub fn data(&self) -> &[u8] {
         &self.mmap[..]
+    }
+}
+
+impl From<DvdBndEntryReader> for Mmap {
+    fn from(value: DvdBndEntryReader) -> Self {
+        value.mmap
     }
 }
 

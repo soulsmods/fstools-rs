@@ -142,7 +142,7 @@ impl DvdBnd {
 
                 let _ = mmap.advise(Advice::Sequential);
 
-                Ok(DvdBndEntryReader::new(mmap))
+                Ok(DvdBndEntryReader::new(mmap.make_read_only()?))
             }
             None => Err(DvdBndEntryError::NotFound),
         }
