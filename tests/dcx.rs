@@ -1,4 +1,4 @@
-use std::{collections::HashSet, error::Error, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, error::Error, ffi::OsStr, path::PathBuf, sync::Arc};
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
 use fstools_elden_ring_support::dictionary;
