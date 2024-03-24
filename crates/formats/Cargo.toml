@@ -13,11 +13,12 @@ strict-padding = []
 aes = "0.8"
 bytemuck = "1"
 byteorder = "1"
+dashu = "0.4"
 flate2 = "1.0"
+num-modular = "0.6"
 oodle-sys = "0.1"
 rayon.workspace = true
 rsa = "0.9"
-rug = "1.24"
 thiserror.workspace = true
 widestring = "1"
 zerocopy = { version = "0.7.32", features = ["derive"] }
