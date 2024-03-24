@@ -1,15 +1,19 @@
 use std::{io, path::Path, sync::Arc};
 
-use bevy::asset::{
-    io::{AssetReader, AssetReaderError, PathStream, Reader},
-    BoxedFuture,
+use bevy::{
+    asset::{
+        io::{AssetReader, AssetReaderError, PathStream, Reader},
+        BoxedFuture,
+    },
+    prelude::Deref,
 };
+use blocking::Unblock;
 use fstools_dvdbnd::{DvdBnd, DvdBndEntryError};
 use fstools_formats::dcx::DcxHeader;
 
-use crate::asset_source::SimpleReader;
+use crate::asset_source::fast_path::FastPathReader;
 
-#[derive(Clone)]
+#[derive(Clone, Deref)]
 pub struct DvdBndAssetSource(pub(crate) Arc<DvdBnd>);
 
 impl AssetReader for DvdBndAssetSource {
@@ -19,31 +23,23 @@ impl AssetReader for DvdBndAssetSource {
     ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(async move {
             let path_str = path.to_string_lossy();
-            let dvd_bnd = &self.0;
+            let file = self.open(&*path_str).map_err(|err| match err {
+                DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
+                err => AssetReaderError::Io(Arc::new(io::Error::other(err))),
+            })?;
 
-            dvd_bnd
-                .open(&*path_str)
-                .map_err(|err| match err {
-                    DvdBndEntryError::NotFound => AssetReaderError::NotFound(path.to_path_buf()),
-                    err => AssetReaderError::Io(Arc::new(io::Error::other(err))),
-                })
-                .and_then(|r| {
-                    let is_dcx = {
-                        let bytes = r.data();
-                        &bytes[..4] == b"DCX\0"
-                    };
+            let is_dcx = { file.data().starts_with(b"DCX\0") };
 
-                    let reader = if is_dcx {
-                        let (_dcx_header, dcx_reader) = DcxHeader::read(r)
-                            .map_err(|err| AssetReaderError::Io(Arc::new(io::Error::other(err))))?;
+            let reader = if is_dcx {
+                let (_dcx_header, dcx_reader) = DcxHeader::read(file)
+                    .map_err(|err| AssetReaderError::Io(Arc::new(io::Error::other(err))))?;
 
-                        Box::new(SimpleReader(dcx_reader)) as Box<Reader>
-                    } else {
-                        Box::new(SimpleReader(r)) as Box<Reader>
-                    };
+                FastPathReader::Reader(Box::new(Unblock::new(dcx_reader)))
+            } else {
+                FastPathReader::MemoryMapped(file.into(), 0)
+            };
 
-                    Ok(reader)
-                })
+            Ok(Box::new(reader) as Box<Reader>)
         })
     }
 

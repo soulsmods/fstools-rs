@@ -53,6 +53,7 @@ unwrap_used = "warn"
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
 fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
 fstools_asset_server = { path = "crates/asset-server", version = "0.1.0" }
-memmap2 = "0.7"
+memmap2 = "0.9.4"
 rayon = "1"
+serde = "1"
 thiserror = "1"
