@@ -48,8 +48,8 @@ pub enum Action {
         filter: Option<String>,
 
         /// Path to a folder that files will be extracted to.
-        #[arg(short, long)]
-        output_path: Option<PathBuf>,
+        #[arg(short, long, default_value("./extract"))]
+        output_path: PathBuf,
     },
 
     Repl,
@@ -75,12 +75,7 @@ impl Action {
                 filter,
                 output_path,
             } => {
-                extract(
-                    dvd_bnd,
-                    recursive,
-                    filter,
-                    output_path.unwrap_or(PathBuf::from("./extract")),
-                )?;
+                extract(dvd_bnd, recursive, filter, output_path)?;
             }
             Action::Repl => {
                 repl::begin(dvd_bnd)?;
