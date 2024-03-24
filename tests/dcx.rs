@@ -1,4 +1,10 @@
-use std::{collections::HashSet, error::Error, ffi::OsStr, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    error::Error,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
 use fstools_elden_ring_support::dictionary;
@@ -36,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     libtest_mimic::run(&args, tests).exit();
 }
 
-pub fn check_file(vfs: Arc<DvdBnd>, file: &PathBuf) -> Result<(), Failed> {
+pub fn check_file(vfs: Arc<DvdBnd>, file: &Path) -> Result<(), Failed> {
     let file = match vfs.open(file.to_string_lossy().as_ref()) {
         Ok(file) => file,
         Err(_) => {
