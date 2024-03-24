@@ -5,7 +5,9 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }
+console = "0.15"
+directories = "5"
 indicatif = { version = "0.17", features = ["rayon"] }
 fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true

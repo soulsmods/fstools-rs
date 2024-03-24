@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use fstools_dvdbnd::DvdBnd;
+use fstools_dvdbnd::{DvdBnd, DvdBndEntryError};
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
@@ -82,6 +82,7 @@ pub fn extract(
                             Ok::<_, Box<dyn Error + Send + Sync>>(total + 1)
                         }
                     }
+                    Err(DvdBndEntryError::NotFound) => Ok(total),
                     Err(e) => Err(Box::new(e) as Box<dyn Error + Send + Sync>),
                 }
             },
