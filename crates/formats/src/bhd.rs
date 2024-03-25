@@ -1,19 +1,18 @@
-use std::{
-    io::{Cursor, Read, Seek, SeekFrom},
-    mem::{transmute, MaybeUninit},
-};
+use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
+use dashu::integer::{fast_div::ConstDivisor, UBig};
+use num_modular::Reducer;
 use rayon::prelude::*;
 use rsa::{pkcs1::DecodeRsaPublicKey, traits::PublicKeyParts, RsaPublicKey};
-use rug::{integer::Order, Integer};
 
 use crate::io_ext::ReadFormatsExt;
 
 pub struct BhdKey {
-    exponent: Integer,
-    modulus: Integer,
-    size: usize,
+    exponent: UBig,
+    modulus: UBig,
+    input_size: usize,
+    output_size: usize,
 }
 
 pub type BhdKeyDecodeError = rsa::Error;
@@ -21,14 +20,16 @@ pub type BhdKeyDecodeError = rsa::Error;
 impl BhdKey {
     pub fn from_pem(data: &str) -> Result<Self, BhdKeyDecodeError> {
         let key = RsaPublicKey::from_pkcs1_pem(data)?;
-        let exponent = Integer::from_digits(&key.e().to_bytes_be(), Order::Msf);
-        let modulus = Integer::from_digits(&key.n().to_bytes_be(), Order::Msf);
-        let size = (modulus.significant_bits() as usize + 7) / 8;
+        let input_size = key.size();
+        let output_size = (key.n().bits() - 1) / 8;
+        let exponent = UBig::from_be_bytes(&key.e().to_bytes_be());
+        let modulus = UBig::from_be_bytes(&key.n().to_bytes_be());
 
         Ok(BhdKey {
             exponent,
             modulus,
-            size,
+            input_size,
+            output_size,
         })
     }
 }
@@ -59,41 +60,27 @@ pub struct BhdHeader {
 
 impl Bhd {
     pub fn read<R: Read + Seek>(mut file: R, key: BhdKey) -> Result<Self, std::io::Error> {
-        let key_size = key.size;
         let file_len = file.seek(SeekFrom::End(0))? as usize;
-        let decrypted_file_len = file_len - file_len / key_size;
+        let num_inputs = file_len.div_ceil(key.input_size);
+
         file.seek(SeekFrom::Start(0))?;
 
-        let mut decrypted_data = vec![MaybeUninit::uninit(); decrypted_file_len];
+        let mut decrypted_data = vec![0u8; num_inputs * key.output_size];
         let mut encrypted_data = Vec::with_capacity(file_len);
+
         file.read_to_end(&mut encrypted_data)?;
 
-        let decrypted_len = encrypted_data
-            .par_chunks(key_size)
-            .zip(decrypted_data.par_chunks_mut(key_size - 1))
-            .map(|(encrypted_block, decrypted_block)| {
-                let mut decrypted = Integer::from_digits(encrypted_block, Order::Msf);
-                decrypted
-                    .pow_mod_mut(&key.exponent, &key.modulus)
-                    .expect("failed to decrypt");
+        let divisor = ConstDivisor::new(key.modulus.clone());
+        encrypted_data
+            .par_chunks(key.input_size)
+            .zip(decrypted_data.par_chunks_mut(key.output_size))
+            .for_each(|(encrypted_block, decrypted_block)| {
+                let decrypted = divisor.pow(UBig::from_be_bytes(encrypted_block), &key.exponent);
+                let decrypted_data = decrypted.to_be_bytes();
+                let padding = key.output_size - decrypted_data.len();
 
-                let mut decrypted_with_padding = vec![MaybeUninit::<u8>::uninit(); key_size];
-                decrypted.write_digits(
-                    // SAFETY: data is never dereferenced before being initialized by write_digits.
-                    unsafe { transmute::<_, &mut [u8]>(&mut decrypted_with_padding[..]) },
-                    Order::Msf,
-                );
-                decrypted_block.copy_from_slice(&decrypted_with_padding[1..]);
-
-                Ok::<_, std::io::Error>(key_size)
-            })
-            .try_reduce(|| 0, |len, block_len| Ok(len + block_len))?;
-
-        // SAFETY: all elements from [0,decrypted_len) have been initialized.
-        let decrypted_data: Vec<u8> = unsafe {
-            decrypted_data.set_len(decrypted_len);
-            transmute(decrypted_data)
-        };
+                decrypted_block[padding..].copy_from_slice(&decrypted_data);
+            });
 
         let mut reader = Cursor::new(&decrypted_data[..]);
         let header = read_header(&mut reader)?;
