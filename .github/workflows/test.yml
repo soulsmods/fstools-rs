@@ -5,38 +5,54 @@ on:
       - main
   pull_request:
 
-
 jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
+      - name: Build
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo build --all
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
   clippy:
     name: Clippy
-    runs-on: soulsmods-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
       - run: cargo clippy --workspace --all-targets --all-features -- -Dwarnings
         
   fmt:
     name: Formatting
-    runs-on: soulsmods-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
       - run: cargo +nightly fmt --all --check
-
-  test:
-    name: Test
-    runs-on: soulsmods-runner
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - run: ls -R /opt/test-data/elden-ring
-      - run: cargo test --workspace --all-features
-        env:
-          ER_PATH: /opt/test-data/elden-ring/Game
-          ER_KEYS_PATH: /opt/test-data/elden-ring
