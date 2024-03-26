@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 
 use crate::{
-    describe::{describe_bnd, describe_matbin},
+    describe::{describe_bnd, describe_matbin, describe_entryfilelist},
     extract::extract,
 };
 
@@ -26,6 +26,7 @@ pub struct Cli {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum AssetType {
     Bnd,
+    EntryFileList,
     Matbin,
 }
 
@@ -63,6 +64,12 @@ impl Action {
                 name,
             } => {
                 describe_bnd(dvd_bnd, &name)?;
+            }
+            Action::Describe {
+                ty: AssetType::EntryFileList,
+                name,
+            } => {
+                describe_entryfilelist(dvd_bnd, &name)?;
             }
             Action::Describe {
                 ty: AssetType::Matbin,
