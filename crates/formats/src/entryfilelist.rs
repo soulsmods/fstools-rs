@@ -1,6 +1,6 @@
 use std::{
     char,
-    io::{self, Cursor, ErrorKind, Read, Seek},
+    io::{self, ErrorKind, Read}, marker::PhantomData,
 };
 
 use byteorder::{ReadBytesExt, LE};
@@ -8,10 +8,10 @@ use flate2::read::ZlibDecoder;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, Ref, U32};
 
-use crate::io_ext::{ReadWidestringError, SeekExt};
+use crate::io_ext::ReadWidestringError;
 
 #[derive(Debug, Error)]
-pub enum EntryfilelistError {
+pub enum EntryFileListError {
     #[error("Could not read string")]
     String(#[from] ReadWidestringError),
 
@@ -26,104 +26,96 @@ pub enum EntryfilelistError {
 }
 
 #[allow(unused)]
-pub struct EntryfilelistContainer<'a> {
-    bytes: &'a [u8],
-
+pub struct EntryFileListContainer<'a, T: EntryFileListSection> {
+    decoder: ZlibDecoder<&'a [u8]>,
     header: &'a ContainerHeader,
-
-    compressed: &'a [u8],
+    unk1_count: usize,
+    unk2_count: usize,
+    marker: PhantomData<T>,
 }
 
-impl<'a> EntryfilelistContainer<'a> {
-    pub fn parse(bytes: &'a [u8]) -> Result<Self, EntryfilelistError> {
+pub struct Unk1Section;
+pub struct Unk2Section;
+pub struct StringsSection;
+
+pub trait EntryFileListSection {}
+impl EntryFileListSection for Unk1Section {}
+impl EntryFileListSection for Unk2Section {}
+impl EntryFileListSection for StringsSection {}
+
+impl<'a> EntryFileListContainer<'a, Unk1Section> {
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, EntryFileListError> {
         let (header, compressed) = Ref::<_, ContainerHeader>::new_from_prefix(bytes)
-            .ok_or(EntryfilelistError::UnalignedValue)?;
+            .ok_or(EntryFileListError::UnalignedValue)?;
+
+        let mut decoder = ZlibDecoder::new(compressed);
+
+        let _unk0 = decoder.read_u32::<LE>()?;
+        let unk1_count = decoder.read_u32::<LE>()? as usize;
+        let unk2_count = decoder.read_u32::<LE>()? as usize;
+        let _unkc = decoder.read_u32::<LE>()?;
 
         Ok(Self {
-            bytes,
+            decoder,
             header: header.into_ref(),
-            compressed,
+            unk1_count,
+            unk2_count,
+            marker: PhantomData,
         })
     }
 
-    fn hint_size(&self) -> usize {
-        self.header.decompressed_size.get() as usize
-    }
-
-    pub fn decompress(&self) -> Result<Entryfilelist, EntryfilelistError> {
-        let mut buf: Vec<u8> = Vec::with_capacity(self.hint_size());
-        let mut decoder = ZlibDecoder::new(self.compressed);
-
-        decoder
-            .read_to_end(&mut buf)
-            .map_err(|_| EntryfilelistError::Zlib)?;
-
-        Ok(Entryfilelist::parse(Cursor::new(buf))?)
-    }
-}
-
-impl<'a> std::fmt::Debug for EntryfilelistContainer<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Entryfilelist")
-            .field("unk04", &self.header.unk04.get())
-            .field("compressed_size", &self.header.compressed_size.get())
-            .field("decompressed_size", &self.header.decompressed_size.get())
-            .finish()
-    }
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct ContainerHeader {
-    magic: [u8; 4],
-
-    unk04: U32<LE>,
-
-    compressed_size: U32<LE>,
-
-    decompressed_size: U32<LE>,
-}
-
-#[derive(Debug)]
-#[allow(unused)]
-pub struct Entryfilelist {
-    pub unk1: Vec<Unk1>,
-    pub unk2: Vec<u64>,
-    pub strings: Vec<String>,
-}
-
-impl Entryfilelist {
-    pub fn parse<R: Read + Seek>(mut reader: R) -> Result<Self, io::Error> {
-        let _unk0 = reader.read_u32::<LE>()?;
-        let unk1_count = reader.read_u32::<LE>()?;
-        let unk2_count = reader.read_u32::<LE>()?;
-        let _unkc = reader.read_u32::<LE>()?;
-
-        let unk1 = (0..unk1_count)
-            .map(|_| Unk1::parse(&mut reader))
-            .collect::<Result<_, _>>()?;
-        reader.seek_until_alignment(0x10)?;
-
-        let unk2 = (0..unk2_count)
-            .map(|_| reader.read_u64::<LE>())
-            .collect::<Result<_, _>>()?;
-        reader.seek_until_alignment(0x10)?;
-
-        let _unk = reader.read_u16::<LE>()?;
-
-        let strings = (0..unk2_count)
-            .map(|_| Self::read_string(&mut reader))
+    pub fn unk1s(mut self) -> Result<(
+        Vec<Unk1>,
+        EntryFileListContainer<'a, Unk2Section>,
+    ), EntryFileListError> {
+        let elements = (0..self.unk1_count)
+            .map(|_| Unk1::parse(&mut self.decoder))
             .collect::<Result<_, _>>()?;
 
-        Ok(Self {
-            unk1,
-            unk2,
-            strings,
-        })
+        // TODO: reach alignment
+        todo!();
+
+        Ok((elements, EntryFileListContainer {
+            decoder: self.decoder,
+            header: self.header,
+            unk1_count: self.unk1_count,
+            unk2_count: self.unk2_count,
+            marker: PhantomData,
+        }))
+    }
+}
+
+impl<'a> EntryFileListContainer<'a, Unk2Section> {
+    pub fn unk2s(mut self) -> Result<(
+        Vec<u64>,
+        EntryFileListContainer<'a, StringsSection>,
+    ), EntryFileListError> {
+        let elements = (0..self.unk2_count)
+            .map(|_| self.decoder.read_u64::<LE>())
+            .collect::<Result<_, _>>()?;
+
+        // TODO: reach alignment
+
+        Ok((elements, EntryFileListContainer {
+            decoder: self.decoder,
+            header: self.header,
+            unk1_count: self.unk1_count,
+            unk2_count: self.unk2_count,
+            marker: PhantomData,
+        }))
+    }
+}
+
+impl<'a> EntryFileListContainer<'a, StringsSection> {
+    pub fn strings(mut self) -> Result<Vec<String>, EntryFileListError> {
+        let elements = (0..self.unk2_count)
+            .map(|_| Self::read_string(&mut self.decoder))
+            .collect::<Result<_, _>>()?;
+
+        Ok(elements)
     }
 
-    pub fn read_string<R: Read>(mut reader: R) -> Result<String, io::Error> {
+    fn read_string<R: Read>(mut reader: R) -> Result<String, io::Error> {
         let mut string = String::new();
 
         loop {
@@ -142,14 +134,24 @@ impl Entryfilelist {
     }
 }
 
+impl<'a, T: EntryFileListSection> std::fmt::Debug for EntryFileListContainer<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntryFileList")
+            .field("unk04", &self.header.unk04.get())
+            .field("compressed_size", &self.header.compressed_size.get())
+            .field("decompressed_size", &self.header.decompressed_size.get())
+            .finish()
+    }
+}
+
 #[derive(FromZeroes, FromBytes, Debug)]
 #[repr(packed)]
 #[allow(unused)]
-pub struct Header {
-    unk0: U32<LE>,
-    count_unk1: U32<LE>,
-    count_unk2: U32<LE>,
-    unkc: U32<LE>,
+pub struct ContainerHeader {
+    magic: [u8; 4],
+    unk04: U32<LE>,
+    compressed_size: U32<LE>,
+    decompressed_size: U32<LE>,
 }
 
 #[derive(Debug)]
