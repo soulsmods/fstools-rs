@@ -8,7 +8,7 @@ use flate2::read::ZlibDecoder;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, Ref, U32};
 
-use crate::io_ext::ReadWidestringError;
+use crate::io_ext::{ReadFormatsExt, ReadWidestringError};
 
 #[derive(Debug, Error)]
 pub enum EntryFileListError {
@@ -72,8 +72,10 @@ impl<'a> EntryFileListContainer<'a, Unk1Section> {
             .map(|_| Unk1::parse(&mut self.decoder))
             .collect::<Result<_, _>>()?;
 
-        // TODO: reach alignment
-        todo!();
+        self.decoder.read_padding(offset_for_alignment(
+            self.decoder.total_out() as usize,
+            0x10,
+        ))?;
 
         Ok((elements, EntryFileListContainer {
             decoder: self.decoder,
@@ -94,7 +96,10 @@ impl<'a> EntryFileListContainer<'a, Unk2Section> {
             .map(|_| self.decoder.read_u64::<LE>())
             .collect::<Result<_, _>>()?;
 
-        // TODO: reach alignment
+        self.decoder.read_padding(offset_for_alignment(
+            self.decoder.total_out() as usize,
+            0x10,
+        ))?;
 
         Ok((elements, EntryFileListContainer {
             decoder: self.decoder,
@@ -108,6 +113,8 @@ impl<'a> EntryFileListContainer<'a, Unk2Section> {
 
 impl<'a> EntryFileListContainer<'a, StringsSection> {
     pub fn strings(mut self) -> Result<Vec<String>, EntryFileListError> {
+        self.decoder.read_padding(2)?;
+
         let elements = (0..self.unk2_count)
             .map(|_| Self::read_string(&mut self.decoder))
             .collect::<Result<_, _>>()?;
@@ -119,10 +126,9 @@ impl<'a> EntryFileListContainer<'a, StringsSection> {
         let mut string = String::new();
 
         loop {
-            // We always know read the right amount of strings so we
-            // shouldn't encounter EOF
+            // We always know the right amount of strings to read, so we really
+            // shouldn't encounter an EOF
             let c = reader.read_u16::<LE>()?;
-            // Read until NULL terminator
             if c == 0x0 {
                 break;
             }
@@ -166,5 +172,15 @@ impl Unk1 {
             step: reader.read_u16::<LE>()?,
             index: reader.read_u16::<LE>()?,
         })
+    }
+}
+
+fn offset_for_alignment(current: usize, align: usize) -> usize {
+    let offset = current % align;
+
+    if offset == 0 {
+        0
+    } else {
+        align - offset
     }
 }

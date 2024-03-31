@@ -30,7 +30,7 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
 
     let (_unk1s, container) = container.unk1s()?;
     let (_unk2s, container) = container.unk2s()?;
-    let strings = container.strings();
+    let strings = container.strings()?;
 
     for string in strings.iter() {
         println!(" - Referenced asset: {:?}", string);
