@@ -1,6 +1,7 @@
 use std::{
     char,
-    io::{self, ErrorKind, Read}, marker::PhantomData,
+    io::{self, ErrorKind, Read},
+    marker::PhantomData,
 };
 
 use byteorder::{ReadBytesExt, LE};
@@ -26,24 +27,29 @@ pub enum EntryFileListError {
 }
 
 #[allow(unused)]
-pub struct EntryFileListContainer<'a, T: EntryFileListSection> {
+pub struct EntryFileList<'a> {
     decoder: ZlibDecoder<&'a [u8]>,
-    header: &'a ContainerHeader,
-    unk1_count: usize,
-    unk2_count: usize,
-    marker: PhantomData<T>,
+    container_header: &'a ContainerHeader,
+    header: EntryFileListHeader,
 }
 
-pub struct Unk1Section;
-pub struct Unk2Section;
-pub struct StringsSection;
+#[derive(FromZeroes, FromBytes, Debug)]
+#[repr(packed)]
+#[allow(unused)]
+struct ContainerHeader {
+    magic: [u8; 4],
+    _unk04: U32<LE>,
+    compressed_size: U32<LE>,
+    decompressed_size: U32<LE>,
+}
 
-pub trait EntryFileListSection {}
-impl EntryFileListSection for Unk1Section {}
-impl EntryFileListSection for Unk2Section {}
-impl EntryFileListSection for StringsSection {}
+#[derive(Debug)]
+pub struct EntryFileListHeader {
+    pub unk1_count: usize,
+    pub unk2_count: usize,
+}
 
-impl<'a> EntryFileListContainer<'a, Unk1Section> {
+impl<'a> EntryFileList<'a> {
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, EntryFileListError> {
         let (header, compressed) = Ref::<_, ContainerHeader>::new_from_prefix(bytes)
             .ok_or(EntryFileListError::UnalignedValue)?;
@@ -57,107 +63,108 @@ impl<'a> EntryFileListContainer<'a, Unk1Section> {
 
         Ok(Self {
             decoder,
-            header: header.into_ref(),
-            unk1_count,
-            unk2_count,
-            marker: PhantomData,
+            container_header: header.into_ref(),
+            header: EntryFileListHeader {
+                unk1_count,
+                unk2_count,
+            },
         })
     }
-
-    pub fn unk1s(mut self) -> Result<(
-        Vec<Unk1>,
-        EntryFileListContainer<'a, Unk2Section>,
-    ), EntryFileListError> {
-        let elements = (0..self.unk1_count)
-            .map(|_| Unk1::parse(&mut self.decoder))
-            .collect::<Result<_, _>>()?;
-
-        self.decoder.read_padding(offset_for_alignment(
-            self.decoder.total_out() as usize,
-            0x10,
-        ))?;
-
-        Ok((elements, EntryFileListContainer {
-            decoder: self.decoder,
-            header: self.header,
-            unk1_count: self.unk1_count,
-            unk2_count: self.unk2_count,
-            marker: PhantomData,
-        }))
-    }
 }
 
-impl<'a> EntryFileListContainer<'a, Unk2Section> {
-    pub fn unk2s(mut self) -> Result<(
-        Vec<u64>,
-        EntryFileListContainer<'a, StringsSection>,
-    ), EntryFileListError> {
-        let elements = (0..self.unk2_count)
-            .map(|_| self.decoder.read_u64::<LE>())
-            .collect::<Result<_, _>>()?;
-
-        self.decoder.read_padding(offset_for_alignment(
-            self.decoder.total_out() as usize,
-            0x10,
-        ))?;
-
-        Ok((elements, EntryFileListContainer {
-            decoder: self.decoder,
-            header: self.header,
-            unk1_count: self.unk1_count,
-            unk2_count: self.unk2_count,
-            marker: PhantomData,
-        }))
-    }
-}
-
-impl<'a> EntryFileListContainer<'a, StringsSection> {
-    pub fn strings(mut self) -> Result<Vec<String>, EntryFileListError> {
-        self.decoder.read_padding(2)?;
-
-        let elements = (0..self.unk2_count)
-            .map(|_| Self::read_string(&mut self.decoder))
-            .collect::<Result<_, _>>()?;
-
-        Ok(elements)
-    }
-
-    fn read_string<R: Read>(mut reader: R) -> Result<String, io::Error> {
-        let mut string = String::new();
-
-        loop {
-            // We always know the right amount of strings to read, so we really
-            // shouldn't encounter an EOF
-            let c = reader.read_u16::<LE>()?;
-            if c == 0x0 {
-                break;
-            }
-
-            string.push(char::from_u32(c as u32).ok_or(io::Error::from(ErrorKind::InvalidData))?);
-        }
-
-        Ok(string)
-    }
-}
-
-impl<'a, T: EntryFileListSection> std::fmt::Debug for EntryFileListContainer<'a, T> {
+impl<'a> std::fmt::Debug for EntryFileList<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EntryFileList")
-            .field("unk04", &self.header.unk04.get())
-            .field("compressed_size", &self.header.compressed_size.get())
-            .field("decompressed_size", &self.header.decompressed_size.get())
+            .field("unk04", &self.container_header._unk04.get())
+            .field(
+                "compressed_size",
+                &self.container_header.compressed_size.get(),
+            )
+            .field(
+                "decompressed_size",
+                &self.container_header.decompressed_size.get(),
+            )
+            .field("unk1_count", &self.header.unk1_count)
+            .field("unk2_count", &self.header.unk2_count)
             .finish()
     }
 }
 
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct ContainerHeader {
-    magic: [u8; 4],
-    unk04: U32<LE>,
-    compressed_size: U32<LE>,
-    decompressed_size: U32<LE>,
+impl<'a> IntoIterator for EntryFileList<'a> {
+    type Item = Result<Unk1, EntryFileListError>;
+    type IntoIter = SectionIter<'a, Unk1Section>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SectionIter {
+            decoder: self.decoder,
+            entry_count: self.header.unk1_count,
+            header: self.header,
+            entries_read: 0,
+            _marker: PhantomData,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SectionIter<'a, TSection> {
+    decoder: ZlibDecoder<&'a [u8]>,
+    header: EntryFileListHeader,
+    entry_count: usize,
+    entries_read: usize,
+    _marker: PhantomData<TSection>,
+}
+
+pub trait EntryFileListSection {
+    type Element;
+
+    fn read_element(r: impl Read) -> Result<Self::Element, EntryFileListError>
+    where
+        Self: Sized;
+}
+
+impl<'a, TSection> Iterator for SectionIter<'a, TSection>
+where
+    TSection: EntryFileListSection,
+{
+    type Item = Result<TSection::Element, EntryFileListError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.entries_read < self.entry_count {
+            let result = (self.entries_read..self.entry_count)
+                .next()
+                .map(|_| TSection::read_element(&mut self.decoder));
+
+            self.entries_read += 1;
+
+            result
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, TSection> SectionIter<'a, TSection>
+where
+    TSection: EntryFileListSection,
+{
+    // Ensure we're at the end of the section. There's seemingly no better
+    // way until advance_by lands.
+    fn ensure_exhausted(&mut self) {
+        for _ in self {}
+    }
+}
+
+pub struct Unk1Section;
+
+impl EntryFileListSection for Unk1Section {
+    type Element = Unk1;
+
+    fn read_element(mut r: impl Read) -> Result<Self::Element, EntryFileListError> {
+        Ok(Unk1 {
+            step: r.read_u16::<LE>()?,
+            index: r.read_u16::<LE>()?,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -166,12 +173,77 @@ pub struct Unk1 {
     pub index: u16,
 }
 
-impl Unk1 {
-    pub fn parse<R: Read>(mut reader: R) -> Result<Self, io::Error> {
-        Ok(Self {
-            step: reader.read_u16::<LE>()?,
-            index: reader.read_u16::<LE>()?,
+impl<'a> SectionIter<'a, Unk1Section> {
+    // TODO: can probably deduplicate some code between here and SectionIter<'a, Unk2Section>
+    pub fn next_section(mut self) -> Result<SectionIter<'a, Unk2Section>, EntryFileListError> {
+        self.ensure_exhausted();
+
+        self.decoder.read_padding(offset_for_alignment(
+            self.decoder.total_out() as usize,
+            0x10,
+        ))?;
+
+        Ok(SectionIter {
+            decoder: self.decoder,
+            entry_count: self.header.unk2_count,
+            header: self.header,
+            entries_read: 0,
+            _marker: PhantomData,
         })
+    }
+}
+
+impl<'a> SectionIter<'a, Unk2Section> {
+    pub fn next_section(mut self) -> Result<SectionIter<'a, UnkStringSection>, EntryFileListError> {
+        self.ensure_exhausted();
+
+        self.decoder.read_padding(offset_for_alignment(
+            self.decoder.total_out() as usize,
+            0x10,
+        ))?;
+
+        // This is seems to be some value since the unk2 count excludes this
+        // if it were a string. It's always 0x0000 though so :shrug:
+        self.decoder.read_padding(2)?;
+
+        Ok(SectionIter {
+            decoder: self.decoder,
+            entry_count: self.header.unk2_count,
+            header: self.header,
+            entries_read: 0,
+            _marker: PhantomData,
+        })
+    }
+}
+
+pub struct Unk2Section;
+
+impl EntryFileListSection for Unk2Section {
+    type Element = u64;
+
+    fn read_element(mut r: impl Read) -> Result<Self::Element, EntryFileListError> {
+        Ok(r.read_u64::<LE>()?)
+    }
+}
+
+pub struct UnkStringSection;
+
+impl EntryFileListSection for UnkStringSection {
+    type Element = String;
+
+    fn read_element(mut r: impl Read) -> Result<Self::Element, EntryFileListError> {
+        let mut string = String::new();
+
+        loop {
+            let c = r.read_u16::<LE>()?;
+            if c == 0x0 {
+                break;
+            }
+
+            string.push(char::from_u32(c as u32).ok_or(io::Error::from(ErrorKind::InvalidData))?);
+        }
+
+        Ok(string)
     }
 }
 
