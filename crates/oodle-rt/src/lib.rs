@@ -25,6 +25,8 @@ pub(crate) mod ffi {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 
+pub use ffi::OODLELZ_BLOCK_LEN;
+
 pub mod decoder;
 
 #[derive(Clone)]

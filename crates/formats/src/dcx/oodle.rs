@@ -3,7 +3,7 @@ use std::{
     io::{Error, Read, Result},
 };
 
-use fstools_oodle_rt::{decoder::OodleDecoder, Compressor, Oodle};
+use fstools_oodle_rt::{decoder::OodleDecoder, Compressor, Oodle, OODLELZ_BLOCK_LEN};
 
 // SAFETY: `OodleLZDecoder` pointer is safe to use across several threads.
 unsafe impl<R: Read> Sync for OodleReader<R> {}
