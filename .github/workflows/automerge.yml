@@ -24,4 +24,4 @@ jobs:
           variables: |
             pullId: ${{ github.event.pull_request.node_id }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
