@@ -39,7 +39,7 @@ permissions:
 # will be marked as a prerelease.
 on:
   release:
-    types: [prereleased, released]
+    types: [prereleased, released, edited]
   pull_request:
 
 jobs:
