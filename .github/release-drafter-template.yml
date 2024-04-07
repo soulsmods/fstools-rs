@@ -21,6 +21,8 @@ categories:
       - 'maintenance'
       - 'documentation'
 template: |
+  # What's Changed
+
   $CHANGES
 
   Thanks again to $CONTRIBUTORS!
