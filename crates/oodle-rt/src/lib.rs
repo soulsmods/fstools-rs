@@ -16,9 +16,7 @@ pub use ffi::{
 };
 use libloading::Library;
 
-thread_local! {
-    static CURRENT_OODLE: RwLock<Option<Oodle>> = const { RwLock::new(None) };
-}
+static CURRENT_OODLE: RwLock<Option<Oodle>> = RwLock::new(None);
 
 #[allow(warnings)]
 pub(crate) mod ffi {
@@ -41,25 +39,21 @@ pub struct Oodle {
 
 impl Oodle {
     pub fn make_current(&self) {
-        CURRENT_OODLE.with(|oodle| {
-            let mut guard = match oodle.write() {
-                Ok(guard) => guard,
-                Err(e) => e.into_inner(),
-            };
+        let mut guard = match CURRENT_OODLE.write() {
+            Ok(guard) => guard,
+            Err(e) => e.into_inner(),
+        };
 
-            *guard = Some(self.clone());
-        });
+        *guard = Some(self.clone());
     }
 
     pub fn current() -> Option<Self> {
-        CURRENT_OODLE.with(|oodle| {
-            let guard = match oodle.read() {
-                Ok(guard) => guard,
-                Err(e) => e.into_inner(),
-            };
+        let guard = match CURRENT_OODLE.read() {
+            Ok(guard) => guard,
+            Err(e) => e.into_inner(),
+        };
 
-            guard.clone()
-        })
+        guard.clone()
     }
 
     /// Load an Oodle shared library from the given module name or path.
