@@ -5,7 +5,7 @@ use aes::{
     Aes128,
 };
 use fstools_formats::bhd::Bhd;
-use memmap2::{Advice, MmapOptions};
+use memmap2::MmapOptions;
 use thiserror::Error;
 
 pub use self::{
@@ -13,6 +13,9 @@ pub use self::{
     name::Name,
     reader::DvdBndEntryReader,
 };
+
+#[cfg(not(target_family = "windows"))]
+use memmap2::Advice;
 
 mod key_provider;
 mod name;
@@ -140,6 +143,7 @@ impl DvdBnd {
                     data_cipher.decrypt_blocks(blocks);
                 }
 
+                #[cfg(not(target_family = "windows"))]
                 let _ = mmap.advise(Advice::Sequential);
 
                 Ok(DvdBndEntryReader::new(mmap.make_read_only()?))
