@@ -1,11 +1,12 @@
 use std::{collections::HashMap, fs::File, io::Error, ops::Range, path::Path, slice};
 
 use aes::{
-    cipher::{generic_array::GenericArray, BlockDecrypt, BlockSizeUser, KeyInit},
+    cipher::{consts::U16, generic_array::GenericArray, BlockDecrypt, BlockSizeUser, KeyInit},
     Aes128,
 };
 use fstools_formats::bhd::Bhd;
 use memmap2::{Advice, MmapOptions};
+use rayon::{iter::ParallelBridge, prelude::ParallelIterator};
 use thiserror::Error;
 
 pub use self::{
@@ -118,27 +119,37 @@ impl DvdBnd {
 
                 let data_ptr = mmap.as_mut_ptr();
                 let data_cipher = Aes128::new(&GenericArray::from(entry.aes_key));
+                let encrypted_blocks: Result<Vec<&mut [GenericArray<u8, U16>]>, _> = entry
+                    .aes_ranges
+                    .iter()
+                    .map(|range| {
+                        let size = (range.end - range.start) as usize;
 
-                for range in &entry.aes_ranges {
-                    let size = (range.end - range.start) as usize;
+                        if range.start >= mmap.len() as u64 || range.end > mmap.len() as u64 {
+                            return Err(DvdBndEntryError::CorruptEntry);
+                        }
 
-                    if range.start >= mmap.len() as u64 || range.end > mmap.len() as u64 {
-                        return Err(DvdBndEntryError::CorruptEntry);
-                    }
+                        let num_blocks = size / Aes128::block_size();
 
-                    let num_blocks = size / Aes128::block_size();
+                        // SAFETY: We check the offset added to `data_ptr` is within the bounds of a
+                        // valid pointer.
+                        let blocks: &mut [GenericArray<u8, U16>] = unsafe {
+                            slice::from_raw_parts_mut(
+                                data_ptr.add(range.start as usize).cast(),
+                                num_blocks,
+                            )
+                        };
 
-                    // SAFETY: We check the offset added to `data_ptr` is within the bounds of a
-                    // valid pointer.
-                    let blocks = unsafe {
-                        slice::from_raw_parts_mut(
-                            data_ptr.add(range.start as usize).cast(),
-                            num_blocks,
-                        )
-                    };
+                        Ok(blocks)
+                    })
+                    .collect();
 
-                    data_cipher.decrypt_blocks(blocks);
-                }
+                encrypted_blocks?
+                    .into_iter()
+                    .par_bridge()
+                    .for_each(|blocks| {
+                        data_cipher.decrypt_blocks(blocks);
+                    });
 
                 let _ = mmap.advise(Advice::Sequential);
 

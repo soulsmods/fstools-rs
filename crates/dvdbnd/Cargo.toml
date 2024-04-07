@@ -9,6 +9,7 @@ aes = "0.8"
 encoding_rs = "0.8"
 fstools_formats.workspace = true
 memmap2.workspace = true
+rayon.workspace = true
 thiserror.workspace = true
 
 [lints]
