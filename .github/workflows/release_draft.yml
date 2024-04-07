@@ -30,9 +30,9 @@ jobs:
         with:
           config-name: release-drafter-template.yml
           tag: ${{ needs.pkg_version.outputs.version }}
-          header: ${{ needs.plan.outputs.val.announcement_github_body }}
+          header: ${{ fromJson(needs.plan.outputs.val).announcement_github_body }}
         env:
-          GITHUB_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   plan:
     runs-on: ubuntu-latest
