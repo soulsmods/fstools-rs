@@ -1,6 +1,9 @@
-use std::{error::Error, path::PathBuf};
+use std::error::Error;
 
+#[cfg(target_feature = "regenerate-bindings")]
 fn main() -> Result<(), Box<dyn Error>> {
+    use std::path::PathBuf;
+
     println!("cargo:rerun-if-changed=oodle_rt.hpp");
     println!("cargo:rerun-if-changed=oodle2.h");
     println!("cargo:rerun-if-changed=oodle2base.h");
@@ -21,5 +24,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     bindings.write_to_file(out_path.join("bindings.rs"))?;
 
+    Ok(())
+}
+
+#[cfg(not(target_feature = "regenerate-bindings"))]
+fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
