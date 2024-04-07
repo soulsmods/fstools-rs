@@ -3,6 +3,9 @@ name = "fstools_cli"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env", "unicode", "wrap_help"] }

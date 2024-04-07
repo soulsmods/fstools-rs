@@ -3,6 +3,8 @@ name = "fstools"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
+authors.workspace = true
 
 [dependencies]
 fstools_formats.workspace = true
@@ -39,6 +41,8 @@ members = [
 version = "0.1.0"
 license = "MIT AND Apache-2.0"
 edition = "2021"
+repository = "https://github.com/soulsmods/fstools-rs"
+authors = ["Gary Tierney", "Vincent Swarte"]
 
 [workspace.lints.clippy]
 doc_markdown = "warn"

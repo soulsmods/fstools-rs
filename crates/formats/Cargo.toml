@@ -3,6 +3,8 @@ name = "fstools_formats"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
+repository.workspace = true
+authors.workspace = true
 
 [features]
 default = []
