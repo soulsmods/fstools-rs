@@ -5,7 +5,7 @@ use aes::{
     Aes128,
 };
 use fstools_formats::bhd::Bhd;
-use memmap2::{Advice, MmapOptions};
+use memmap2::MmapOptions;
 use rayon::{iter::ParallelBridge, prelude::ParallelIterator};
 use thiserror::Error;
 
@@ -151,7 +151,8 @@ impl DvdBnd {
                         data_cipher.decrypt_blocks(blocks);
                     });
 
-                let _ = mmap.advise(Advice::Sequential);
+                #[cfg(unix)]
+                let _ = mmap.advise(memmap2::Advice::Sequential);
 
                 Ok(DvdBndEntryReader::new(mmap.make_read_only()?))
             }

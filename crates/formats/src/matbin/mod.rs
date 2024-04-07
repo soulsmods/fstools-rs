@@ -251,7 +251,7 @@ pub struct Parameter {
     /// Adler32 hash of the name string without the string terminator
     name_hash: U32<LE>,
 
-    /// Type of the value pointed at by value_offset
+    /// Type of the value pointed at by `value_offset`
     value_type: U32<LE>,
 
     _padding18: Padding<16>,
