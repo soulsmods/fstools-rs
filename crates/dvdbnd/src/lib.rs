@@ -14,7 +14,7 @@ pub use self::{
     reader::DvdBndEntryReader,
 };
 
-#[cfg(not(target_family = "windows"))]
+#[cfg(target_family = "unix")]
 use memmap2::Advice;
 
 mod key_provider;
@@ -143,7 +143,7 @@ impl DvdBnd {
                     data_cipher.decrypt_blocks(blocks);
                 }
 
-                #[cfg(not(target_family = "windows"))]
+                #[cfg(target_family = "unix")]
                 let _ = mmap.advise(Advice::Sequential);
 
                 Ok(DvdBndEntryReader::new(mmap.make_read_only()?))
