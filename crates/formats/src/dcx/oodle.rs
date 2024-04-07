@@ -14,9 +14,6 @@ unsafe impl<R: Read> Send for OodleReader<R> {}
 pub struct OodleReader<R: Read> {
     reader: R,
 
-    /// The total size of the raw data expected to be read from the underlying stream.
-    uncompressed_size: u32,
-
     /// The Oodle decoder instance created for this buffer.
     decoder: OodleDecoder,
 
@@ -62,7 +59,6 @@ impl<R: Read> OodleReader<R> {
             io_buffer,
             io_buffer_reader_pos: 0,
             io_buffer_writer_pos: 0,
-            uncompressed_size,
         })
     }
 }
