@@ -27,12 +27,13 @@ pub struct OodleReader<R: Read> {
     /// The number of bytes that the consuming reader is lagging behind the decoder.
     decode_buffer_reader_lag: usize,
 
-    /// Oodle requires at least [OODLELZ_BLOCK_LEN] bytes available in the input buffer, which the
-    /// read buffer might not fit. Instead, we buffer to this intermediate buffer and treat it as a
-    /// sliding window to ensure there are always OODLELZ_BLOCK_LEN bytes available to read.
+    /// Oodle requires at least [`OODLELZ_BLOCK_LEN`] bytes available in the input buffer, which
+    /// the read buffer might not fit. Instead, we buffer to this intermediate buffer and treat
+    /// it as a sliding window to ensure there are always `OODLELZ_BLOCK_LEN` bytes available
+    /// to read.
     io_buffer: Box<[u8]>,
 
-    /// The number of bytes available to read from [io_buffer], ending at [io_buffer_pos].
+    /// The number of bytes available to read from [`io_buffer`], ending at [`io_buffer_pos`].
     io_buffer_writer_pos: usize,
 
     /// Current position within the IO buffer.

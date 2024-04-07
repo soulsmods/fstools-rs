@@ -8,6 +8,8 @@ edition.workspace = true
 
 [dependencies]
 libloading = "0.8.3"
+steamlocate.workspace = true
+walkdir = "2"
 
 [build-dependencies.bindgen]
 version = "0.69"

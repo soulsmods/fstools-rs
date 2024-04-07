@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
+fstools_oodle_rt.workspace = true
 
 [dev-dependencies]
 criterion = "0.5"
@@ -60,4 +61,5 @@ fstools_oodle_rt = { path = "crates/oodle-rt", version = "0.1.0" }
 memmap2 = "0.9.4"
 rayon = "1"
 serde = "1"
+steamlocate = "=2.0.0-beta.2"
 thiserror = "1"
