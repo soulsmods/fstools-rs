@@ -53,7 +53,7 @@ jobs:
 
       - id: plan
         run: |
-          cargo dist ${{ format('host --steps=create --tag={0}',  needs.update_release_draft.outputs.version) }} --output-format=json > plan-dist-manifest.json
+          cargo dist ${{ format('host --steps=create --tag={0}',  needs.pkg_version.outputs.version) }} --output-format=json > plan-dist-manifest.json
           echo "cargo dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
