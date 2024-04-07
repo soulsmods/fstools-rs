@@ -25,12 +25,12 @@ harness = false
 
 [workspace]
 resolver = "2"
-default-members = ["crates/cli", "crates/viewer"]
 members = [
     "crates/asset-server",
     "crates/cli",
     "crates/dvdbnd",
     "crates/formats",
+    "crates/oodle-rt",
     "crates/viewer",
 ]
 
@@ -56,6 +56,7 @@ fstools_formats = { path = "crates/formats", version = "0.1.0" }
 fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
 fstools_asset_server = { path = "crates/asset-server", version = "0.1.0" }
 fstools_elden_ring_support = { path = "crates/support/elden_ring", version = "0.1.0" }
+fstools_oodle_rt = { path = "crates/oodle-rt", version = "0.1.0" }
 memmap2 = "0.9.4"
 rayon = "1"
 serde = "1"

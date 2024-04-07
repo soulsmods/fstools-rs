@@ -3,7 +3,6 @@ name = "fstools_formats"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
-build = "build.rs"
 
 [features]
 default = []
@@ -15,8 +14,8 @@ bytemuck = "1"
 byteorder = "1"
 dashu = "0.4"
 flate2 = "1.0"
+fstools_oodle_rt.workspace = true
 num-modular = "0.6"
-oodle-sys = "0.1"
 rayon.workspace = true
 rsa = "0.9"
 thiserror.workspace = true
