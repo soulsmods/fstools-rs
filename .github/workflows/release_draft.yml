@@ -16,4 +16,4 @@ jobs:
         with:
           config-name: release-drafter-template.yml
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
