@@ -6,28 +6,41 @@ on:
       - main
 
 jobs:
+  pkg_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "version=$(cargo pkgid | cut -d '@' -f2)" >> $GITHUB_OUTPUT
+        id: get_version
+
   update_release_draft:
+    needs: 
+      - pkg_version
+      - plan
     permissions:
       # write permission is required to create a github release
       contents: write
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.drafter.outputs.resolved_version }}
     steps:
       - uses: release-drafter/release-drafter@v6
         id: drafter
         with:
           config-name: release-drafter-template.yml
+          tag: ${{ needs.pkg_version.outputs.version }}
+          header: ${{ needs.plan.outputs.val.announcement_github_body }}
         env:
           GITHUB_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
 
   plan:
     runs-on: ubuntu-latest
-    needs: update_release_draft
+    needs: pkg_version
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
-      tag: ${{ needs.update_release_draft.outputs.version }}
-      tag-flag: ${{ format('--tag={0}', needs.update_release_draft.outputs.version ) }}
+      tag: ${{ needs.pkg_version.outputs.version }}
+      tag-flag: ${{ format('--tag={0}', needs.pkg_version.outputs.version ) }}
       publishing: true
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
