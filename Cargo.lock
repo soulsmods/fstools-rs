@@ -2371,6 +2371,7 @@ dependencies = [
  "encoding_rs",
  "fstools_formats",
  "memmap2",
+ "rayon",
  "thiserror",
 ]
 
