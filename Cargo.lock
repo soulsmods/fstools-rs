@@ -2406,6 +2406,7 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_basic_camera",
+ "blake3",
  "byteorder",
  "clap",
  "fstools_asset_server",
