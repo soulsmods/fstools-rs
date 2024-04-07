@@ -17,5 +17,8 @@ fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
 thiserror.workspace = true
 
+# https://github.com/bevyengine/bevy/issues/10425 
+blake3 = { version = "1.5", features = ["pure"] }
+
 [lints]
 workspace = true
