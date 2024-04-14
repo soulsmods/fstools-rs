@@ -24,6 +24,9 @@ pub enum EntryFileListError {
 
     #[error("Io error")]
     Io(#[from] io::Error),
+
+    #[error("Iterator not exhausted")]
+    IteratorNotExhausted,
 }
 
 #[allow(unused)]
@@ -143,17 +146,6 @@ where
     }
 }
 
-impl<'a, TSection> SectionIter<'a, TSection>
-where
-    TSection: EntryFileListSection,
-{
-    // Ensure we're at the end of the section. There's seemingly no better
-    // way until advance_by lands.
-    fn ensure_exhausted(&mut self) {
-        for _ in self {}
-    }
-}
-
 pub struct Unk1Section;
 
 impl EntryFileListSection for Unk1Section {
@@ -176,7 +168,9 @@ pub struct Unk1 {
 impl<'a> SectionIter<'a, Unk1Section> {
     // TODO: can probably deduplicate some code between here and SectionIter<'a, Unk2Section>
     pub fn next_section(mut self) -> Result<SectionIter<'a, Unk2Section>, EntryFileListError> {
-        self.ensure_exhausted();
+        if self.entries_read != self.entry_count {
+            return Err(EntryFileListError::IteratorNotExhausted);
+        }
 
         self.decoder.read_padding(offset_for_alignment(
             self.decoder.total_out() as usize,
@@ -195,7 +189,10 @@ impl<'a> SectionIter<'a, Unk1Section> {
 
 impl<'a> SectionIter<'a, Unk2Section> {
     pub fn next_section(mut self) -> Result<SectionIter<'a, UnkStringSection>, EntryFileListError> {
-        self.ensure_exhausted();
+        if self.entries_read != self.entry_count {
+            return Err(EntryFileListError::IteratorNotExhausted);
+        }
+
 
         self.decoder.read_padding(offset_for_alignment(
             self.decoder.total_out() as usize,
