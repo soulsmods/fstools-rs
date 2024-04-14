@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 
 use crate::{
-    describe::{describe_bnd, describe_matbin, describe_entryfilelist},
+    describe::{describe_bnd, describe_entryfilelist, describe_matbin},
     extract::extract,
 };
 

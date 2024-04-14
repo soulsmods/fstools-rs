@@ -112,9 +112,10 @@ pub struct SectionIter<'a, TElement> {
 }
 
 impl<'a, TElement> SectionIter<'a, TElement> {
-    fn skip_to_end(&mut self) -> io::Result<()> { 
+    fn skip_to_end(&mut self) -> io::Result<()> {
         if self.entries_read != self.entry_count {
-            let remaining = (self.entry_count - self.entries_read) * std::mem::size_of::<TElement>();
+            let remaining =
+                (self.entry_count - self.entries_read) * std::mem::size_of::<TElement>();
             std::io::copy(
                 &mut self.decoder.by_ref().take(remaining as u64),
                 &mut std::io::sink(),
@@ -140,7 +141,9 @@ impl<'a, TElement> SectionIter<'a, TElement> {
 }
 
 pub trait SectionElement: Sized {
-   fn read(reader: &mut impl Read) -> std::io::Result<Self> where Self: Sized;
+    fn read(reader: &mut impl Read) -> std::io::Result<Self>
+    where
+        Self: Sized;
 }
 
 impl<'a, TElement> Iterator for SectionIter<'a, TElement>
@@ -172,7 +175,10 @@ pub struct Unk1 {
 }
 
 impl SectionElement for Unk1 {
-    fn read(reader: &mut impl Read) -> std::io::Result<Self> where Self: Sized {
+    fn read(reader: &mut impl Read) -> std::io::Result<Self>
+    where
+        Self: Sized,
+    {
         Ok(Unk1 {
             step: reader.read_u16::<LE>()?,
             index: reader.read_u16::<LE>()?,
@@ -200,7 +206,10 @@ impl<'a> SectionIter<'a, Unk1> {
 pub struct Unk2(u64);
 
 impl SectionElement for Unk2 {
-    fn read(reader: &mut impl Read) -> std::io::Result<Self> where Self: Sized {
+    fn read(reader: &mut impl Read) -> std::io::Result<Self>
+    where
+        Self: Sized,
+    {
         Ok(Unk2(reader.read_u64::<LE>()?))
     }
 }
@@ -210,7 +219,10 @@ impl SectionElement for Unk2 {
 pub struct UnkString(String);
 
 impl SectionElement for UnkString {
-    fn read(reader: &mut impl Read) -> std::io::Result<Self> where Self: Sized {
+    fn read(reader: &mut impl Read) -> std::io::Result<Self>
+    where
+        Self: Sized,
+    {
         let mut string = String::new();
 
         loop {
