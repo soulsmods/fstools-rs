@@ -34,7 +34,6 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
         println!(" - Unk1: {:?}", unk1?);
     }
 
-    // Make sure to exhaust the iterator before calling next_section
     let mut unk2s = unk1s.next_section()?;
     for unk2 in unk2s.by_ref() {
         println!(" - Unk2: {:?}", unk2?);
@@ -42,7 +41,7 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
 
     let mut unkstrings = unk2s.next_section()?;
     for string in unkstrings.by_ref() {
-        println!(" - String: {}", string?);
+        println!(" - {:?}", string?);
     }
 
     Ok(())
