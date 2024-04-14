@@ -114,8 +114,7 @@ pub struct SectionIter<T, R: Read> {
 impl<T, R: Read> SectionIter<T, R> {
     fn skip_to_end(&mut self) -> io::Result<()> {
         if self.entries_read != self.entry_count {
-            let remaining =
-                (self.entry_count - self.entries_read) * std::mem::size_of::<T>();
+            let remaining = (self.entry_count - self.entries_read) * std::mem::size_of::<T>();
             std::io::copy(
                 &mut self.decoder.by_ref().take(remaining as u64),
                 &mut std::io::sink(),
