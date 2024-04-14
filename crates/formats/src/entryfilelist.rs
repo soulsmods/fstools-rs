@@ -125,12 +125,17 @@ impl<'a, TElement> SectionIter<'a, TElement> {
     }
 
     fn skip_to_alignment(&mut self) -> io::Result<()> {
-        self.decoder.read_padding(offset_for_alignment(
-            self.decoder.total_out() as usize,
-            0x10,
-        ))?;
+        // Find distance to next alignment point if we're not already aligned
+        let to_read = {
+            let offset = self.decoder.total_out() as usize % 0x10;
+            if offset == 0 {
+                0
+            } else {
+                0x10 - offset
+            }
+        };
 
-        Ok(())
+        self.decoder.read_padding(to_read)
     }
 }
 
@@ -237,15 +242,5 @@ impl<'a> SectionIter<'a, Unk2> {
             entries_read: 0,
             _marker: PhantomData,
         })
-    }
-}
-
-fn offset_for_alignment(current: usize, align: usize) -> usize {
-    let offset = current % align;
-
-    if offset == 0 {
-        0
-    } else {
-        align - offset
     }
 }
