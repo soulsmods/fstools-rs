@@ -29,7 +29,7 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
     let container = EntryFileList::from_bytes(reader.data())?;
 
     println!("Container: {container:#?}");
-    let mut unk1s = container.content()?;
+    let mut unk1s = container.content_iter()?;
     for unk1 in unk1s.by_ref() {
         println!(" - Unk1: {:?}", unk1?);
     }

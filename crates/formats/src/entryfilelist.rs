@@ -61,7 +61,7 @@ impl<'a> EntryFileList<'a> {
         })
     }
 
-    pub fn content(&self) -> Result<SectionIter<'a, Unk1>, EntryFileListError> {
+    pub fn content_iter(&self) -> Result<SectionIter<Unk1, &[u8]>, EntryFileListError> {
         let mut decoder = ZlibDecoder::new(self.compressed);
 
         let _unk0 = decoder.read_u32::<LE>()?;
@@ -103,19 +103,19 @@ impl<'a> std::fmt::Debug for EntryFileList<'a> {
 }
 
 #[derive(Debug)]
-pub struct SectionIter<'a, TElement> {
-    decoder: ZlibDecoder<&'a [u8]>,
+pub struct SectionIter<T, R: Read> {
+    decoder: ZlibDecoder<R>,
     header: EntryFileListHeader,
     entry_count: usize,
     entries_read: usize,
-    _marker: PhantomData<TElement>,
+    _marker: PhantomData<T>,
 }
 
-impl<'a, TElement> SectionIter<'a, TElement> {
+impl<T, R: Read> SectionIter<T, R> {
     fn skip_to_end(&mut self) -> io::Result<()> {
         if self.entries_read != self.entry_count {
             let remaining =
-                (self.entry_count - self.entries_read) * std::mem::size_of::<TElement>();
+                (self.entry_count - self.entries_read) * std::mem::size_of::<T>();
             std::io::copy(
                 &mut self.decoder.by_ref().take(remaining as u64),
                 &mut std::io::sink(),
@@ -146,17 +146,17 @@ pub trait SectionElement: Sized {
         Self: Sized;
 }
 
-impl<'a, TElement> Iterator for SectionIter<'a, TElement>
+impl<T, R: Read> Iterator for SectionIter<T, R>
 where
-    TElement: SectionElement,
+    T: SectionElement,
 {
-    type Item = io::Result<TElement>;
+    type Item = io::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.entries_read < self.entry_count {
             let result = (self.entries_read..self.entry_count)
                 .next()
-                .map(|_| TElement::read(&mut self.decoder));
+                .map(|_| T::read(&mut self.decoder));
 
             self.entries_read += 1;
 
@@ -186,8 +186,8 @@ impl SectionElement for Unk1 {
     }
 }
 
-impl<'a> SectionIter<'a, Unk1> {
-    pub fn next_section(mut self) -> Result<SectionIter<'a, Unk2>, EntryFileListError> {
+impl<R: Read> SectionIter<Unk1, R> {
+    pub fn next_section(mut self) -> Result<SectionIter<Unk2, R>, EntryFileListError> {
         self.skip_to_end()?;
         self.skip_to_alignment()?;
 
@@ -238,8 +238,8 @@ impl SectionElement for UnkString {
     }
 }
 
-impl<'a> SectionIter<'a, Unk2> {
-    pub fn next_section(mut self) -> Result<SectionIter<'a, UnkString>, EntryFileListError> {
+impl<R: Read> SectionIter<Unk2, R> {
+    pub fn next_section(mut self) -> Result<SectionIter<UnkString, R>, EntryFileListError> {
         self.skip_to_end()?;
         self.skip_to_alignment()?;
 
