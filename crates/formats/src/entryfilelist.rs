@@ -31,9 +31,10 @@ pub enum EntryFileListError {
 
 #[allow(unused)]
 pub struct EntryFileList<'a> {
-    decoder: ZlibDecoder<&'a [u8]>,
+    // decoder: ZlibDecoder<&'a [u8]>,
+    // header: EntryFileListHeader,
     container_header: &'a ContainerHeader,
-    header: EntryFileListHeader,
+    compressed: &'a [u8],
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
@@ -54,23 +55,33 @@ pub struct EntryFileListHeader {
 
 impl<'a> EntryFileList<'a> {
     pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, EntryFileListError> {
-        let (header, compressed) = Ref::<_, ContainerHeader>::new_from_prefix(bytes)
+        let (container_header, compressed) = Ref::<_, ContainerHeader>::new_from_prefix(bytes)
             .ok_or(EntryFileListError::UnalignedValue)?;
 
-        let mut decoder = ZlibDecoder::new(compressed);
+        Ok(Self {
+            container_header: container_header.into_ref(),
+            compressed,
+        })
+    }
+
+    pub fn content(&self) -> Result<SectionIter<'a, Unk1Section>, EntryFileListError> {
+        let mut decoder = ZlibDecoder::new(self.compressed);
 
         let _unk0 = decoder.read_u32::<LE>()?;
         let unk1_count = decoder.read_u32::<LE>()? as usize;
         let unk2_count = decoder.read_u32::<LE>()? as usize;
         let _unkc = decoder.read_u32::<LE>()?;
+        let header = EntryFileListHeader {
+            unk1_count,
+            unk2_count,
+        };
 
-        Ok(Self {
+        Ok(SectionIter {
             decoder,
-            container_header: header.into_ref(),
-            header: EntryFileListHeader {
-                unk1_count,
-                unk2_count,
-            },
+            entry_count: header.unk1_count,
+            header,
+            entries_read: 0,
+            _marker: PhantomData,
         })
     }
 }
@@ -87,24 +98,7 @@ impl<'a> std::fmt::Debug for EntryFileList<'a> {
                 "decompressed_size",
                 &self.container_header.decompressed_size.get(),
             )
-            .field("unk1_count", &self.header.unk1_count)
-            .field("unk2_count", &self.header.unk2_count)
             .finish()
-    }
-}
-
-impl<'a> IntoIterator for EntryFileList<'a> {
-    type Item = Result<Unk1, EntryFileListError>;
-    type IntoIter = SectionIter<'a, Unk1Section>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        SectionIter {
-            decoder: self.decoder,
-            entry_count: self.header.unk1_count,
-            header: self.header,
-            entries_read: 0,
-            _marker: PhantomData,
-        }
     }
 }
 
