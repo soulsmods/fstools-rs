@@ -202,7 +202,7 @@ impl<R: Read> SectionIter<Unk1, R> {
 
 #[derive(Debug)]
 #[allow(unused)]
-pub struct Unk2(u64);
+pub struct Unk2(pub u64);
 
 impl SectionElement for Unk2 {
     fn read(reader: &mut impl Read) -> std::io::Result<Self>
@@ -215,7 +215,7 @@ impl SectionElement for Unk2 {
 
 #[derive(Debug)]
 #[allow(unused)]
-pub struct UnkString(String);
+pub struct UnkString(pub String);
 
 impl SectionElement for UnkString {
     fn read(reader: &mut impl Read) -> std::io::Result<Self>
