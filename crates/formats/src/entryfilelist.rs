@@ -150,17 +150,10 @@ where
     type Item = io::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.entries_remaining != 0 {
-            let result = (0..self.entries_remaining)
-                .next()
-                .map(|_| T::read(&mut self.decoder));
-
+        (self.entries_remaining != 0).then(|| {
             self.entries_remaining -= 1;
-
-            result
-        } else {
-            None
-        }
+            T::read(&mut self.decoder)
+        })
     }
 }
 
