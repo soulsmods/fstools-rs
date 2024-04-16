@@ -238,7 +238,7 @@ jobs:
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload --clobber v${{ needs.plan.outputs.tag }} ./artifacts/*
+        run: gh release upload --clobber ${{ needs.plan.outputs.tag }} ./artifacts/*
       - uses: geekyeggo/delete-artifact@v5
         with:
             name: artifacts-*
