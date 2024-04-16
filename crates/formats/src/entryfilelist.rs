@@ -113,8 +113,10 @@ impl<T, R: Read> SectionIter<T, R> {
     fn skip_to_end(&mut self) -> io::Result<()> {
         if self.entries_remaining != 0 {
             std::io::copy(
-                &mut self.decoder.by_ref()
-                .take((self.entries_remaining * std::mem::size_of::<T>()) as u64),
+                &mut self
+                    .decoder
+                    .by_ref()
+                    .take((self.entries_remaining * std::mem::size_of::<T>()) as u64),
                 &mut std::io::sink(),
             )?;
         }
