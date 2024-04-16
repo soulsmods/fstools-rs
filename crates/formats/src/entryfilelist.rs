@@ -78,9 +78,8 @@ impl<'a> EntryFileList<'a> {
 
         Ok(SectionIter {
             decoder,
-            entry_count: header.unk1_count,
+            entries_remaining: header.unk1_count,
             header,
-            entries_read: 0,
             _marker: PhantomData,
         })
     }
@@ -106,17 +105,16 @@ impl<'a> std::fmt::Debug for EntryFileList<'a> {
 pub struct SectionIter<T, R: Read> {
     decoder: ZlibDecoder<R>,
     header: EntryFileListHeader,
-    entry_count: usize,
-    entries_read: usize,
+    entries_remaining: usize,
     _marker: PhantomData<T>,
 }
 
 impl<T, R: Read> SectionIter<T, R> {
     fn skip_to_end(&mut self) -> io::Result<()> {
-        if self.entries_read != self.entry_count {
-            let remaining = (self.entry_count - self.entries_read) * std::mem::size_of::<T>();
+        if self.entries_remaining != 0 {
             std::io::copy(
-                &mut self.decoder.by_ref().take(remaining as u64),
+                &mut self.decoder.by_ref()
+                .take((self.entries_remaining * std::mem::size_of::<T>()) as u64),
                 &mut std::io::sink(),
             )?;
         }
@@ -152,12 +150,12 @@ where
     type Item = io::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.entries_read < self.entry_count {
-            let result = (self.entries_read..self.entry_count)
+        if self.entries_remaining != 0 {
+            let result = (0..self.entries_remaining)
                 .next()
                 .map(|_| T::read(&mut self.decoder));
 
-            self.entries_read += 1;
+            self.entries_remaining -= 1;
 
             result
         } else {
@@ -192,9 +190,8 @@ impl<R: Read> SectionIter<Unk1, R> {
 
         Ok(SectionIter {
             decoder: self.decoder,
-            entry_count: self.header.unk2_count,
+            entries_remaining: self.header.unk2_count,
             header: self.header,
-            entries_read: 0,
             _marker: PhantomData,
         })
     }
@@ -248,9 +245,8 @@ impl<R: Read> SectionIter<Unk2, R> {
 
         Ok(SectionIter {
             decoder: self.decoder,
-            entry_count: self.header.unk2_count,
+            entries_remaining: self.header.unk2_count,
             header: self.header,
-            entries_read: 0,
             _marker: PhantomData,
         })
     }
