@@ -154,9 +154,16 @@ impl DvdBnd {
                 #[cfg(unix)]
                 let _ = mmap.advise(memmap2::Advice::Sequential);
 
+                // DCXes dont have an unpadded size set
+                let effective_file_size = if entry.file_size != 0 {
+                    entry.file_size
+                } else {
+                    entry.file_size_with_padding
+                } as usize;
+
                 Ok(DvdBndEntryReader::new(
                     mmap.make_read_only()?,
-                    entry.file_size as usize,
+                    effective_file_size,
                 ))
             }
             None => Err(DvdBndEntryError::NotFound),
