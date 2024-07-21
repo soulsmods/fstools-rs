@@ -10,8 +10,6 @@ use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
 
-pub trait SyncError: Sync + Send + Error + Sized {}
-
 pub fn extract(
     dvd_bnd: &DvdBnd,
     recursive: bool,
