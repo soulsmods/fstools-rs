@@ -154,7 +154,10 @@ impl DvdBnd {
                 #[cfg(unix)]
                 let _ = mmap.advise(memmap2::Advice::Sequential);
 
-                Ok(DvdBndEntryReader::new(mmap.make_read_only()?))
+                Ok(DvdBndEntryReader::new(
+                    mmap.make_read_only()?,
+                    entry.file_size as usize,
+                ))
             }
             None => Err(DvdBndEntryError::NotFound),
         }
