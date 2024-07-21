@@ -301,13 +301,13 @@ pub struct PointDataMessage {
     pub unk2: I16<LE>,
     // Seems to always be true/false? Could be a single byte with some padding?
     pub hidden: U32<LE>,
-    pub unk8: I32<LE>,
+    pub item_lot: I32<LE>,
     pub unkc: U32<LE>,
     pub event_flag: I32<LE>,
-    pub unk14: I32<LE>,
-    pub unk18: I32<LE>,
-    pub unk1c: I32<LE>,
-    pub unk20: I32<LE>,
+    pub character_model_id: I32<LE>,
+    pub npc_param_id: I32<LE>,
+    pub animation_id: I32<LE>,
+    pub chara_init_param_id: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
