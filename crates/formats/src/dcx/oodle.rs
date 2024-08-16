@@ -6,10 +6,10 @@ use std::{
 use fstools_oodle_rt::{decoder::OodleDecoder, Compressor, Oodle, OODLELZ_BLOCK_LEN};
 
 // SAFETY: `OodleLZDecoder` pointer is safe to use across several threads.
-unsafe impl<R: Read> Sync for OodleReader<R> {}
+unsafe impl<R: Read + Sync> Sync for OodleReader<R> {}
 
 // SAFETY: See above.
-unsafe impl<R: Read> Send for OodleReader<R> {}
+unsafe impl<R: Read + Send> Send for OodleReader<R> {}
 
 pub struct OodleReader<R: Read> {
     reader: R,

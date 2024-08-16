@@ -8,3 +8,5 @@ authors.workspace = true
 
 [dependencies]
 fstools.workspace = true
+aes = "0.8"
+cbc = "0.1"

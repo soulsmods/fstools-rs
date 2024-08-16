@@ -2,12 +2,13 @@ use std::{
     collections::HashSet,
     error::Error,
     ffi::OsStr,
+    io::{self, Read},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
-use fstools_elden_ring_support::dictionary;
+use fstools_elden_ring_support::{decrypt_regulation, dictionary};
 use fstools_formats::dcx::DcxError;
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
@@ -15,6 +16,7 @@ use libtest_mimic::{Arguments, Failed, Trial};
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Arguments::from_args();
     let er_path = PathBuf::from(std::env::var("ER_PATH").expect("er_path"));
+    let reg_path = er_path.join("regulation.bin");
     let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").expect("er_keys_path"));
     let vfs = Arc::new(fstools_elden_ring_support::load_dvd_bnd(
         er_path,
@@ -39,7 +41,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         tests.push(test);
     }
 
+    // Test against the regulation DCX (ZSTD encoded since 1.12)
+    tests.push(Trial::test("regulation.bin", move || {
+        check_regulation(&reg_path)
+    }));
+
     libtest_mimic::run(&args, tests).exit();
+}
+
+pub fn check_regulation(path: &Path) -> Result<(), Failed> {
+    let regulation_bytes = std::fs::read(path.join("regulation.bin"))?;
+    let dcx_bytes = decrypt_regulation(&mut regulation_bytes.as_slice())?;
+    check_dcx(io::Cursor::new(dcx_bytes))
 }
 
 pub fn check_file(vfs: Arc<DvdBnd>, file: &Path) -> Result<(), Failed> {
@@ -49,14 +62,17 @@ pub fn check_file(vfs: Arc<DvdBnd>, file: &Path) -> Result<(), Failed> {
             return Ok(());
         }
     };
+    check_dcx(file)
+}
 
-    let (_, mut reader) = match DcxHeader::read(file) {
+pub fn check_dcx(reader: impl Read) -> Result<(), Failed> {
+    let (_, mut decoder) = match DcxHeader::read(reader) {
         Ok(details) => details,
         Err(DcxError::UnknownAlgorithm(_)) => return Ok(()),
         Err(_) => return Err("failed to parse DCX header".into()),
     };
 
-    std::io::copy(&mut reader, &mut std::io::sink())?;
+    std::io::copy(&mut decoder, &mut std::io::sink())?;
 
     Ok(())
 }
