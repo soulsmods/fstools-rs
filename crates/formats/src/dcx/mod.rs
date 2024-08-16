@@ -7,15 +7,18 @@ use std::{
 use byteorder::BE;
 use thiserror::Error;
 use zerocopy::{FromBytes, FromZeroes, U32};
+use zstd::ZstdDecoder;
 
 use self::{deflate::DeflateDecoder, oodle::OodleReader};
 
 pub mod deflate;
 pub mod oodle;
+pub mod zstd;
 
 const MAGIC_DCX: u32 = 0x44435800;
 const MAGIC_ALGORITHM_KRAKEN: &[u8; 4] = b"KRAK";
 const MAGIC_ALGORITHM_DEFLATE: &[u8; 4] = b"DFLT";
+const MAGIC_ALGORITHM_ZSTD: &[u8; 4] = b"ZSTD";
 
 #[derive(Debug, Error)]
 pub enum DcxError {
@@ -69,6 +72,9 @@ impl DcxHeader {
                     .ok_or(DcxError::DecoderError)?,
             ),
             MAGIC_ALGORITHM_DEFLATE => Decoder::Deflate(DeflateDecoder::new(reader)),
+            MAGIC_ALGORITHM_ZSTD => {
+                Decoder::Zstd(ZstdDecoder::new(reader).map_err(|_| DcxError::DecoderError)?)
+            }
             _ => return Err(DcxError::UnknownAlgorithm(algorithm.to_owned())),
         };
 
@@ -111,6 +117,7 @@ impl Debug for DcxHeader {
 pub enum Decoder<R: Read> {
     Kraken(OodleReader<R>),
     Deflate(DeflateDecoder<R>),
+    Zstd(ZstdDecoder<R>),
 }
 
 pub struct DcxContentDecoder<R: Read> {
@@ -131,6 +138,7 @@ impl<R: Read> Read for DcxContentDecoder<R> {
         match &mut self.decoder {
             Decoder::Kraken(d) => d.read(buf),
             Decoder::Deflate(d) => d.read(buf),
+            Decoder::Zstd(d) => d.read(buf),
         }
     }
 }
@@ -196,7 +204,7 @@ impl Debug for Sizes {
 pub struct CompressionParameters {
     chunk_magic: [u8; 4],
 
-    /// Either KRAK, DFLT or EDGE
+    /// Either KRAK, DFLT, EDGE or ZSTD
     algorithm: [u8; 4],
 
     /// Seems to the size of the current DCP chunk including magic and algo
