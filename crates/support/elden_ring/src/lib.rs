@@ -31,7 +31,7 @@ pub fn dictionary() -> impl Iterator<Item = PathBuf> {
         .map(std::path::PathBuf::from)
 }
 
-pub fn decyrpt_regulation(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+pub fn decrypt_regulation(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     const REGULATION_KEY: &'static [u8; 32] = &[
         0x99, 0xBF, 0xFC, 0x36, 0x6A, 0x6B, 0xC8, 0xC6, 0xF5, 0x82, 0x7D, 0x09, 0x36, 0x02, 0xD6,
         0x76, 0xC4, 0x28, 0x92, 0xA0, 0x1C, 0x20, 0x7F, 0xB0, 0x24, 0xD3, 0xAF, 0x4E, 0x49, 0x3F,
@@ -57,7 +57,7 @@ pub fn decyrpt_regulation(reader: &mut impl Read) -> io::Result<Vec<u8>> {
 
 pub fn load_regulation(game_path: impl AsRef<Path>) -> io::Result<BND4> {
     let regulation_bytes = std::fs::read(game_path.as_ref().join("regulation.bin"))?;
-    let dcx_bytes = decyrpt_regulation(&mut regulation_bytes.as_slice())?;
+    let dcx_bytes = decrypt_regulation(&mut regulation_bytes.as_slice())?;
 
     let (_, mut dcx_decoder) = DcxHeader::read(io::Cursor::new(dcx_bytes))
         .map_err(|_| io::Error::other("DCX header reading failed"))?;

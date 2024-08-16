@@ -8,7 +8,7 @@ use std::{
 };
 
 use fstools::{formats::dcx::DcxHeader, prelude::*};
-use fstools_elden_ring_support::{decyrpt_regulation, dictionary};
+use fstools_elden_ring_support::{decrypt_regulation, dictionary};
 use fstools_formats::dcx::DcxError;
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 pub fn check_regulation(path: &Path) -> Result<(), Failed> {
     let regulation_bytes = std::fs::read(path.join("regulation.bin"))?;
-    let dcx_bytes = decyrpt_regulation(&mut regulation_bytes.as_slice())?;
+    let dcx_bytes = decrypt_regulation(&mut regulation_bytes.as_slice())?;
     check_dcx(io::Cursor::new(dcx_bytes))
 }
 
