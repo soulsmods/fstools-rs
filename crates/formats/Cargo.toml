@@ -22,6 +22,7 @@ rayon.workspace = true
 rsa = "0.9"
 thiserror.workspace = true
 widestring = "1"
+utf16string = "0.2" # Using both this and widestring is eh, but widestring doesn't support byteorder
 zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
 
