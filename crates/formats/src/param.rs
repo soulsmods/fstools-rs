@@ -1,9 +1,11 @@
 use core::str;
-use std::{ffi::CStr, marker::PhantomData};
+use std::{borrow::Cow, ffi::CStr, marker::PhantomData};
 
 use thiserror::Error;
-use zerocopy::{FromBytes, FromZeroes, Unaligned, LE, U16, U32, U64};
+use zerocopy::{FromBytes, FromZeroes, Unaligned, BE, LE, U16, U32, U64};
 
+/// Traits used to represent the varying endiannes, offset size and string encoding
+/// used it param files at compile time.
 pub mod traits {
     use std::{borrow::Cow, ffi::CStr};
     use utf16string::WStr;
@@ -15,14 +17,15 @@ pub mod traits {
     pub trait UnalignedInto<T>: Into<T> + Copy + Unaligned + FromBytes {}
     impl<T, U: Into<T> + Copy + Unaligned + FromBytes> UnalignedInto<T> for U {}
 
+    /// A valid Unicode string slice which may or may not be UTF-8 encoded.
     pub trait GenericStr: ToString {
-        /// Returns the length of a string of [`Char`] in bytes.
+        /// Returns the length of the string slice in bytes.
         fn len_bytes(&self) -> usize;
 
-        /// Attempt to read a null-terminated string of [`Char`].
+        /// Attempt to create a string slice from a null-terminated sequence of bytes.
         fn read_nt_str(bytes: &[u8]) -> Option<&'_ Self>;
 
-        /// Convert to a Rust string, possibly performing a conversion.
+        /// Convert to a Rust utf-8 string slice, possibly performing a conversion.
         fn to_rust_str(&self) -> Cow<'_, str>;
     }
 
@@ -63,33 +66,43 @@ pub mod traits {
 
     pub trait OffsetType<BO: StaticBO> {
         type T: UnalignedInto<u64>;
+        type Pad: Unaligned + FromBytes;
     }
 
+    /// Marker type used to represent a param file with 32-bit offsets.
     pub struct Offset32 {}
     impl<BO: StaticBO> OffsetType<BO> for Offset32 {
         type T = zerocopy::U32<BO>;
+        type Pad = [u8; 0];
     }
 
+    /// Marker type used to represent a param file with 64-bit offsets.
     pub struct Offset64 {}
     impl<BO: StaticBO> OffsetType<BO> for Offset64 {
         type T = zerocopy::U64<BO>;
+        type Pad = [u8; 4];
     }
 
+    /// Marker type used to represent a param file with UTF-8 strings.
     pub struct Char {}
     impl<BO: StaticBO> CharType<BO> for Char {
         type Unit = u8;
         type Str = str;
     }
 
+    /// Marker type used to represent a param file with UTF-16 strings.
     pub struct WChar {}
     impl<BO: StaticBO> CharType<BO> for WChar {
         type Unit = U16<BO>;
         type Str = WStr<BO>;
     }
 
+    /// Trait containing associated types that vary according to the endianness,
+    /// offset size and string encoding of a param file.
     pub trait ParamTraits {
         type Endian: StaticBO;
         type Offset: UnalignedInto<u64>;
+        type OffsetPad: Unaligned + FromBytes;
         type Char: UnalignedInto<u32>;
         type Str: GenericStr + ?Sized;
 
@@ -107,14 +120,20 @@ pub mod traits {
     }
 }
 
+use traits::GenericStr;
 pub use traits::{Char, CharType, Offset32, Offset64, OffsetType, StaticBO, WChar};
 
+/// Marker type used to encode the possible format traits of a param file at compile time:
+/// - Endianness: [`BE`] or [`LE`],
+/// - Offset size: [`Offset32`] or [`Offset64`],
+/// - String encoding: [`Char`] (single-byte utf-8 strings) or [`WChar`] (wide utf-16 strings).
 pub struct ParamTraits<E: StaticBO = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
     phantom: PhantomData<fn() -> (E, O, C)>,
 }
 impl<E: StaticBO, O: OffsetType<E>, C: CharType<E>> traits::ParamTraits for ParamTraits<E, O, C> {
     type Endian = E;
     type Offset = O::T;
+    type OffsetPad = O::Pad;
     type Char = C::Unit;
     type Str = C::Str;
 }
@@ -134,12 +153,46 @@ union ParamTypeBlock<BO: StaticBO> {
     offset: ParamTypeOffset<BO>,
 }
 
+/// Describes
 #[repr(C)]
 #[derive(Clone, Unaligned, FromZeroes, FromBytes)]
-pub struct RowDescriptor<I> {
-    pub id: I,
-    pub data_offset: I,
-    pub name_offset: I,
+pub struct RowDescriptor<T: traits::ParamTraits> {
+    /// ID of the row. This is unique within the param file.
+    pub id: U32<T::Endian>,
+    pad: T::OffsetPad,
+    /// Offset to the data of the row in the param file.
+    pub data_offset: T::Offset,
+    /// Offset to the name of the row in the param file if present.
+    /// Zero otherwise.
+    pub name_offset: T::Offset,
+}
+
+impl<T: traits::ParamTraits> RowDescriptor<T> {
+    /// Gets the data slice for this row.
+    ///
+    /// If the row size is known for the provided file,
+    /// will return the exact slice corresponding to the row data.
+    /// Otherwise, the returned slice will go on to the end of the file.
+    ///
+    /// Retuns [`None`] if the resulting slice is out-of-bounds.
+    fn data<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a [u8]> {
+        let ofs: usize = self.data_offset.into() as usize;
+        match file.detected_row_size {
+            Some(s) => file.data.get(ofs..ofs + s as usize),
+            None => file.data.get(ofs..),
+        }
+    }
+
+    /// Gets the name of this row if one is present.
+    ///
+    /// Retuns [`None`] if the name is not present or could not be read due to
+    /// out-of-bounds indicies, invalid characters, etc.
+    fn name<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a T::Str> {
+        match self.name_offset.into() as usize {
+            0 => None,
+            ofs => T::Str::read_nt_str(file.data.get(ofs..)?),
+        }
+    }
 }
 
 #[repr(C)]
@@ -191,7 +244,7 @@ pub struct Param<'a, T: traits::ParamTraits = ParamTraits> {
     data: &'a [u8],
     header: &'a ParamHeader<T::Endian>,
     param_type: &'a str,
-    row_descriptors: &'a [RowDescriptor<T::Offset>],
+    row_descriptors: &'a [RowDescriptor<T>],
     detected_strings_offset: Option<u64>,
     detected_row_size: Option<u64>,
     phantom: PhantomData<fn() -> T>,
@@ -210,6 +263,18 @@ pub enum ParamParseError {
 }
 
 impl<'a, T: traits::ParamTraits> Param<'a, T> {
+    /// Attempt to parse the given byte slice as a [`Param`].
+    ///
+    /// # Errors
+    /// Returns a [`ParamParseError`] error if the byte slice contains invalid data,
+    /// or if the format traits of the param file (endianness, offset size
+    /// and string encoding) don't match with the given [`ParamTraits`].
+    ///
+    /// To parse a file for which the format traits are not known at compile time,
+    /// use [`parse_dyn`].
+    ///
+    /// # Complexity
+    /// This is a zero-copy operation and runs in constant time.
     pub fn parse(data: &'a [u8]) -> Result<Self, ParamParseError> {
         let header = ParamHeader::ref_from(data).ok_or(ParamParseError::InvalidData)?;
 
@@ -255,7 +320,7 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
         };
 
         // Parse the row descriptors
-        let row_descriptors = RowDescriptor::<T::Offset>::slice_from_prefix(
+        let row_descriptors = RowDescriptor::<T>::slice_from_prefix(
             data.get(header.header_size()..)
                 .ok_or(ParamParseError::InvalidData)?,
             header.row_count(),
@@ -302,4 +367,195 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
             phantom: PhantomData,
         })
     }
+
+    /// Get the header of this param file.
+    pub fn header(&self) -> &ParamHeader<T::Endian> {
+        &self.header
+    }
+
+    /// Get the slice of row descriptors of this param file.
+    pub fn row_descriptors(&self) -> &[RowDescriptor<T>] {
+        &self.row_descriptors
+    }
+
+    /// Gets the portion of the param file used for storing strings,
+    /// provided that the strings offset is known.
+    pub fn strings(&self) -> Option<&[u8]> {
+        self.detected_strings_offset
+            .and_then(|o| self.data.get(o as usize..))
+    }
+}
+
+/// Unified operations on [`Param`] instances that don't depend
+/// on the endianness, offset size or string encoding of the underlying file.
+///
+/// This trait is object safe.
+pub trait ParamCommon<'a> {
+    /// Returns true if the param file is big endian encoded and false otherwise.
+    fn is_big_endian(&self) -> bool;
+
+    /// Returns true if the param file uses 64-bit offsets and false otherwise.
+    fn is_64_bit(&self) -> bool;
+
+    /// Returns true if the param file stores row names as Unicode (wide) strings and
+    /// false otherwise.
+    fn is_unicode(&self) -> bool;
+
+    /// Returns the param type (paramdef) of the rows of this param file.
+    fn param_type(&self) -> &str;
+
+    /// Returns the number of rows in this param.
+    fn row_count(&self) -> usize;
+
+    /// Returns the row size of this param, if known.
+    fn row_size(&self) -> Option<usize>;
+
+    /// Checks that the row descriptors of this param are sorted.
+    /// If they are not, the following functions will not produce correct results:
+    /// - [`ParamCommon::index_of`]
+    /// - [`ParamCommon::data_by_id`]
+    /// - [`ParamCommon::name_by_id`]
+    fn are_rows_sorted(&self) -> bool;
+
+    /// Attempts to find the index of a row given its ID.
+    ///
+    /// # Constaints
+    /// This performs binary search on the row descriptors. As such, if they are not
+    /// sorted this will almost certainly lead to bogus results.
+    ///
+    /// Note that parsing a param file does *NOT* validate that row descriptors are sorted.
+    /// You can check this using [`ParamCommon::are_rows_sorted`].
+    fn index_of(&self, row_id: u32) -> Option<usize>;
+
+    /// Returns the data for a param row given its index.
+    /// To get the data based on the row ID, see [`ParamCommon::data_by_id`].
+    ///
+    /// May return [`None`] if the file defines an invalid data slice for this row.
+    ///
+    /// # Panics
+    /// Like slice indexing, this function panics if `index` is larger or equal to [`ParamCommon::row_count`].
+    fn data_by_index(&self, index: usize) -> Option<&[u8]>;
+
+    /// Returns the name of a param row given its index, if a name is present.
+    ///To get the data based on the row ID, see [`ParamCommon::name_by_id`].
+    ///
+    /// May return [`None`] if the name is not present or otherwise unreadable.
+    ///
+    /// # Panics
+    /// Like slice indexing, this function panics if `index` is larger or equal to [`ParamCommon::row_count`].
+    fn name_by_index(&self, index: usize) -> Option<Cow<'_, str>>;
+
+    /// Returns the data of a row given its ID.
+    ///
+    /// # Constaints
+    /// This function relies on binary search on the row descriptors. As such, if they are not
+    /// sorted this will almost certainly lead to bogus results.
+    ///
+    /// Note that parsing a param file does *NOT* validate that row descriptors are sorted.
+    /// You can check this using [`ParamCommon::are_rows_sorted`].
+    fn data_by_id(&self, id: u32) -> Option<&[u8]> {
+        self.data_by_index(self.index_of(id)?)
+    }
+
+    /// Returns the name of a row given its ID.
+    ///
+    /// # Constaints
+    /// This function relies on binary search on the row descriptors. As such, if they are not
+    /// sorted this will almost certainly lead to bogus results.
+    ///
+    /// Note that parsing a param file does *NOT* validate that row descriptors are sorted.
+    /// You can check this using [`ParamCommon::are_rows_sorted`].
+    fn name_by_id(&self, id: u32) -> Option<Cow<'_, str>> {
+        self.name_by_index(self.index_of(id)?)
+    }
+}
+
+impl<'a, T: traits::ParamTraits> ParamCommon<'a> for Param<'a, T> {
+    fn is_big_endian(&self) -> bool {
+        T::is_big_endian()
+    }
+
+    fn is_unicode(&self) -> bool {
+        T::is_unicode()
+    }
+
+    fn is_64_bit(&self) -> bool {
+        T::is_64_bit()
+    }
+
+    fn param_type(&self) -> &str {
+        self.param_type
+    }
+
+    fn row_count(&self) -> usize {
+        self.row_descriptors.len()
+    }
+
+    fn row_size(&self) -> Option<usize> {
+        self.detected_row_size.map(|r| r as usize)
+    }
+
+    fn are_rows_sorted(&self) -> bool {
+        self.row_descriptors
+            .windows(2)
+            .all(|rds| rds[0].id.get() < rds[1].id.get())
+    }
+
+    fn data_by_index(&self, index: usize) -> Option<&[u8]> {
+        self.row_descriptors[index].data(self)
+    }
+
+    fn name_by_index(&self, index: usize) -> Option<Cow<'_, str>> {
+        self.row_descriptors[index]
+            .name(self)
+            .map(|s| s.to_rust_str())
+    }
+
+    fn index_of(&self, row_id: u32) -> Option<usize> {
+        self.row_descriptors
+            .binary_search_by_key(&row_id, |rd| rd.id.into())
+            .ok()
+    }
+}
+
+/// Parse a param file from a byte slice, returning a boxed [`ParamCommon`] implementation
+/// which removes the need from knowing the endianness, offset size and string encoding of
+/// the param file at compile time.
+///
+/// # Errors
+/// Returns a [`ParamParseError`] error if the byte slice contains unexpected or invalid data
+/// that does not conform to the param file format.
+///
+/// # Complexity
+/// This is a zero-copy operation and runs in constant time.
+pub fn parse_dyn<'a>(data: &'a [u8]) -> Result<Box<dyn ParamCommon<'a> + 'a>, ParamParseError> {
+    let header = ParamHeader::<LE>::ref_from(data).ok_or(ParamParseError::InvalidData)?;
+    Ok(
+        match (
+            header.is_big_endian(),
+            header.is_64_bit(),
+            header.is_unicode(),
+        ) {
+            (false, false, false) => {
+                Box::new(Param::<ParamTraits<LE, Offset32, Char>>::parse(data)?)
+            }
+            (false, false, true) => {
+                Box::new(Param::<ParamTraits<LE, Offset32, WChar>>::parse(data)?)
+            }
+            (false, true, false) => {
+                Box::new(Param::<ParamTraits<LE, Offset64, Char>>::parse(data)?)
+            }
+            (false, true, true) => {
+                Box::new(Param::<ParamTraits<LE, Offset64, WChar>>::parse(data)?)
+            }
+            (true, false, false) => {
+                Box::new(Param::<ParamTraits<BE, Offset32, Char>>::parse(data)?)
+            }
+            (true, false, true) => {
+                Box::new(Param::<ParamTraits<BE, Offset32, WChar>>::parse(data)?)
+            }
+            (true, true, false) => Box::new(Param::<ParamTraits<BE, Offset64, Char>>::parse(data)?),
+            (true, true, true) => Box::new(Param::<ParamTraits<BE, Offset64, WChar>>::parse(data)?),
+        },
+    )
 }
