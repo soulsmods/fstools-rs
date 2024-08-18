@@ -415,6 +415,9 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
 ///
 /// This trait is object safe.
 pub trait ParamCommon<'a> {
+    /// Returns a byte slice containing the entire param file.
+    fn file_bytes(&self) -> &[u8];
+
     /// Returns true if the param file is big endian encoded and false otherwise.
     fn is_big_endian(&self) -> bool;
 
@@ -497,6 +500,10 @@ pub trait ParamCommon<'a> {
 }
 
 impl<'a, T: traits::ParamTraits> ParamCommon<'a> for Param<'a, T> {
+    fn file_bytes(&self) -> &[u8] {
+        &self.data
+    }
+
     fn is_big_endian(&self) -> bool {
         T::is_big_endian()
     }
