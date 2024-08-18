@@ -177,10 +177,10 @@ impl<T: traits::ParamTraits> RowDescriptor<T> {
     ///
     /// Retuns [`None`] if the resulting slice is out-of-bounds.
     fn data<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a [u8]> {
-        let ofs: usize = self.data_offset.into() as usize;
+        let offset: usize = self.data_offset.into() as usize;
         match file.detected_row_size {
-            Some(s) => file.data.get(ofs..ofs + s as usize),
-            None => file.data.get(ofs..),
+            Some(size) => file.data.get(offset..offset + size as usize),
+            None => file.data.get(offset..),
         }
     }
 
@@ -191,7 +191,7 @@ impl<T: traits::ParamTraits> RowDescriptor<T> {
     fn name<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a T::Str> {
         match self.name_offset.into() as usize {
             0 => None,
-            ofs => T::Str::read_cstr(file.data.get(ofs..)?),
+            offset => T::Str::read_cstr(file.data.get(offset..)?),
         }
     }
 }
@@ -373,8 +373,8 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
             }
             // If we have a single row and the strings offset is known,
             // then the row size will be the difference between the row data and strings
-            if let Some(o) = detected_strings_offset {
-                let diff = o
+            if let Some(offset) = detected_strings_offset {
+                let diff = offset
                     .checked_sub(row_descriptors[0].data_offset.into())
                     .ok_or(ParamParseError::InvalidData)?;
                 detected_row_size.get_or_insert(diff);
