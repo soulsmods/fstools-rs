@@ -211,33 +211,56 @@ pub struct ParamHeader<BO: StaticBO> {
     paramdef_format_version: u8,
 }
 impl<BO: StaticBO> ParamHeader<BO> {
+    /// Total size of this param header in bytes.
+    ///
+    /// Note that `size_of::<ParamHeader<_>>` is not necessarily equal to this value, as param files
+    /// can contain an expanded header populated with 16 bytes of unknown data.
     pub fn header_size(&self) -> usize {
-        let f = self.format_flags_2d;
-        if (f & 3) == 3 || (f & 4) != 0 {
+        // From https://github.com/soulsmods/SoulsFormatsNEXT/blob/master/SoulsFormats/Formats/PARAM/PARAM/PARAM.cs#L106
+        //
+        // The significance of bit 1 of `format_flags_2d` is unknown, but this expression results in
+        // the correct header size
+        if self.is_64_bit() || (self.has_flag_2d_01() && self.is_32_bit_expanded_header()) {
             0x40
         } else {
             0x30
         }
     }
 
+    /// Whether the param file containing this header uses big-endian encoding.
     pub fn is_big_endian(&self) -> bool {
         self.endianess_flag == 0xFF
     }
 
+    /// Whether the param file containing this header uses UTF-16 encoding for strings,
+    /// with endianness of the wide characters determined by [`ParamHeader::is_big_endian`].
     pub fn is_unicode(&self) -> bool {
         return (self.format_flags_2e & 1) != 0;
     }
 
+    /// If true, this param file uses 32-bit offsets and possibly has an extended header.
+    pub fn is_32_bit_expanded_header(&self) -> bool {
+        (self.format_flags_2d & 2) != 0
+    }
+
+    /// Whether the param file uses 64-bit offsets. If false, it uses 32-bit offsets.
     pub fn is_64_bit(&self) -> bool {
         (self.format_flags_2d & 4) != 0
     }
 
+    /// If true, the param type is stored in the strings section at the end of the param file.
+    /// Otherwise, it is stored inline in the header.
     pub fn is_long_param_type(&self) -> bool {
         (self.format_flags_2d & 0x80) != 0
     }
 
+    /// Number of rows in the param file containing this header.
     pub fn row_count(&self) -> usize {
         self.row_count.into()
+    }
+
+    pub fn has_flag_2d_01(&self) -> bool {
+        (self.format_flags_2d & 1) != 0
     }
 }
 
