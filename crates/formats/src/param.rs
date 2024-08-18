@@ -8,6 +8,7 @@ use zerocopy::{FromBytes, FromZeroes, Unaligned, BE, LE, U16, U32, U64};
 /// used it param files at compile time.
 pub mod traits {
     use std::{borrow::Cow, ffi::CStr};
+
     use utf16string::WStr;
     use zerocopy::{ByteOrder, FromBytes, Unaligned, U16};
 
@@ -23,7 +24,7 @@ pub mod traits {
         fn len_bytes(&self) -> usize;
 
         /// Attempt to create a string slice from a null-terminated sequence of bytes.
-        fn read_nt_str(bytes: &[u8]) -> Option<&'_ Self>;
+        fn read_cstr(bytes: &[u8]) -> Option<&'_ Self>;
 
         /// Convert to a Rust utf-8 string slice, possibly performing a conversion.
         fn to_rust_str(&self) -> Cow<'_, str>;
@@ -34,7 +35,7 @@ pub mod traits {
             self.as_bytes().len()
         }
 
-        fn read_nt_str(bytes: &[u8]) -> Option<&'_ Self> {
+        fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {
             let cstr = CStr::from_bytes_until_nul(bytes).ok()?;
             cstr.to_str().ok()
         }
@@ -49,7 +50,7 @@ pub mod traits {
             self.as_bytes().len()
         }
 
-        fn read_nt_str(bytes: &[u8]) -> Option<&'_ Self> {
+        fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {
             let nt_pos = bytes.chunks_exact(2).position(|b| b == &[0, 0])?;
             WStr::from_utf16(&bytes[..2 * nt_pos]).ok()
         }
@@ -190,7 +191,7 @@ impl<T: traits::ParamTraits> RowDescriptor<T> {
     fn name<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a T::Str> {
         match self.name_offset.into() as usize {
             0 => None,
-            ofs => T::Str::read_nt_str(file.data.get(ofs..)?),
+            ofs => T::Str::read_cstr(file.data.get(ofs..)?),
         }
     }
 }
@@ -433,16 +434,18 @@ pub trait ParamCommon<'a> {
     /// May return [`None`] if the file defines an invalid data slice for this row.
     ///
     /// # Panics
-    /// Like slice indexing, this function panics if `index` is larger or equal to [`ParamCommon::row_count`].
+    /// Like slice indexing, this function panics if `index` is larger or equal to
+    /// [`ParamCommon::row_count`].
     fn data_by_index(&self, index: usize) -> Option<&[u8]>;
 
     /// Returns the name of a param row given its index, if a name is present.
-    ///To get the data based on the row ID, see [`ParamCommon::name_by_id`].
+    /// To get the data based on the row ID, see [`ParamCommon::name_by_id`].
     ///
     /// May return [`None`] if the name is not present or otherwise unreadable.
     ///
     /// # Panics
-    /// Like slice indexing, this function panics if `index` is larger or equal to [`ParamCommon::row_count`].
+    /// Like slice indexing, this function panics if `index` is larger or equal to
+    /// [`ParamCommon::row_count`].
     fn name_by_index(&self, index: usize) -> Option<Cow<'_, str>>;
 
     /// Returns the data of a row given its ID.
