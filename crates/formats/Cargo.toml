@@ -21,8 +21,9 @@ num-modular = "0.6"
 rayon.workspace = true
 rsa = "0.9"
 thiserror.workspace = true
-widestring = "1"
-utf16string = "0.2" # Using both this and widestring is eh, but widestring doesn't support byteorder
+# Currently fetched from a fork until PR removing 'static bound on WStr
+# and implementing Cow support is merged
+utf16string = { git = "https://github.com/tremwil/utf16string.git" }
 zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
 

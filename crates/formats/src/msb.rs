@@ -12,7 +12,7 @@ use self::{
     event::EVENT_PARAM_ST, model::MODEL_PARAM_ST, parts::PARTS_PARAM_ST, point::POINT_PARAM_ST,
     route::ROUTE_PARAM_ST,
 };
-use crate::io_ext::{read_widestring, ReadWidestringError};
+use crate::io_ext::{read_wide_cstring, ReadWidestringError};
 
 #[derive(Debug, Error)]
 pub enum MsbError {
@@ -105,7 +105,7 @@ impl<'a> Msb<'a> {
 
             let name_offset = header.name_offset.get() as usize;
 
-            if read_widestring(&self.bytes[name_offset..])?.to_string_lossy() == T::NAME {
+            if read_wide_cstring::<LE>(&self.bytes[name_offset..])?.to_string() == T::NAME {
                 return Ok(offsets
                     .iter()
                     .map(|o| T::read_entry(&self.bytes[o.get() as usize..])));

@@ -1,16 +1,16 @@
 use std::borrow::Cow;
 
 use byteorder::LE;
-use widestring::U16Str;
+use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, I32, U64};
 
 use super::{MsbError, MsbParam};
-use crate::io_ext::read_widestring;
+use crate::io_ext::read_wide_cstring;
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]
 pub struct ROUTE_PARAM_ST<'a> {
-    pub name: Cow<'a, U16Str>,
+    pub name: &'a WStr<LE>,
     unk8: I32<LE>,
     unkc: I32<LE>,
     unk10: I32<LE>,
@@ -23,7 +23,7 @@ impl<'a> MsbParam<'a> for ROUTE_PARAM_ST<'a> {
     fn read_entry(data: &'a [u8]) -> Result<Self, MsbError> {
         let inner = Inner::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?;
 
-        let name = read_widestring(&data[inner.name_offset.get() as usize..])?;
+        let name = read_wide_cstring(&data[inner.name_offset.get() as usize..])?;
 
         Ok(ROUTE_PARAM_ST {
             name,

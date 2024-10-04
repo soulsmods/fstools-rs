@@ -1,16 +1,16 @@
 use std::borrow::Cow;
 
 use byteorder::LE;
-use widestring::U16Str;
+use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, F32, I16, I32, U16, U32, U64};
 
 use super::{MsbError, MsbParam};
-use crate::io_ext::{read_widestring, zerocopy::Padding};
+use crate::io_ext::{read_wide_cstring, zerocopy::Padding};
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]
 pub struct EVENT_PARAM_ST<'a> {
-    name: Cow<'a, U16Str>,
+    name: &'a WStr<LE>,
     event_index: U32<LE>,
     event_type: I32<LE>,
     id: U32<LE>,
@@ -23,7 +23,7 @@ impl<'a> MsbParam<'a> for EVENT_PARAM_ST<'a> {
     fn read_entry(data: &'a [u8]) -> Result<Self, MsbError> {
         let header = Header::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?;
 
-        let name = read_widestring(&data[header.name_offset.get() as usize..])?;
+        let name = read_wide_cstring(&data[header.name_offset.get() as usize..])?;
 
         let event_data = EventData::from_type_and_slice(
             header.event_type.get(),

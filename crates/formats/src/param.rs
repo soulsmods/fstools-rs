@@ -2,7 +2,7 @@ use core::str;
 use std::{borrow::Cow, ffi::CStr, marker::PhantomData};
 
 use thiserror::Error;
-use zerocopy::{FromBytes, FromZeroes, Unaligned, BE, LE, U16, U32, U64};
+use zerocopy::{ByteOrder, FromBytes, FromZeroes, Unaligned, BE, LE, U16, U32, U64};
 
 /// Traits used to represent the varying endiannes, offset size and string encoding
 /// used it param files at compile time.
@@ -11,9 +11,6 @@ pub mod traits {
 
     use utf16string::WStr;
     use zerocopy::{ByteOrder, FromBytes, Unaligned, U16};
-
-    pub trait StaticBO: 'static + ByteOrder {}
-    impl<BO: 'static + ByteOrder> StaticBO for BO {}
 
     pub trait UnalignedInto<T>: Into<T> + Copy + Unaligned + FromBytes {}
     impl<T, U: Into<T> + Copy + Unaligned + FromBytes> UnalignedInto<T> for U {}
@@ -45,7 +42,7 @@ pub mod traits {
         }
     }
 
-    impl<BO: StaticBO> GenericStr for WStr<BO> {
+    impl<BO: ByteOrder> GenericStr for WStr<BO> {
         fn len_bytes(&self) -> usize {
             self.as_bytes().len()
         }
@@ -60,40 +57,40 @@ pub mod traits {
         }
     }
 
-    pub trait CharType<BO: StaticBO> {
+    pub trait CharType<BO: ByteOrder> {
         type Unit: UnalignedInto<u32>;
         type Str: GenericStr + ?Sized;
     }
 
-    pub trait OffsetType<BO: StaticBO> {
+    pub trait OffsetType<BO: ByteOrder> {
         type T: UnalignedInto<u64>;
         type Pad: Unaligned + FromBytes;
     }
 
     /// Marker type used to represent a param file with 32-bit offsets.
     pub struct Offset32 {}
-    impl<BO: StaticBO> OffsetType<BO> for Offset32 {
+    impl<BO: ByteOrder> OffsetType<BO> for Offset32 {
         type T = zerocopy::U32<BO>;
         type Pad = [u8; 0];
     }
 
     /// Marker type used to represent a param file with 64-bit offsets.
     pub struct Offset64 {}
-    impl<BO: StaticBO> OffsetType<BO> for Offset64 {
+    impl<BO: ByteOrder> OffsetType<BO> for Offset64 {
         type T = zerocopy::U64<BO>;
         type Pad = [u8; 4];
     }
 
     /// Marker type used to represent a param file with UTF-8 strings.
     pub struct Char {}
-    impl<BO: StaticBO> CharType<BO> for Char {
+    impl<BO: ByteOrder> CharType<BO> for Char {
         type Unit = u8;
         type Str = str;
     }
 
     /// Marker type used to represent a param file with UTF-16 strings.
     pub struct WChar {}
-    impl<BO: StaticBO> CharType<BO> for WChar {
+    impl<BO: ByteOrder> CharType<BO> for WChar {
         type Unit = U16<BO>;
         type Str = WStr<BO>;
     }
@@ -101,7 +98,7 @@ pub mod traits {
     /// Trait containing associated types that vary according to the endianness,
     /// offset size and string encoding of a param file.
     pub trait ParamFileLayout {
-        type Endian: StaticBO;
+        type Endian: ByteOrder;
         type Offset: UnalignedInto<u64>;
         type OffsetPad: Unaligned + FromBytes;
         type Char: UnalignedInto<u32>;
@@ -122,16 +119,16 @@ pub mod traits {
 }
 
 use traits::GenericStr;
-pub use traits::{Char, CharType, Offset32, Offset64, OffsetType, StaticBO, WChar};
+pub use traits::{Char, CharType, Offset32, Offset64, OffsetType, WChar};
 
 /// Marker type used to encode the possible format traits of a param file at compile time:
 /// - Endianness: [`BE`] or [`LE`],
 /// - Offset size: [`Offset32`] or [`Offset64`],
 /// - String encoding: [`Char`] (single-byte utf-8 strings) or [`WChar`] (wide utf-16 strings).
-pub struct ParamFileLayout<E: StaticBO = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
+pub struct ParamFileLayout<E: ByteOrder = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
     phantom: PhantomData<fn() -> (E, O, C)>,
 }
-impl<E: StaticBO, O: OffsetType<E>, C: CharType<E>> traits::ParamFileLayout
+impl<E: ByteOrder, O: OffsetType<E>, C: CharType<E>> traits::ParamFileLayout
     for ParamFileLayout<E, O, C>
 {
     type Endian = E;
@@ -143,7 +140,7 @@ impl<E: StaticBO, O: OffsetType<E>, C: CharType<E>> traits::ParamFileLayout
 
 #[repr(C)]
 #[derive(Clone, Copy, Unaligned, FromZeroes, FromBytes)]
-struct ParamTypeOffset<BO: StaticBO> {
+struct ParamTypeOffset<BO: ByteOrder> {
     unk04: U32<BO>,
     param_type_offset: U64<BO>,
     unk_pad: [u8; 20],
@@ -151,7 +148,7 @@ struct ParamTypeOffset<BO: StaticBO> {
 
 #[repr(C)]
 #[derive(Clone, Copy, Unaligned, FromZeroes, FromBytes)]
-union ParamTypeBlock<BO: StaticBO> {
+union ParamTypeBlock<BO: ByteOrder> {
     param_type_buf: [u8; 32],
     offset: ParamTypeOffset<BO>,
 }
@@ -200,7 +197,7 @@ impl<T: traits::ParamFileLayout> RowDescriptor<T> {
 
 #[repr(C)]
 #[derive(Clone, Unaligned, FromZeroes, FromBytes)]
-pub struct ParamHeader<BO: StaticBO> {
+pub struct ParamHeader<BO: ByteOrder> {
     strings_offset: U32<BO>,
     short_data_offset: U16<BO>,
     unk006: U16<BO>,
@@ -212,7 +209,7 @@ pub struct ParamHeader<BO: StaticBO> {
     format_flags_2e: u8,
     paramdef_format_version: u8,
 }
-impl<BO: StaticBO> ParamHeader<BO> {
+impl<BO: ByteOrder> ParamHeader<BO> {
     /// Total size of this param header in bytes.
     ///
     /// Note that `size_of::<ParamHeader<_>>` is not necessarily equal to this value, as param files
