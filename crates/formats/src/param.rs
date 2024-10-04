@@ -48,7 +48,7 @@ pub mod traits {
         }
 
         fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {
-            let nt_pos = bytes.chunks_exact(2).position(|b| b == &[0, 0])?;
+            let nt_pos = bytes.chunks_exact(2).position(|b| b == [0, 0])?;
             WStr::from_utf16(&bytes[..2 * nt_pos]).ok()
         }
 
@@ -234,7 +234,7 @@ impl<BO: ByteOrder> ParamHeader<BO> {
     /// Whether the param file containing this header uses UTF-16 encoding for strings,
     /// with endianness of the wide characters determined by [`ParamHeader::is_big_endian`].
     pub fn is_unicode(&self) -> bool {
-        return (self.format_flags_2e & 1) != 0;
+        (self.format_flags_2e & 1) != 0
     }
 
     /// If true, this param file uses 32-bit offsets and possibly has an extended header.
@@ -353,14 +353,14 @@ impl<'a, T: traits::ParamFileLayout> Param<'a, T> {
 
         // If we have two rows, try to use them to guess the row size
         if row_descriptors.len() >= 2 {
-            let diff = (&row_descriptors[1])
+            let diff = row_descriptors[1]
                 .data_offset
                 .into()
                 .checked_sub(row_descriptors[0].data_offset.into())
                 .ok_or(ParamParseError::InvalidData)?;
             detected_row_size = Some(diff);
         }
-        if row_descriptors.len() >= 1 {
+        if !row_descriptors.is_empty() {
             // If the row name offset is set, this will be the string offset
             // provided it is not already set (as we have one row).
             // Otherwise, fall back to the (very unreliable) field in the header.
@@ -393,12 +393,12 @@ impl<'a, T: traits::ParamFileLayout> Param<'a, T> {
 
     /// Get the header of this param file.
     pub fn header(&self) -> &ParamHeader<T::Endian> {
-        &self.header
+        self.header
     }
 
     /// Get the slice of row descriptors of this param file.
     pub fn row_descriptors(&self) -> &[RowDescriptor<T>] {
-        &self.row_descriptors
+        self.row_descriptors
     }
 }
 
@@ -497,7 +497,7 @@ pub trait ParamCommon<'a> {
 
 impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
     fn file_bytes(&self) -> &[u8] {
-        &self.data
+        self.data
     }
 
     fn strings(&self) -> Option<&[u8]> {

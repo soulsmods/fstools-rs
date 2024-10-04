@@ -19,10 +19,10 @@ pub fn read_wide_cstring<BO: ByteOrder>(input: &[u8]) -> Result<&WStr<BO>, ReadW
     // at the end of a read string) when the slice doesn't end at the terminator.
     let length = input
         .chunks_exact(2)
-        .position(|bytes| bytes == &[0, 0])
+        .position(|bytes| bytes == [0, 0])
         .ok_or(ReadWidestringError::NoEndFound)?;
 
     // Create a view that has a proper end
     let string_bytes = &input[..length * 2];
-    Ok(WStr::from_utf16(string_bytes).map_err(|e| ReadWidestringError::InvalidUTF16)?)
+    WStr::from_utf16(string_bytes).map_err(|_e| ReadWidestringError::InvalidUTF16)
 }
