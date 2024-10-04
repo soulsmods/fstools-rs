@@ -1,5 +1,3 @@
-
-
 use byteorder::LE;
 use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, U32, U64};

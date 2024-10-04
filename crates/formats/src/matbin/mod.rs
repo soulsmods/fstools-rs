@@ -1,4 +1,4 @@
-use std::{io};
+use std::io;
 
 use byteorder::LE;
 use thiserror::Error;
