@@ -494,6 +494,11 @@ pub trait ParamCommon<'a> {
     fn name_by_id(&self, id: u32) -> Option<Cow<'_, str>> {
         self.name_by_index(self.index_of(id)?)
     }
+
+    /// Returns a boxed Iterator impl yielding structured information about each param row.
+    ///
+    /// If working with a concrete type, prefer [`Param::row_descriptors`] to this.
+    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_>;
 }
 
 impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
@@ -550,6 +555,38 @@ impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
         self.row_descriptors
             .binary_search_by_key(&row_id, |rd| rd.id.into())
             .ok()
+    }
+
+    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_> {
+        Box::new(self.row_descriptors.iter().map(|row_desc| UnifiedRowInfo {
+            id: row_desc.id.get(),
+            data_offset: row_desc.data_offset.into(),
+            name_offset: row_desc.name_offset.into(),
+            data: row_desc.data(self),
+            name: row_desc.name(self).map(|s| s.to_rust_str()),
+        }))
+    }
+}
+
+/// Contains unified param row information.
+pub struct UnifiedRowInfo<'a> {
+    pub id: u32,
+    pub data_offset: u64,
+    pub name_offset: u64,
+    pub data: Option<&'a [u8]>,
+    pub name: Option<Cow<'a, str>>,
+}
+
+/// Trait to provide an analogue to [`Param::row_descriptors`] of the same name
+/// to a [`ParamCommon`] trait object.
+pub trait RowDescriptorsDyn {
+    /// Returns a boxed Iterator impl yielding structured information about each param row.
+    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_>;
+}
+
+impl<'a> RowDescriptorsDyn for dyn ParamCommon<'a> + 'a {
+    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_> {
+        self.dyn_rows()
     }
 }
 
