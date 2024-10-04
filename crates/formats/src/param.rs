@@ -154,7 +154,7 @@ union ParamTypeBlock<BO: ByteOrder> {
     offset: ParamTypeOffset<BO>,
 }
 
-/// Describes
+/// Stores information about an individual param row.
 #[repr(C)]
 #[derive(Clone, Unaligned, FromZeroes, FromBytes)]
 pub struct RowDescriptor<T: traits::ParamFileLayout> {
@@ -175,8 +175,8 @@ impl<T: traits::ParamFileLayout> RowDescriptor<T> {
     /// will return the exact slice corresponding to the row data.
     /// Otherwise, the returned slice will go on to the end of the file.
     ///
-    /// Retuns [`None`] if the resulting slice is out-of-bounds.
-    fn data<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a [u8]> {
+    /// Returns [`None`] if the resulting slice is out-of-bounds.
+    pub fn data<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a [u8]> {
         let offset: usize = self.data_offset.into() as usize;
         match file.detected_row_size {
             Some(size) => file.data.get(offset..offset + size as usize),
@@ -186,9 +186,9 @@ impl<T: traits::ParamFileLayout> RowDescriptor<T> {
 
     /// Gets the name of this row if one is present.
     ///
-    /// Retuns [`None`] if the name is not present or could not be read due to
+    /// Returns [`None`] if the name is not present or could not be read due to
     /// out-of-bounds indicies, invalid characters, etc.
-    fn name<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a T::Str> {
+    pub fn name<'a>(&self, file: &'a Param<'a, T>) -> Option<&'a T::Str> {
         match self.name_offset.into() as usize {
             0 => None,
             offset => T::Str::read_cstr(file.data.get(offset..)?),
@@ -276,7 +276,7 @@ pub struct Param<'a, T: traits::ParamFileLayout = ParamFileLayout> {
 
 #[derive(Debug, Error)]
 pub enum ParamParseError {
-    #[error("File does not match param file traits")]
+    #[error("File does not match param file binary layout")]
     TraitMismatch {
         is_big_endian: bool,
         is_64_bit: bool,
