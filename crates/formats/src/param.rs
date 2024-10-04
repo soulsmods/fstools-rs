@@ -126,6 +126,7 @@ pub use traits::{Char, CharType, Offset32, Offset64, OffsetType, WChar};
 /// - Offset size: [`Offset32`] or [`Offset64`],
 /// - String encoding: [`Char`] (single-byte utf-8 strings) or [`WChar`] (wide utf-16 strings).
 pub struct ParamFileLayout<E: ByteOrder = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
+    #[allow(clippy::type_complexity)]
     phantom: PhantomData<fn() -> (E, O, C)>,
 }
 impl<E: ByteOrder, O: OffsetType<E>, C: CharType<E>> traits::ParamFileLayout
