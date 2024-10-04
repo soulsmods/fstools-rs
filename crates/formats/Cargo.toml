@@ -23,7 +23,7 @@ rsa = "0.9"
 thiserror.workspace = true
 # Currently fetched from a fork until PR removing 'static bound on WStr
 # and implementing Cow support is merged
-utf16string = { version = "0.2.1", git = "https://github.com/tremwil/utf16string.git" }
+utf16string = { git = "https://github.com/tremwil/utf16string.git", tag = "0.2.1" }
 zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
 

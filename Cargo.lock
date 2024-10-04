@@ -4759,7 +4759,7 @@ dependencies = [
 [[package]]
 name = "utf16string"
 version = "0.2.1"
-source = "git+https://github.com/tremwil/utf16string.git#442e8ef4b890fd3c552b3ff4d165b9a56e0d9689"
+source = "git+https://github.com/tremwil/utf16string.git?tag=0.2.1#442e8ef4b890fd3c552b3ff4d165b9a56e0d9689"
 dependencies = [
  "byteorder",
 ]
