@@ -298,7 +298,9 @@ impl<'a, T: traits::ParamFileLayout> Param<'a, T> {
     /// use [`parse_dyn`].
     ///
     /// # Complexity
-    /// This is a zero-copy operation and runs in constant time.
+    /// This is a zero-copy operation. It usually runs in constant time, but the necessity of
+    /// finding the null-terminator to certain strings makes the worst-case linear in the size
+    /// of the data.
     pub fn parse(data: &'a [u8]) -> Result<Self, ParamParseError> {
         let header = ParamHeader::ref_from(data).ok_or(ParamParseError::InvalidData)?;
 
@@ -498,7 +500,7 @@ pub trait ParamCommon<'a> {
     /// Returns a boxed Iterator impl yielding structured information about each param row.
     ///
     /// If working with a concrete type, prefer [`Param::row_descriptors`] to this.
-    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_>;
+    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UntypedRowInfo<'_>> + '_>;
 }
 
 impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
@@ -557,8 +559,8 @@ impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
             .ok()
     }
 
-    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_> {
-        Box::new(self.row_descriptors.iter().map(|row_desc| UnifiedRowInfo {
+    fn dyn_rows(&self) -> Box<dyn Iterator<Item = UntypedRowInfo<'_>> + '_> {
+        Box::new(self.row_descriptors.iter().map(|row_desc| UntypedRowInfo {
             id: row_desc.id.get(),
             data_offset: row_desc.data_offset.into(),
             name_offset: row_desc.name_offset.into(),
@@ -568,8 +570,8 @@ impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
     }
 }
 
-/// Contains unified param row information.
-pub struct UnifiedRowInfo<'a> {
+/// Contains untyped param row information.
+pub struct UntypedRowInfo<'a> {
     pub id: u32,
     pub data_offset: u64,
     pub name_offset: u64,
@@ -581,11 +583,11 @@ pub struct UnifiedRowInfo<'a> {
 /// to a [`ParamCommon`] trait object.
 pub trait RowDescriptorsDyn {
     /// Returns a boxed Iterator impl yielding structured information about each param row.
-    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_>;
+    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UntypedRowInfo<'_>> + '_>;
 }
 
 impl<'a> RowDescriptorsDyn for dyn ParamCommon<'a> + 'a {
-    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UnifiedRowInfo<'_>> + '_> {
+    fn row_descriptors(&self) -> Box<dyn Iterator<Item = UntypedRowInfo<'_>> + '_> {
         self.dyn_rows()
     }
 }
@@ -599,7 +601,9 @@ impl<'a> RowDescriptorsDyn for dyn ParamCommon<'a> + 'a {
 /// that does not conform to the param file format.
 ///
 /// # Complexity
-/// This is a zero-copy operation and runs in constant time.
+/// This is a zero-copy operation. It usually runs in constant time, but the necessity of
+/// finding the null-terminator to certain strings makes the worst-case linear in the size
+/// of the data.
 pub fn parse_dyn<'a>(data: &'a [u8]) -> Result<Box<dyn ParamCommon<'a> + 'a>, ParamParseError> {
     let header = ParamHeader::<LE>::ref_from(data).ok_or(ParamParseError::InvalidData)?;
     Ok(
