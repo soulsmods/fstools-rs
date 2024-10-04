@@ -100,7 +100,7 @@ pub mod traits {
 
     /// Trait containing associated types that vary according to the endianness,
     /// offset size and string encoding of a param file.
-    pub trait ParamTraits {
+    pub trait ParamFileLayout {
         type Endian: StaticBO;
         type Offset: UnalignedInto<u64>;
         type OffsetPad: Unaligned + FromBytes;
@@ -128,10 +128,12 @@ pub use traits::{Char, CharType, Offset32, Offset64, OffsetType, StaticBO, WChar
 /// - Endianness: [`BE`] or [`LE`],
 /// - Offset size: [`Offset32`] or [`Offset64`],
 /// - String encoding: [`Char`] (single-byte utf-8 strings) or [`WChar`] (wide utf-16 strings).
-pub struct ParamTraits<E: StaticBO = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
+pub struct ParamFileLayout<E: StaticBO = LE, O: OffsetType<E> = Offset64, C: CharType<E> = WChar> {
     phantom: PhantomData<fn() -> (E, O, C)>,
 }
-impl<E: StaticBO, O: OffsetType<E>, C: CharType<E>> traits::ParamTraits for ParamTraits<E, O, C> {
+impl<E: StaticBO, O: OffsetType<E>, C: CharType<E>> traits::ParamFileLayout
+    for ParamFileLayout<E, O, C>
+{
     type Endian = E;
     type Offset = O::T;
     type OffsetPad = O::Pad;
@@ -157,7 +159,7 @@ union ParamTypeBlock<BO: StaticBO> {
 /// Describes
 #[repr(C)]
 #[derive(Clone, Unaligned, FromZeroes, FromBytes)]
-pub struct RowDescriptor<T: traits::ParamTraits> {
+pub struct RowDescriptor<T: traits::ParamFileLayout> {
     /// ID of the row. This is unique within the param file.
     pub id: U32<T::Endian>,
     pad: T::OffsetPad,
@@ -168,7 +170,7 @@ pub struct RowDescriptor<T: traits::ParamTraits> {
     pub name_offset: T::Offset,
 }
 
-impl<T: traits::ParamTraits> RowDescriptor<T> {
+impl<T: traits::ParamFileLayout> RowDescriptor<T> {
     /// Gets the data slice for this row.
     ///
     /// If the row size is known for the provided file,
@@ -264,7 +266,7 @@ impl<BO: StaticBO> ParamHeader<BO> {
     }
 }
 
-pub struct Param<'a, T: traits::ParamTraits = ParamTraits> {
+pub struct Param<'a, T: traits::ParamFileLayout = ParamFileLayout> {
     data: &'a [u8],
     header: &'a ParamHeader<T::Endian>,
     param_type: &'a str,
@@ -286,7 +288,7 @@ pub enum ParamParseError {
     InvalidData,
 }
 
-impl<'a, T: traits::ParamTraits> Param<'a, T> {
+impl<'a, T: traits::ParamFileLayout> Param<'a, T> {
     /// Attempt to parse the given byte slice as a [`Param`].
     ///
     /// # Errors
@@ -401,13 +403,6 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
     pub fn row_descriptors(&self) -> &[RowDescriptor<T>] {
         &self.row_descriptors
     }
-
-    /// Gets the portion of the param file used for storing strings,
-    /// provided that the strings offset is known.
-    pub fn strings(&self) -> Option<&[u8]> {
-        self.detected_strings_offset
-            .and_then(|o| self.data.get(o as usize..))
-    }
 }
 
 /// Unified operations on [`Param`] instances that don't depend
@@ -417,6 +412,10 @@ impl<'a, T: traits::ParamTraits> Param<'a, T> {
 pub trait ParamCommon<'a> {
     /// Returns a byte slice containing the entire param file.
     fn file_bytes(&self) -> &[u8];
+
+    /// Gets the portion of the param file used for storing strings,
+    /// provided that the strings offset is known.
+    fn strings(&self) -> Option<&[u8]>;
 
     /// Returns true if the param file is big endian encoded and false otherwise.
     fn is_big_endian(&self) -> bool;
@@ -499,9 +498,14 @@ pub trait ParamCommon<'a> {
     }
 }
 
-impl<'a, T: traits::ParamTraits> ParamCommon<'a> for Param<'a, T> {
+impl<'a, T: traits::ParamFileLayout> ParamCommon<'a> for Param<'a, T> {
     fn file_bytes(&self) -> &[u8] {
         &self.data
+    }
+
+    fn strings(&self) -> Option<&[u8]> {
+        self.detected_strings_offset
+            .and_then(|o| self.data.get(o as usize..))
     }
 
     fn is_big_endian(&self) -> bool {
@@ -570,25 +574,29 @@ pub fn parse_dyn<'a>(data: &'a [u8]) -> Result<Box<dyn ParamCommon<'a> + 'a>, Pa
             header.is_unicode(),
         ) {
             (false, false, false) => {
-                Box::new(Param::<ParamTraits<LE, Offset32, Char>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<LE, Offset32, Char>>::parse(data)?)
             }
             (false, false, true) => {
-                Box::new(Param::<ParamTraits<LE, Offset32, WChar>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<LE, Offset32, WChar>>::parse(data)?)
             }
             (false, true, false) => {
-                Box::new(Param::<ParamTraits<LE, Offset64, Char>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<LE, Offset64, Char>>::parse(data)?)
             }
             (false, true, true) => {
-                Box::new(Param::<ParamTraits<LE, Offset64, WChar>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<LE, Offset64, WChar>>::parse(data)?)
             }
             (true, false, false) => {
-                Box::new(Param::<ParamTraits<BE, Offset32, Char>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<BE, Offset32, Char>>::parse(data)?)
             }
             (true, false, true) => {
-                Box::new(Param::<ParamTraits<BE, Offset32, WChar>>::parse(data)?)
+                Box::new(Param::<ParamFileLayout<BE, Offset32, WChar>>::parse(data)?)
             }
-            (true, true, false) => Box::new(Param::<ParamTraits<BE, Offset64, Char>>::parse(data)?),
-            (true, true, true) => Box::new(Param::<ParamTraits<BE, Offset64, WChar>>::parse(data)?),
+            (true, true, false) => {
+                Box::new(Param::<ParamFileLayout<BE, Offset64, Char>>::parse(data)?)
+            }
+            (true, true, true) => {
+                Box::new(Param::<ParamFileLayout<BE, Offset64, WChar>>::parse(data)?)
+            }
         },
     )
 }
