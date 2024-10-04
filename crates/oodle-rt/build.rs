@@ -1,6 +1,6 @@
 use std::error::Error;
 
-#[cfg(target_feature = "regenerate-bindings")]
+#[cfg(feature = "regenerate-bindings")]
 fn main() -> Result<(), Box<dyn Error>> {
     use std::path::PathBuf;
 
@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[cfg(not(target_feature = "regenerate-bindings"))]
+#[cfg(not(feature = "regenerate-bindings"))]
 fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
