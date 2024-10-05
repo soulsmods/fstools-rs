@@ -1,19 +1,17 @@
-use std::borrow::Cow;
-
 use byteorder::LE;
-use widestring::U16Str;
+use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, F32, I16, I32, U16, U32, U64};
 
 use super::{MsbError, MsbParam};
-use crate::io_ext::{read_widestring, zerocopy::Padding};
+use crate::io_ext::{read_wide_cstring, zerocopy::Padding};
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]
 pub struct PARTS_PARAM_ST<'a> {
-    pub name: Cow<'a, U16Str>,
+    pub name: &'a WStr<LE>,
     pub id: U32<LE>,
     pub model_index: U32<LE>,
-    pub sib: Cow<'a, U16Str>,
+    pub sib: &'a WStr<LE>,
     pub position: [F32<LE>; 3],
     pub rotation: [F32<LE>; 3],
     pub scale: [F32<LE>; 3],
@@ -32,8 +30,8 @@ impl<'a> MsbParam<'a> for PARTS_PARAM_ST<'a> {
     fn read_entry(data: &'a [u8]) -> Result<Self, MsbError> {
         let header = Header::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?;
 
-        let name = read_widestring(&data[header.name_offset.get() as usize..])?;
-        let sib = read_widestring(&data[header.sib_offset.get() as usize..])?;
+        let name = read_wide_cstring(&data[header.name_offset.get() as usize..])?;
+        let sib = read_wide_cstring(&data[header.sib_offset.get() as usize..])?;
 
         let masking_behavior = MaskingBehavior::ref_from_prefix(
             &data[header.masking_behavior_data_offset.get() as usize..],

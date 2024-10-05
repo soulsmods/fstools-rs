@@ -6,4 +6,5 @@ pub mod flver;
 pub mod io_ext;
 pub mod matbin;
 pub mod msb;
+pub mod param;
 pub mod tpf;

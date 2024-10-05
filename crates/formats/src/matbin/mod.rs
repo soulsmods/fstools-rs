@@ -1,11 +1,11 @@
-use std::{borrow::Cow, io};
+use std::io;
 
 use byteorder::LE;
 use thiserror::Error;
-use widestring::U16Str;
+use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, Ref, F32, U32, U64};
 
-use crate::io_ext::{read_widestring, zerocopy::Padding, ReadWidestringError};
+use crate::io_ext::{read_wide_cstring, zerocopy::Padding, ReadWidestringError};
 
 #[derive(Debug, Error)]
 pub enum MatbinError {
@@ -52,18 +52,18 @@ impl<'a> Matbin<'a> {
         })
     }
 
-    pub fn shader_path(&self) -> Result<Cow<'_, U16Str>, MatbinError> {
+    pub fn shader_path(&self) -> Result<&'_ WStr<LE>, MatbinError> {
         let offset = self.header.shader_path_offset.get() as usize;
         let bytes = &self.bytes[offset..];
 
-        Ok(read_widestring(bytes)?)
+        Ok(read_wide_cstring(bytes)?)
     }
 
-    pub fn source_path(&self) -> Result<Cow<'_, U16Str>, MatbinError> {
+    pub fn source_path(&self) -> Result<&'_ WStr<LE>, MatbinError> {
         let offset = self.header.source_path_offset.get() as usize;
         let bytes = &self.bytes[offset..];
 
-        Ok(read_widestring(bytes)?)
+        Ok(read_wide_cstring(bytes)?)
     }
 
     pub fn samplers(&self) -> impl Iterator<Item = Result<SamplerIterElement, MatbinError>> {
@@ -71,13 +71,13 @@ impl<'a> Matbin<'a> {
             let name = {
                 let offset = e.name_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_widestring(bytes)
+                read_wide_cstring(bytes)
             }?;
 
             let path = {
                 let offset = e.path_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_widestring(bytes)
+                read_wide_cstring(bytes)
             }?;
 
             Ok(SamplerIterElement { name, path })
@@ -89,7 +89,7 @@ impl<'a> Matbin<'a> {
             let name = {
                 let offset = e.name_offset.get() as usize;
                 let bytes = &self.bytes[offset..];
-                read_widestring(bytes)
+                read_wide_cstring(bytes)
             }?;
 
             let value_slice = &self.bytes[e.value_offset.get() as usize..];
@@ -113,13 +113,13 @@ impl<'a> std::fmt::Debug for Matbin<'a> {
 }
 
 pub struct ParameterIterElement<'a> {
-    pub name: Cow<'a, U16Str>,
+    pub name: &'a WStr<LE>,
     pub value: ParameterValue<'a>,
 }
 
 pub struct SamplerIterElement<'a> {
-    pub name: Cow<'a, U16Str>,
-    pub path: Cow<'a, U16Str>,
+    pub name: &'a WStr<LE>,
+    pub path: &'a WStr<LE>,
 }
 
 pub enum ParameterValue<'a> {

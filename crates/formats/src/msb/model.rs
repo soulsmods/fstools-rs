@@ -1,19 +1,17 @@
-use std::borrow::Cow;
-
 use byteorder::LE;
-use widestring::U16Str;
+use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, U32, U64};
 
 use super::{MsbError, MsbParam};
-use crate::io_ext::read_widestring;
+use crate::io_ext::read_wide_cstring;
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]
 pub struct MODEL_PARAM_ST<'a> {
-    pub name: Cow<'a, U16Str>,
+    pub name: &'a WStr<LE>,
     model_type: U32<LE>,
     id: U32<LE>,
-    sib_path: Cow<'a, U16Str>,
+    sib_path: &'a WStr<LE>,
     instance_count: U32<LE>,
 }
 
@@ -23,8 +21,8 @@ impl<'a> MsbParam<'a> for MODEL_PARAM_ST<'a> {
     fn read_entry(data: &'a [u8]) -> Result<Self, MsbError> {
         let header = Header::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?;
 
-        let name = read_widestring(&data[header.name_offset.get() as usize..])?;
-        let sib_path = read_widestring(&data[header.sib_path_offset.get() as usize..])?;
+        let name = read_wide_cstring(&data[header.name_offset.get() as usize..])?;
+        let sib_path = read_wide_cstring(&data[header.sib_path_offset.get() as usize..])?;
 
         Ok(MODEL_PARAM_ST {
             name,

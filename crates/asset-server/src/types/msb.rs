@@ -87,7 +87,7 @@ impl FastPathAssetLoader for MsbAssetLoader {
                 let mut name = m
                     .expect("Could not get name bytes from model entry")
                     .name
-                    .to_string_lossy();
+                    .to_string();
                 if name.starts_with('m') {
                     let msb_name = load_context.asset_path().to_string();
                     name = format!(
@@ -109,15 +109,13 @@ impl FastPathAssetLoader for MsbAssetLoader {
                 .expect("Could not get point set from MSB")
                 .map(|p| {
                     let point = p.as_ref().expect("Could not get point entry from MSB");
-                    load_context.labeled_asset_scope(point.name.to_string_lossy(), |_| {
-                        MsbPointAsset {
-                            name: point.name.to_string_lossy(),
-                            position: Vec3::new(
-                                point.position[0].get(),
-                                point.position[1].get(),
-                                point.position[2].get(),
-                            ),
-                        }
+                    load_context.labeled_asset_scope(point.name.to_string(), |_| MsbPointAsset {
+                        name: point.name.to_string(),
+                        position: Vec3::new(
+                            point.position[0].get(),
+                            point.position[1].get(),
+                            point.position[2].get(),
+                        ),
                     })
                 })
                 .collect(),
@@ -133,28 +131,26 @@ impl FastPathAssetLoader for MsbAssetLoader {
                     }
 
                     Some(
-                        load_context.labeled_asset_scope(part.name.to_string_lossy(), |_| {
-                            MsbPartAsset {
-                                name: part.name.to_string_lossy(),
-                                transform: MsbAssetLoader::make_msb_transform(
-                                    Vec3::new(
-                                        part.position[0].get(),
-                                        part.position[1].get(),
-                                        part.position[2].get(),
-                                    ),
-                                    Some(Vec3::new(
-                                        part.rotation[0].get(),
-                                        part.rotation[1].get(),
-                                        part.rotation[2].get(),
-                                    )),
-                                    Some(Vec3::new(
-                                        part.scale[0].get(),
-                                        part.scale[1].get(),
-                                        part.scale[2].get(),
-                                    )),
+                        load_context.labeled_asset_scope(part.name.to_string(), |_| MsbPartAsset {
+                            name: part.name.to_string(),
+                            transform: MsbAssetLoader::make_msb_transform(
+                                Vec3::new(
+                                    part.position[0].get(),
+                                    part.position[1].get(),
+                                    part.position[2].get(),
                                 ),
-                                model: models[part.model_index.get() as usize].clone(),
-                            }
+                                Some(Vec3::new(
+                                    part.rotation[0].get(),
+                                    part.rotation[1].get(),
+                                    part.rotation[2].get(),
+                                )),
+                                Some(Vec3::new(
+                                    part.scale[0].get(),
+                                    part.scale[1].get(),
+                                    part.scale[2].get(),
+                                )),
+                            ),
+                            model: models[part.model_index.get() as usize].clone(),
                         }),
                     )
                 })
