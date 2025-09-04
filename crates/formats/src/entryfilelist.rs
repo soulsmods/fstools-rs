@@ -33,7 +33,7 @@ pub struct EntryFileList<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 struct ContainerHeader {
     magic: [u8; 4],

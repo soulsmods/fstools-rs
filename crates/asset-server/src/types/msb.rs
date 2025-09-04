@@ -1,5 +1,5 @@
 use bevy::{asset::LoadContext, prelude::*};
-use fstools_formats::msb::{parts::PartData, Msb, MsbError};
+use fstools_formats::msb::{parts, parts::PartData, Msb, MsbError, MsbVersion::EldenRing};
 use thiserror::Error;
 
 use crate::{asset_source::fast_path::FastPathAssetLoader, types::flver::FlverAsset};
@@ -78,7 +78,7 @@ impl FastPathAssetLoader for MsbAssetLoader {
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let msb = Msb::parse(reader)?;
+        let msb = Msb::parse(reader, &EldenRing)?;
 
         let models = msb
             .models()
@@ -126,7 +126,9 @@ impl FastPathAssetLoader for MsbAssetLoader {
                 .filter_map(|p| {
                     let part = p.as_ref().expect("Could not get point entry from MSB");
 
-                    if let PartData::DummyAsset(_) = part.part {
+                    if let PartData::EldenRing(parts::elden_ring::PartData::DummyAsset(_)) =
+                        part.part
+                    {
                         return None;
                     }
 

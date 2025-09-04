@@ -11,7 +11,7 @@ mod normalization;
 
 #[derive(Debug, FromBytes, FromZeroes)]
 #[allow(unused)]
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct VertexBuffer<O: ByteOrder> {
     pub buffer_index: U32<O>,
     pub layout_index: U32<O>,
@@ -25,7 +25,7 @@ pub struct VertexBuffer<O: ByteOrder> {
 impl<O: ByteOrder> FlverHeaderPart for VertexBuffer<O> {}
 
 #[derive(Debug, FromBytes, FromZeroes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct VertexBufferLayout<O: ByteOrder> {
     pub(crate) member_count: U32<O>,
@@ -36,7 +36,7 @@ pub struct VertexBufferLayout<O: ByteOrder> {
 impl<O: ByteOrder> FlverHeaderPart for VertexBufferLayout<O> {}
 
 #[derive(Debug, FromBytes, FromZeroes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct VertexBufferAttribute<O: ByteOrder> {
     pub unk0: U32<O>,

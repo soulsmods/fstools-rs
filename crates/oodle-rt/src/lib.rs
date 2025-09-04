@@ -37,6 +37,7 @@ pub struct Oodle {
     pub(crate) oodle_lz_decoder_decode_some: Function_OodleLZDecoder_DecodeSome,
 }
 
+const NR_APP_ID: u32 = 2622380;
 const ER_APP_ID: u32 = 1245620;
 const SDT_APP_ID: u32 = 249078;
 const ACV_APP_ID: u32 = 1888160;
@@ -57,7 +58,7 @@ fn oodle_lock() -> &'static RwLock<Option<Oodle>> {
 
 impl Oodle {
     pub fn find() -> Option<Self> {
-        let potential_apps = &[ER_APP_ID, SDT_APP_ID, ACV_APP_ID];
+        let potential_apps = &[NR_APP_ID, ER_APP_ID, SDT_APP_ID, ACV_APP_ID];
         let steam_app_paths: Vec<_> = SteamDir::locate()
             .into_iter()
             .flat_map(|steam| {

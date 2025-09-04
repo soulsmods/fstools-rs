@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Debug, Formatter},
+    fmt::{Debug, Display, Formatter},
     io,
     io::SeekFrom,
 };
@@ -8,8 +8,9 @@ use byteorder::{ReadBytesExt, LE};
 
 use crate::io_ext::ReadFormatsExt;
 
-const _ALLOWED_VERSIONS: [u32; 1] = [
+const _ALLOWED_VERSIONS: [u32; 2] = [
     0x2001A, // Elden Ring
+    0x20021, // Nightreign
 ];
 
 pub struct FLVERPartContext {
@@ -172,6 +173,12 @@ impl FLVERPartReader for FLVERVector3 {
             y: r.read_f32::<LE>()?,
             z: r.read_f32::<LE>()?,
         })
+    }
+}
+
+impl Display for FLVERVector3 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[x: {0}, y: {1}, z: {2}]", self.x, self.y, self.z)
     }
 }
 

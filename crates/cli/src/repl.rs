@@ -5,9 +5,13 @@ use directories::ProjectDirs;
 use fstools_dvdbnd::DvdBnd;
 use rustyline::{error::ReadlineError, DefaultEditor};
 
-use crate::Action;
+use crate::{Action, GameType};
 
-pub fn process_input(input: &str, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+pub fn process_input(
+    input: &str,
+    dvd_bnd: &DvdBnd,
+    game_type: &GameType,
+) -> Result<(), Box<dyn Error>> {
     let args = shlex::split(input).ok_or("failed to parse input")?;
     let command = Action::augment_subcommands(clap::Command::new("").no_binary_name(true))
         .mut_subcommand("repl", |cmd| cmd.hide(true))
@@ -23,12 +27,12 @@ pub fn process_input(input: &str, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>
             println!("Already running repl.");
             Ok(())
         }
-        Ok(action) => action.run(dvd_bnd),
+        Ok(action) => action.run(dvd_bnd, game_type),
         Err(e) => Ok(e.print()?),
     }
 }
 
-pub fn begin(dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+pub fn begin(dvd_bnd: &DvdBnd, game_type: &GameType) -> Result<(), Box<dyn Error>> {
     let mut rl = DefaultEditor::new()?;
     let dirs = ProjectDirs::from("io.github", "soulsmods", "fstools_cli");
     let history_path = dirs.map(|project_dirs| project_dirs.data_dir().join("history.txt"));
@@ -45,7 +49,7 @@ pub fn begin(dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
             Ok(line) => {
                 rl.add_history_entry(line.as_str())?;
 
-                match process_input(&line, dvd_bnd) {
+                match process_input(&line, dvd_bnd, game_type) {
                     Ok(_) => {}
                     Err(e) => {
                         println!("{}", e);

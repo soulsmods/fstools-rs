@@ -21,7 +21,6 @@ impl<T: Copy> VertexAttributeNormalization for NoNormalization<T> {
 }
 
 /// Normalize an unsigned 4-bit value to a range of [0, 1] with 128 possible values.
-
 /// Normalize a signed value to a range of [0,1] with N possible values.
 pub struct SNorm<T: Into<f32> + Copy, const N: usize> {
     _value: PhantomData<T>,

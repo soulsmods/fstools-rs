@@ -1,15 +1,20 @@
+pub mod elden_ring;
+pub mod nightreign;
+
 use byteorder::LE;
 use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, F32, I16, I32, U16, U32, U64};
 
-use super::{MsbError, MsbParam};
-use crate::io_ext::{read_wide_cstring, zerocopy::Padding};
+use super::{MsbError, MsbParam, MsbVersion};
+use crate::{
+    io_ext::{read_wide_cstring, zerocopy::Padding},
+    msb::parts::PartData::{EldenRing, Nightreign},
+};
 
 #[derive(Debug)]
 #[allow(unused, non_camel_case_types)]
 pub struct PARTS_PARAM_ST<'a> {
     pub name: &'a WStr<LE>,
-    pub id: U32<LE>,
     pub model_index: U32<LE>,
     pub sib: &'a WStr<LE>,
     pub position: [F32<LE>; 3],
@@ -18,16 +23,18 @@ pub struct PARTS_PARAM_ST<'a> {
     pub map_layer: I32<LE>,
     pub masking_behavior: &'a MaskingBehavior,
     pub entity: &'a Entity,
+    pub part_type: (I32<LE>, PartType),
+    pub part_type_index: U32<LE>,
     pub part: PartData<'a>,
     pub gparam: &'a Gparam,
     // TODO: represent the unk structures following the structures after
     // examining them with Ghidra.
 }
 
-impl<'a> MsbParam<'a> for PARTS_PARAM_ST<'a> {
+impl<'a> MsbParam<'a, PARTS_PARAM_ST<'a>, PartType> for PARTS_PARAM_ST<'a> {
     const NAME: &'static str = "PARTS_PARAM_ST";
 
-    fn read_entry(data: &'a [u8]) -> Result<Self, MsbError> {
+    fn read_entry(data: &'a [u8], version: &'a MsbVersion) -> Result<Self, MsbError> {
         let header = Header::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?;
 
         let name = read_wide_cstring(&data[header.name_offset.get() as usize..])?;
@@ -41,17 +48,32 @@ impl<'a> MsbParam<'a> for PARTS_PARAM_ST<'a> {
         let entity = Entity::ref_from_prefix(&data[header.entity_data_offset.get() as usize..])
             .ok_or(MsbError::UnalignedValue)?;
 
-        let part = PartData::from_type_and_slice(
-            header.part_type.get(),
-            &data[header.part_data_offset.get() as usize..],
-        )?;
+        let part_type: PartType;
+        let part: PartData;
+
+        match version {
+            MsbVersion::EldenRing => {
+                part_type = PartType::EldenRing(elden_ring::PartType::from(header.part_type.get()));
+                part = EldenRing(elden_ring::PartData::from_type_and_slice(
+                    header.part_type.get(),
+                    &data[header.part_data_offset.get() as usize..],
+                )?);
+            }
+            MsbVersion::Nightreign => {
+                part_type =
+                    PartType::Nightreign(nightreign::PartType::from(header.part_type.get()));
+                part = Nightreign(nightreign::PartData::from_type_and_slice(
+                    header.part_type.get(),
+                    &data[header.part_data_offset.get() as usize..],
+                )?);
+            }
+        };
 
         let gparam = Gparam::ref_from_prefix(&data[header.gparam_data_offset.get() as usize..])
             .ok_or(MsbError::UnalignedValue)?;
 
         Ok(PARTS_PARAM_ST {
             name,
-            id: header.id,
             model_index: header.model_index,
             sib,
             position: header.position,
@@ -60,20 +82,47 @@ impl<'a> MsbParam<'a> for PARTS_PARAM_ST<'a> {
             map_layer: header.map_layer,
             masking_behavior,
             entity,
+            part_type: (header.part_type, part_type),
+            part_type_index: header.part_type_index,
             part,
             gparam,
         })
     }
+
+    fn of_type(
+        parts: Result<impl Iterator<Item = Result<PARTS_PARAM_ST<'a>, MsbError>>, MsbError>,
+        part_type: PartType,
+    ) -> Vec<PARTS_PARAM_ST<'a>> {
+        let mut parts_of_type: Vec<PARTS_PARAM_ST<'a>> = vec![];
+
+        if let Ok(parts) = parts {
+            for part in parts.flatten() {
+                if part.part_type.1 == part_type {
+                    parts_of_type.push(part);
+                }
+            }
+        }
+
+        parts_of_type
+    }
+
+    fn name(&self) -> String {
+        self.name.to_string()
+    }
+
+    fn type_index(&self) -> u32 {
+        self.part_type_index.get()
+    }
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     name_offset: U64<LE>,
     unk8: U32<LE>,
     part_type: I32<LE>,
-    id: U32<LE>,
+    part_type_index: U32<LE>,
     model_index: U32<LE>,
     sib_offset: U64<LE>,
     position: [F32<LE>; 3],
@@ -96,7 +145,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 // Seems to be very oriented around masking behavior. Just called "PartUnk1" in
 // soulstemplates.
@@ -113,7 +162,7 @@ pub struct MaskingBehavior {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Entity {
     entity_id: U32<LE>,
@@ -146,235 +195,22 @@ pub struct Entity {
     unk3e: U16<LE>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(unused)]
-pub enum PartData<'a> {
-    MapPiece,
-    Enemy(&'a PartDataEnemy),
-    Player(&'a PartDataPlayer),
-    Collision(&'a PartDataCollision),
-    DummyAsset(&'a PartDataDummyAsset),
-    DummyEnemy(&'a PartDataEnemy),
-    ConnectCollision(&'a PartDataConnectCollision),
-    Asset(PartDataAsset),
-}
-
-impl<'a> PartData<'a> {
-    pub fn from_type_and_slice(part_type: i32, data: &'a [u8]) -> Result<Self, MsbError> {
-        Ok(match part_type {
-            0 => Self::MapPiece,
-            2 => Self::Enemy(PartDataEnemy::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?),
-            4 => {
-                Self::Player(PartDataPlayer::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?)
-            }
-            5 => Self::Collision(
-                PartDataCollision::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
-            ),
-            9 => Self::DummyAsset(
-                PartDataDummyAsset::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
-            ),
-            10 => Self::DummyEnemy(
-                PartDataEnemy::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
-            ),
-            11 => Self::ConnectCollision(
-                PartDataConnectCollision::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
-            ),
-            13 => Self::Asset(PartDataAsset::from_slice(data)?),
-            _ => return Err(MsbError::UnknownPartDataType(part_type)),
-        })
-    }
-}
-
-#[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataEnemy {
-    unk0: U32<LE>,
-    unk4: U32<LE>,
-    think_param: U32<LE>,
-    npc_param: U32<LE>,
-    talk_id: U32<LE>,
-    unk14: u8,
-    unk15: u8,
-    platoon: U16<LE>,
-    chara_init: I32<LE>,
-    collision_part_index: I32<LE>,
-    unk20: U16<LE>,
-    unk22: U16<LE>,
-    unk24: I32<LE>,
-    unk28: U32<LE>,
-    unk2c: U32<LE>,
-    unk30: U32<LE>,
-    unk34: U32<LE>,
-    backup_event_anim: I32<LE>,
-    un3c: U32<LE>,
-    unk40: U32<LE>,
-    unk44: U32<LE>,
-    unk48: U32<LE>,
-    unk4c: U32<LE>,
-    unk50: U32<LE>,
-    unk54: U32<LE>,
-    unk58: U32<LE>,
-    unk5c: U32<LE>,
-    unk60: U32<LE>,
-    unk64: U32<LE>,
-    unk68: U32<LE>,
-    unk6c: U32<LE>,
-    unk70: U32<LE>,
-    unk74: U32<LE>,
-    unk78: U64<LE>,
-    unk80: U32<LE>,
-    unk84: F32<LE>,
-    unk88: [PartDataDummyEnemyUnk88; 5],
-}
-
-impl std::fmt::Debug for PartDataEnemy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PartDataEnemy")
-            .field("think_param", &self.think_param.get())
-            .field("npc_param", &self.npc_param.get())
-            .field("talk_id", &self.talk_id.get())
-            .field("platoon", &self.platoon.get())
-            .field("chara_init", &self.chara_init.get())
-            .field("platoon", &self.platoon.get())
-            .field("collision_part_index", &self.collision_part_index.get())
-            .field("backup_event_anim", &self.backup_event_anim.get())
-            .finish()
-    }
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataDummyEnemyUnk88 {
-    unk0: I32<LE>,
-    unk4: I16<LE>,
-    unk6: I16<LE>,
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataPlayer {
-    unk0: U32<LE>,
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataCollision {
-    unk0: u8,
-    unk1: i8,
-    unk2: i8,
-    unk3: u8,
-    unk4: F32<LE>,
-    unk8: U32<LE>,
-    unkc: U32<LE>,
-    unk10: U32<LE>,
-    unk14: F32<LE>,
-    unk18: I32<LE>,
-    unk1c: I32<LE>,
-    play_region: I32<LE>,
-    unk24: I16<LE>,
-    unk26: U16<LE>,
-    unk28: I32<LE>,
-    unk2c: I32<LE>,
-    unk30: I32<LE>,
-    unk34: u8,
-    unk35: i8,
-    unk36: u8,
-    unk37: u8,
-    unk38: I32<LE>,
-    unk3c: I16<LE>,
-    unk3e: I16<LE>,
-    unk40: F32<LE>,
-    unk44: U32<LE>,
-    unk48: U32<LE>,
-    unk4c: I16<LE>,
-    unk4e: I16<LE>,
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataDummyAsset {
-    unk0: I32<LE>,
-    unk4: I32<LE>,
-    unk8: I32<LE>,
-    unkc: I32<LE>,
-    unk10: I32<LE>,
-    unk14: I32<LE>,
-    unk18: I32<LE>,
-    unk1c: I32<LE>,
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataConnectCollision {
-    collision_index: U32<LE>,
-    map_id: [i8; 4],
-    unk8: u8,
-    unk9: u8,
-    unka: i8,
-    unkb: u8,
+pub enum PartType {
+    EldenRing(elden_ring::PartType),
+    Nightreign(nightreign::PartType),
 }
 
 #[derive(Debug)]
 #[allow(unused)]
-pub struct PartDataAsset {
-    // TODO: do the rest of the format
-}
-
-impl PartDataAsset {
-    fn from_slice(data: &[u8]) -> Result<Self, MsbError> {
-        let _header = PartDataAssetHeader::ref_from_suffix(data).ok_or(MsbError::UnalignedValue);
-
-        Ok(Self {})
-    }
+pub enum PartData<'a> {
+    EldenRing(elden_ring::PartData<'a>),
+    Nightreign(nightreign::PartData<'a>),
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
-#[allow(unused)]
-pub struct PartDataAssetHeader {
-    unk0: U16<LE>,
-    unk2: U16<LE>,
-    unk4: U32<LE>,
-    unk8: U32<LE>,
-    unkc: U32<LE>,
-    unk10: u8,
-    unk11: u8,
-    unk12: i8,
-    unk13: u8,
-    unk14: U32<LE>,
-    unk18: U32<LE>,
-    unk1c: I16<LE>,
-    unk1e: I16<LE>,
-    unk20: I32<LE>,
-    unk24: I32<LE>,
-    unk28: U32<LE>,
-    unk2c: U32<LE>,
-    unk30: I32<LE>,
-    unk34: I32<LE>,
-    unk38: [I32<LE>; 6],
-    unk50: u8,
-    unk51: u8,
-    unk52: u8,
-    unk53: u8,
-    unk54: I32<LE>,
-    unk58: I32<LE>,
-    unk5c: I32<LE>,
-    unk60: I32<LE>,
-    unk64: I32<LE>,
-    unk68_offset: U64<LE>,
-    unk70_offset: U64<LE>,
-    unk78_offset: U64<LE>,
-    unk80_offset: U64<LE>,
-}
-
-#[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Gparam {
     light_set: I32<LE>,

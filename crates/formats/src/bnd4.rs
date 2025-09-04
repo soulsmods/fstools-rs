@@ -1,10 +1,10 @@
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Cursor, Read, Seek, SeekFrom};
 
 use byteorder::{ReadBytesExt, LE};
 
 use crate::io_ext::ReadFormatsExt;
 
-type BND4Reader = std::io::Cursor<Vec<u8>>;
+pub type BND4Reader = Cursor<Vec<u8>>;
 
 #[derive(Debug)]
 pub struct BND4 {

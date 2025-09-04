@@ -10,20 +10,27 @@ use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
 
+use crate::GameType;
+
 pub fn extract(
     dvd_bnd: &DvdBnd,
     recursive: bool,
     filter: Option<String>,
     output_path: PathBuf,
+    game_type: GameType,
 ) -> Result<(), Box<dyn Error>> {
-    let lines = fstools_elden_ring_support::dictionary()
+    let output_game_ext = match game_type {
+        GameType::ErPc => "er-pc",
+        GameType::NrPc => "nr-pc",
+    };
+
+    let lines = DvdBnd::dictionary_from_game(game_type.into())
         .filter(|line| {
             filter
                 .as_ref()
                 .map(|filter| line.to_string_lossy().contains(filter))
                 .unwrap_or(true)
         })
-        .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
     let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")
@@ -41,9 +48,11 @@ pub fn extract(
                         let path = path.strip_prefix("/").expect("no leading slash");
                         let parent_path = if is_archive {
                             // twice to strip "bnd.dcx"
-                            output_path.join(path.with_extension("").with_extension(""))
+                            output_path
+                                .join(output_game_ext)
+                                .join(path.with_extension("").with_extension(""))
                         } else {
-                            output_path.to_path_buf()
+                            output_path.join(output_game_ext).to_path_buf()
                         };
 
                         let _ = fs::create_dir_all(&parent_path);
@@ -72,10 +81,18 @@ pub fn extract(
                             let mut buffer = Vec::new();
                             reader.read_to_end(&mut buffer)?;
 
-                            fs::write(
-                                parent_path.join(path.file_name().expect("no file name")),
-                                buffer,
-                            )?;
+                            let parent_dir = path.parent();
+                            if let Some(parent_dir) = parent_dir {
+                                if let Ok(false) = fs::exists(parent_dir) {
+                                    if fs::create_dir_all(
+                                        output_path.join(output_game_ext).join(parent_dir),
+                                    )
+                                        .is_ok()
+                                    {
+                                        fs::write(parent_path.join(path), buffer)?;
+                                    }
+                                }
+                            }
 
                             Ok::<_, Box<dyn Error + Send + Sync>>(total + 1)
                         }

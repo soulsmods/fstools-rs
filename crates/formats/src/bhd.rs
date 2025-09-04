@@ -167,7 +167,7 @@ pub fn read_toc<R: Read + Seek, O: ByteOrder>(
 
                 let encrypted_range_count = reader.read_u32::<O>()?;
 
-                for _ in 0..encrypted_range_count {
+                for _i in 0..encrypted_range_count {
                     encrypted_ranges.push((reader.read_i64::<O>()?, reader.read_i64::<O>()?));
                 }
             }

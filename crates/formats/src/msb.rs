@@ -12,7 +12,18 @@ use self::{
     event::EVENT_PARAM_ST, model::MODEL_PARAM_ST, parts::PARTS_PARAM_ST, point::POINT_PARAM_ST,
     route::ROUTE_PARAM_ST,
 };
-use crate::io_ext::{read_wide_cstring, ReadWidestringError};
+use crate::{
+    io_ext::{read_wide_cstring, ReadWidestringError},
+    msb::{
+        event::EventType, model::ModelType, parts::PartType, point::PointType, route::RouteType,
+    },
+};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MsbVersion {
+    EldenRing,
+    Nightreign,
+}
 
 #[derive(Debug, Error)]
 pub enum MsbError {
@@ -37,6 +48,8 @@ pub enum MsbError {
 
 #[allow(unused)]
 pub struct Msb<'a> {
+    version: &'a MsbVersion,
+
     bytes: &'a [u8],
 
     header: &'a Header,
@@ -45,11 +58,12 @@ pub struct Msb<'a> {
 }
 
 impl<'a> Msb<'a> {
-    pub fn parse(bytes: &'a [u8]) -> Result<Self, MsbError> {
+    pub fn parse(bytes: &'a [u8], version: &'a MsbVersion) -> Result<Self, MsbError> {
         let (header, set_data) =
             Ref::<_, Header>::new_from_prefix(bytes).ok_or(MsbError::UnalignedValue)?;
 
         Ok(Self {
+            version,
             bytes,
             header: header.into_ref(),
             set_data,
@@ -58,38 +72,38 @@ impl<'a> Msb<'a> {
 
     pub fn models(
         &self,
-    ) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST, MsbError>>, MsbError> {
-        self.param_set::<_>()
+    ) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST<'_>, MsbError>>, MsbError> {
+        self.param_set::<_, ModelType>()
     }
 
     pub fn events(
         &self,
-    ) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST, MsbError>>, MsbError> {
-        self.param_set::<_>()
+    ) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST<'_>, MsbError>>, MsbError> {
+        self.param_set::<_, EventType>()
     }
 
     pub fn points(
         &self,
-    ) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST, MsbError>>, MsbError> {
-        self.param_set::<_>()
+    ) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST<'_>, MsbError>>, MsbError> {
+        self.param_set::<_, PointType>()
     }
 
     pub fn routes(
         &self,
-    ) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST, MsbError>>, MsbError> {
-        self.param_set::<_>()
+    ) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST<'_>, MsbError>>, MsbError> {
+        self.param_set::<_, RouteType>()
     }
 
     pub fn parts(
         &self,
-    ) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST, MsbError>>, MsbError> {
-        self.param_set::<_>()
+    ) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST<'_>, MsbError>>, MsbError> {
+        self.param_set::<_, PartType>()
     }
 
     /// Cycles over all the param sets until it's found one with a matching type identifier
-    fn param_set<T>(&'a self) -> Result<impl Iterator<Item = Result<T, MsbError>> + 'a, MsbError>
+    fn param_set<P, T>(&'a self) -> Result<impl Iterator<Item = Result<P, MsbError>> + 'a, MsbError>
     where
-        T: MsbParam<'a> + Sized,
+        P: MsbParam<'a, P, T> + Sized,
     {
         let mut current_slice = self.set_data;
 
@@ -105,10 +119,10 @@ impl<'a> Msb<'a> {
 
             let name_offset = header.name_offset.get() as usize;
 
-            if read_wide_cstring::<LE>(&self.bytes[name_offset..])?.to_string() == T::NAME {
+            if read_wide_cstring::<LE>(&self.bytes[name_offset..])?.to_string() == P::NAME {
                 return Ok(offsets
                     .iter()
-                    .map(|o| T::read_entry(&self.bytes[o.get() as usize..])));
+                    .map(|o| P::read_entry(&self.bytes[o.get() as usize..], self.version)));
             }
 
             let next_header_offset = U64::<LE>::ref_from_prefix(next)
@@ -118,7 +132,7 @@ impl<'a> Msb<'a> {
             current_slice = &self.bytes[next_header_offset..];
         }
 
-        Err(MsbError::ParamNotFound(T::NAME))
+        Err(MsbError::ParamNotFound(P::NAME))
     }
 }
 
@@ -128,16 +142,30 @@ impl<'a> std::fmt::Debug for Msb<'a> {
     }
 }
 
-pub trait MsbParam<'a> {
+pub trait MsbParam<'a, P, T> {
     const NAME: &'static str;
 
-    fn read_entry(data: &'a [u8]) -> Result<Self, MsbError>
+    fn read_entry(data: &'a [u8], version: &'a MsbVersion) -> Result<Self, MsbError>
     where
         Self: Sized;
+
+    /// Given a collection of params, return a vector containing only those of a certain type.
+    ///
+    /// Example: Given a collection of events and the event type `SignPool`,
+    /// return a vector containing only `SignPool` events.
+    fn of_type(
+        params: Result<impl Iterator<Item = Result<P, MsbError>>, MsbError>,
+        param_type: T,
+    ) -> Vec<P>;
+
+    fn name(&self) -> String;
+
+    /// The index of this item relative to its type group
+    fn type_index(&self) -> u32;
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     magic: [u8; 4],
@@ -161,7 +189,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct SetHeader {
     /// Version of the param format.
