@@ -1,0 +1,25 @@
+---
+source: crates/describe/src/lib.rs
+expression: root
+---
+{
+  "version": 3,
+  "files": [
+    {
+      "name": "a.bnd",
+      "entries": [
+        {
+          "path": "chr/c0000.anibnd"
+        }
+      ]
+    },
+    {
+      "name": "b.bnd",
+      "entries": [
+        {
+          "path": "map/m10/m10_00_00_00.msb"
+        }
+      ]
+    }
+  ]
+}

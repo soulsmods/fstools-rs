@@ -1,0 +1,14 @@
+---
+source: crates/describe/src/lib.rs
+expression: plain
+---
+File List
+  version: 3
+  File
+    name: a.bnd
+    entry
+      path: chr/c0000.anibnd
+  File
+    name: b.bnd
+    entry
+      path: map/m10/m10_00_00_00.msb

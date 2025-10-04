@@ -16,6 +16,7 @@ criterion = "0.5"
 fstools_elden_ring_support.workspace = true
 insta = "1"
 libtest-mimic = "0.7"
+color-eyre.workspace = true
 
 [[bench]]
 name = "vfs"
@@ -28,11 +29,14 @@ harness = false
 
 [workspace]
 resolver = "2"
+default-members = ["crates/cli"]
 members = [
     "crates/asset-server",
     "crates/cli",
     "crates/dvdbnd",
     "crates/formats",
+    "crates/describe",
+    "crates/describe-derive",
     "crates/oodle-rt",
     "crates/viewer",
 ]
@@ -62,11 +66,14 @@ fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
 fstools_asset_server = { path = "crates/asset-server", version = "0.1.0" }
 fstools_elden_ring_support = { path = "crates/support/elden_ring", version = "0.1.0" }
 fstools_oodle_rt = { path = "crates/oodle-rt", version = "0.1.0" }
+fstools_describe = { path = "crates/describe", version = "0.1.0" }
+fstools_describe_derive = { path = "crates/describe-derive", version = "0.1.0" }
 memmap2 = "0.9.4"
 rayon = "1"
 serde = "1"
 steamlocate = "=2.0.0-beta.2"
 thiserror = "1"
+color-eyre = "0.6"
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

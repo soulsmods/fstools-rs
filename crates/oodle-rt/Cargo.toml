@@ -15,10 +15,14 @@ regenerate-bindings = []
 libloading = "0.8.3"
 steamlocate.workspace = true
 walkdir = "2"
+thiserror.workspace = true
 
 [build-dependencies.bindgen]
 version = "0.69"
 features = ["runtime", "which-rustfmt"]
+
+[build-dependencies]
+thiserror.workspace = true
 
 [lints]
 workspace = true
