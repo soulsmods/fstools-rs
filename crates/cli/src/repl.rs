@@ -1,4 +1,4 @@
-use std::{error::Error, fs};
+use std::{error::Error, fs, sync::Arc};
 
 use clap::{FromArgMatches, Subcommand};
 use directories::ProjectDirs;
@@ -7,7 +7,7 @@ use rustyline::{error::ReadlineError, DefaultEditor};
 
 use crate::Action;
 
-pub fn process_input(input: &str, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+pub fn process_input(input: &str, dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
     let args = shlex::split(input).ok_or("failed to parse input")?;
     let command = Action::augment_subcommands(clap::Command::new("").no_binary_name(true))
         .mut_subcommand("repl", |cmd| cmd.hide(true))
@@ -28,7 +28,7 @@ pub fn process_input(input: &str, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>
     }
 }
 
-pub fn begin(dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+pub fn begin(dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
     let mut rl = DefaultEditor::new()?;
     let dirs = ProjectDirs::from("io.github", "soulsmods", "fstools_cli");
     let history_path = dirs.map(|project_dirs| project_dirs.data_dir().join("history.txt"));

@@ -1,4 +1,4 @@
-use std::{error::Error, path::PathBuf};
+use std::{error::Error, path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand, ValueEnum};
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
@@ -10,6 +10,7 @@ use crate::{
 
 mod describe;
 mod extract;
+mod mount;
 mod repl;
 
 #[derive(Debug, Parser)]
@@ -53,11 +54,17 @@ pub enum Action {
         output_path: PathBuf,
     },
 
+    /// Mount the DVDBND as a virtual filesystem
+    Mount {
+        /// Path to the mount point directory.
+        mount_point: PathBuf,
+    },
+
     Repl,
 }
 
 impl Action {
-    pub fn run(self, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+    pub fn run(self, dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
         match self {
             Action::Describe {
                 ty: AssetType::Bnd,
@@ -84,6 +91,9 @@ impl Action {
             } => {
                 extract(dvd_bnd, recursive, filter, output_path)?;
             }
+            Action::Mount { mount_point } => {
+                mount::mount_filesystem(Arc::clone(dvd_bnd), &mount_point)?;
+            }
             Action::Repl => {
                 repl::begin(dvd_bnd)?;
             }
@@ -107,7 +117,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         game_path.join("sd/sd"),
     ];
 
-    let dvd_bnd = DvdBnd::create(archives, &keys)?;
+    let dvd_bnd = Arc::new(DvdBnd::create(archives, &keys)?);
     action.run(&dvd_bnd)?;
 
     Ok(())

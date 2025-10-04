@@ -169,6 +169,11 @@ impl DvdBnd {
             None => Err(DvdBndEntryError::NotFound),
         }
     }
+
+    pub fn entry<N: Into<Name>>(&self, name: N) -> Option<&VfsFileEntry> {
+        let name = name.into();
+        self.entries.get(&name)
+    }
 }
 
 #[derive(Debug)]
@@ -180,4 +185,14 @@ pub struct VfsFileEntry {
     file_offset: u64,
     aes_key: [u8; 16],
     aes_ranges: Vec<Range<u64>>,
+}
+
+impl VfsFileEntry {
+    pub fn file_size(&self) -> u64 {
+        if self.file_size != 0 {
+            self.file_size as u64
+        } else {
+            self.file_size_with_padding as u64
+        }
+    }
 }
