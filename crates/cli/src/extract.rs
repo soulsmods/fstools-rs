@@ -1,10 +1,10 @@
 use std::{
-    error::Error,
     fs,
     io::{Cursor, Read},
     path::PathBuf,
 };
 
+use color_eyre::eyre::{eyre, Report, Result};
 use fstools_dvdbnd::{DvdBnd, DvdBndEntryError};
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader};
 use indicatif::{ParallelProgressIterator, ProgressStyle};
@@ -15,7 +15,7 @@ pub fn extract(
     recursive: bool,
     filter: Option<String>,
     output_path: PathBuf,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let lines = fstools_elden_ring_support::dictionary()
         .filter(|line| {
             filter
@@ -38,7 +38,7 @@ pub fn extract(
                 match dvd_bnd.open(path.to_string_lossy().as_ref()) {
                     Ok(mut reader) => {
                         let is_archive = recursive && path.to_string_lossy().ends_with("bnd.dcx");
-                        let path = path.strip_prefix("/").expect("no leading slash");
+                        let path = path.strip_prefix("/").unwrap_or_else(|_| path.as_path());
                         let parent_path = if is_archive {
                             // twice to strip "bnd.dcx"
                             output_path.join(path.with_extension("").with_extension(""))
@@ -46,7 +46,7 @@ pub fn extract(
                             output_path.to_path_buf()
                         };
 
-                        let _ = fs::create_dir_all(&parent_path);
+                        fs::create_dir_all(&parent_path)?;
 
                         if is_archive {
                             let (_, mut dcx_reader) = DcxHeader::read(reader)?;
@@ -67,31 +67,31 @@ pub fn extract(
                                 fs::write(output_path, &buffer[offset..offset + size])?;
                             }
 
-                            Ok::<_, Box<dyn Error + Send + Sync>>(total + bnd4.file_count as usize)
+                            Ok::<_, Report>(total + bnd4.file_count as usize)
                         } else {
                             let mut buffer = Vec::new();
                             reader.read_to_end(&mut buffer)?;
 
-                            fs::write(
-                                parent_path.join(path.file_name().expect("no file name")),
-                                buffer,
-                            )?;
+                            let file_name = path.file_name().ok_or_else(|| {
+                                eyre!(
+                                    "dictionary entry {path} is missing a file name",
+                                    path = path.display()
+                                )
+                            })?;
 
-                            Ok::<_, Box<dyn Error + Send + Sync>>(total + 1)
+                            fs::write(parent_path.join(file_name), buffer)?;
+
+                            Ok::<_, Report>(total + 1)
                         }
                     }
                     Err(DvdBndEntryError::NotFound) => Ok(total),
-                    Err(e) => Err(Box::new(e) as Box<dyn Error + Send + Sync>),
+                    Err(e) => Err(e.into()),
                 }
             },
         )
         .try_reduce(|| 0, |a, b| Ok(a + b));
 
-    match result {
-        Ok(count) => {
-            println!("Extracted {count} files");
-            Ok(())
-        }
-        Err(e) => Err(e as Box<dyn Error>),
-    }
+    let count = result?;
+    println!("Extracted {count} files");
+    Ok(())
 }

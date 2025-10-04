@@ -1,23 +1,24 @@
 use std::{
     collections::HashSet,
-    error::Error,
     ffi::OsStr,
     io::{self, Read},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use color_eyre::{eyre::WrapErr, Result};
 use fstools::{formats::dcx::DcxHeader, prelude::*};
 use fstools_elden_ring_support::{decrypt_regulation, dictionary};
 use fstools_formats::dcx::DcxError;
 use insta::assert_snapshot;
 use libtest_mimic::{Arguments, Failed, Trial};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let args = Arguments::from_args();
-    let er_path = PathBuf::from(std::env::var("ER_PATH").expect("er_path"));
+    let er_path = PathBuf::from(std::env::var("ER_PATH").wrap_err("ER_PATH not set")?);
     let reg_path = er_path.join("regulation.bin");
-    let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").expect("er_keys_path"));
+    let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").wrap_err("ER_KEYS_PATH not set")?);
     let vfs = Arc::new(fstools_elden_ring_support::load_dvd_bnd(
         er_path,
         FileKeyProvider::new(keys_path),

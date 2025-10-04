@@ -1,14 +1,15 @@
-use std::{error::Error, fs, sync::Arc};
+use std::{fs, sync::Arc};
 
 use clap::{FromArgMatches, Subcommand};
+use color_eyre::eyre::{eyre, Result};
 use directories::ProjectDirs;
 use fstools_dvdbnd::DvdBnd;
 use rustyline::{error::ReadlineError, DefaultEditor};
 
 use crate::Action;
 
-pub fn process_input(input: &str, dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
-    let args = shlex::split(input).ok_or("failed to parse input")?;
+pub fn process_input(input: &str, dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
+    let args = shlex::split(input).ok_or_else(|| eyre!("failed to parse input"))?;
     let command = Action::augment_subcommands(clap::Command::new("").no_binary_name(true))
         .mut_subcommand("repl", |cmd| cmd.hide(true))
         .color(clap::ColorChoice::Always);
@@ -24,11 +25,14 @@ pub fn process_input(input: &str, dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn E
             Ok(())
         }
         Ok(action) => action.run(dvd_bnd),
-        Err(e) => Ok(e.print()?),
+        Err(e) => {
+            e.print()?;
+            Ok(())
+        }
     }
 }
 
-pub fn begin(dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
+pub fn begin(dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
     let mut rl = DefaultEditor::new()?;
     let dirs = ProjectDirs::from("io.github", "soulsmods", "fstools_cli");
     let history_path = dirs.map(|project_dirs| project_dirs.data_dir().join("history.txt"));

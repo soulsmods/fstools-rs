@@ -1,6 +1,7 @@
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand, ValueEnum};
+use color_eyre::Result;
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 
 use crate::{
@@ -64,7 +65,7 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn run(self, dvd_bnd: &Arc<DvdBnd>) -> Result<(), Box<dyn Error>> {
+    pub fn run(self, dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
         match self {
             Action::Describe {
                 ty: AssetType::Bnd,
@@ -103,7 +104,7 @@ impl Action {
     }
 }
 
-pub fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
+pub fn run(cli: Cli) -> Result<()> {
     let Cli {
         game_path,
         command: action,

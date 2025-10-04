@@ -1,12 +1,10 @@
-use std::{
-    error::Error,
-    io::{Cursor, Read},
-};
+use std::io::{Cursor, Read};
 
+use color_eyre::eyre::{eyre, Result};
 use fstools_dvdbnd::DvdBnd;
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader, entryfilelist::EntryFileList};
 
-pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
+pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<()> {
     let (dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
 
     let mut data = vec![];
@@ -24,8 +22,8 @@ pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
-    let reader = dvd_bnd.open(name).expect("Could not open dvdbnd entry");
+pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<()> {
+    let reader = dvd_bnd.open(name)?;
     let container = EntryFileList::from_bytes(reader.data())?;
 
     println!("Container: {container:#?}");
@@ -47,6 +45,6 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
     Ok(())
 }
 
-pub fn describe_matbin(_dvd_bnd: &DvdBnd, _name: &str) -> Result<(), Box<dyn Error>> {
-    todo!()
+pub fn describe_matbin(_dvd_bnd: &DvdBnd, _name: &str) -> Result<()> {
+    Err(eyre!("matbin description not yet implemented"))
 }

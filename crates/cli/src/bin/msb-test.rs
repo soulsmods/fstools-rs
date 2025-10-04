@@ -1,6 +1,7 @@
-use std::{error::Error, io::Read, path::PathBuf};
+use std::{io::Read, path::PathBuf};
 
 use clap::Parser;
+use color_eyre::Result;
 use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
 use fstools_formats::{
     dcx::DcxHeader,
@@ -14,7 +15,8 @@ struct Args {
     erpath: PathBuf,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let args = Args::parse();
 
     let er_path = args.erpath;
@@ -28,24 +30,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         er_path.join("sd/sd"),
     ];
 
-    let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create vfs");
+    let vfs = DvdBnd::create(archives.clone(), &keys)?;
 
     for msb_path in MSBS.iter() {
-        // println!("Parsing MSB {}", msb_path);
-        let msbdcx = vfs
-            .open(msb_path)
-            .expect("Could not open dvdbnd entry for MSB");
+        let msbdcx = vfs.open(msb_path)?;
         let (_, mut decoder) = DcxHeader::read(msbdcx)?;
 
         let mut decompressed = Vec::with_capacity(decoder.hint_size());
         decoder.read_to_end(&mut decompressed)?;
 
-        let msb = Msb::parse(&decompressed).expect("Could not parse MSB");
+        let msb = Msb::parse(&decompressed)?;
 
-        for point in msb.points().expect("Could not get point set from MSB") {
-            if let PointData::Message(message) =
-                point.expect("Could not retrieve point from MSB").point
-            {
+        for point in msb.points()? {
+            let point = point?;
+            if let PointData::Message(message) = point.point {
                 println!(
                     "  - Message: msb = {}, fmg_id = {}, event_flag = {} ",
                     msb_path,
