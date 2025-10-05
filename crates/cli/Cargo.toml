@@ -17,6 +17,8 @@ fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
 fstools_elden_ring_support.workspace = true
 fstools_describe.workspace = true
+fstools_game_id.workspace = true
+fstools_game_installation.workspace = true
 libc = "0.2"
 memmap2.workspace = true
 rayon.workspace = true
@@ -31,6 +33,7 @@ tracing-error = "0.2.1"
 num_cpus = "1"
 steamlocate.workspace = true
 glob = "0.3.3"
+thiserror.workspace = true
 
 [lints]
 workspace = true

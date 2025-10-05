@@ -1,11 +1,13 @@
 use std::{path::PathBuf, sync::Arc};
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{builder::PossibleValue, Parser, Subcommand, ValueEnum};
 use color_eyre::{
     eyre::{Context, OptionExt},
     Result,
 };
-use fstools_dvdbnd::DvdBnd;
+use fstools_dvdbnd::{recover_keys, DvdBnd};
+use fstools_game_id::GameId;
+use fstools_game_installation::GameInstallation;
 
 use crate::{
     describe::{describe_bnd, describe_entryfilelist, describe_matbin},
@@ -14,64 +16,42 @@ use crate::{
 
 mod describe;
 mod extract;
-mod keys;
 mod mount;
 mod repl;
 
-#[derive(Debug, ValueEnum, Clone)]
-
-pub enum Game {
-    #[clap(alias = "er")]
-    EldenRing,
-
-    #[clap(alias = "nr")]
-    EldenRingNightreign,
-}
+#[derive(Clone, Debug)]
+pub struct Game(GameId);
 
 impl Game {
-    pub fn app_id(&self) -> u32 {
-        match self {
-            Game::EldenRing => 1245620,
-            Game::EldenRingNightreign => 2622380,
-        }
+    pub fn id(&self) -> GameId {
+        self.0.clone()
     }
 }
 
-pub struct GameInstallation {
-    root: PathBuf,
-    exe: PathBuf,
-    bhds: Vec<PathBuf>,
-}
+impl ValueEnum for Game {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Game(GameId::ELDEN_RING), Game(GameId::NIGHTREIGN)]
+    }
 
-pub fn find_installation_dir(game: Game) -> Option<PathBuf> {
-    let steam = steamlocate::SteamDir::locate().ok()?;
-    let (app, library) = steam.find_app(game.app_id()).ok().flatten()?;
-    let root = library.resolve_app_dir(&app);
-
-    Some(root)
-}
-
-pub fn find_game_installation(root: PathBuf) -> Option<GameInstallation> {
-    let exe = glob::glob(&format!("{}/Game/*.exe", root.display()))
-        .ok()?
-        .filter_map(std::result::Result::ok).find(|path| !path.ends_with("start_protected_game.exe"))?;
-    let bhds = glob::glob(&format!("{}/Game/*.bhd", root.display()))
-        .ok()?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    Some(GameInstallation { root, exe, bhds })
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        match self.0 {
+            GameId::ELDEN_RING => {
+                Some(PossibleValue::new("elden-ring").aliases(["eldenring", "er"]))
+            }
+            GameId::NIGHTREIGN => {
+                Some(PossibleValue::new("nightreign").aliases(["nightrein", "nr"]))
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    #[arg(long, short, env("ER_PATH"))]
+    #[arg(long, short)]
     pub game: Game,
-
-    #[arg(long, env("ER_PATH"))]
-    pub game_path: Option<PathBuf>,
 
     #[command(subcommand)]
     pub command: Action,
@@ -160,20 +140,16 @@ impl Action {
 pub fn run(cli: Cli) -> Result<()> {
     let Cli {
         game,
-        game_path,
         command: action,
+        ..
     } = cli;
-    let game_install_dir = game_path
-        .or_else(|| find_installation_dir(game))
-        .ok_or_eyre("couldn't find game installation directory")?;
-    let game_install =
-        find_game_installation(game_install_dir).ok_or_eyre("couldn't find archives/exe")?;
-    let key_provider = keys::ScannedArchiveKeyProvider::scan(&game_install)
-        .with_context(|| format!("scanning keys in {:?}", game_install.root))?;
 
-    let dvd_bnd = Arc::new(
-        DvdBnd::create(&game_install.bhds, &key_provider).with_context(|| "loading BHD/BDTs")?,
-    );
+    let installation = GameInstallation::find(game.id())
+        .ok_or_eyre("couldn't find game installation directory")?;
+    let keys = recover_keys(&installation.exe, &installation.bhds).context("scanning keys")?;
+
+    let dvd_bnd =
+        Arc::new(DvdBnd::create(&installation.bhds, &keys).with_context(|| "loading BHD/BDTs")?);
     action.run(&dvd_bnd)?;
 
     Ok(())

@@ -10,12 +10,16 @@ authors.workspace = true
 fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
 fstools_oodle_rt.workspace = true
+fstools_game_id.workspace = true
+fstools_game_installation.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.7"
 fstools_elden_ring_support.workspace = true
 insta = "1"
-libtest-mimic = "0.7"
+libtest-mimic = "0.8"
 color-eyre.workspace = true
 
 [[bench]]
@@ -31,14 +35,16 @@ harness = false
 resolver = "2"
 default-members = ["crates/cli"]
 members = [
-    # "crates/asset-server",
+    "crates/asset-server",
     "crates/cli",
     "crates/dvdbnd",
     "crates/formats",
+    "crates/game-id",
+    "crates/game-installation",
     "crates/describe",
     "crates/describe-derive",
     "crates/oodle-rt",
-    # "crates/viewer",
+    "crates/viewer",
 ]
 
 [workspace.package]
@@ -60,6 +66,7 @@ ptr_cast_constness = "warn"
 unwrap_used = "warn"
 
 [workspace.dependencies]
+bevy = { version = "0.18", default-features = false }
 fstools = { path = ".", version = "0.1.0" }
 fstools_formats = { path = "crates/formats", version = "0.1.0" }
 fstools_dvdbnd = { path = "crates/dvdbnd", version = "0.1.0" }
@@ -68,6 +75,8 @@ fstools_elden_ring_support = { path = "crates/support/elden_ring", version = "0.
 fstools_oodle_rt = { path = "crates/oodle-rt", version = "0.1.0" }
 fstools_describe = { path = "crates/describe", version = "0.1.0" }
 fstools_describe_derive = { path = "crates/describe-derive", version = "0.1.0" }
+fstools_game_id = { path = "crates/game-id", version = "0.1.0" }
+fstools_game_installation = { path = "crates/game-installation", version = "0.1.0" }
 memmap2 = "0.9"
 rayon = "1"
 serde = "1"
@@ -75,6 +84,12 @@ steamlocate = "2"
 thiserror = "2"
 color-eyre = "0.6"
 tracing = "0.1"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

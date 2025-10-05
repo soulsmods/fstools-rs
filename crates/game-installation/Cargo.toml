@@ -1,0 +1,15 @@
+[package]
+name = "fstools_game_installation"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+glob = "0.3.3"
+fstools_game_id = { path = "../game-id" }
+steamlocate.workspace = true
+
+[lints]
+workspace = true

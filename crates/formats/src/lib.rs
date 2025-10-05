@@ -7,4 +7,5 @@ pub mod io_ext;
 pub mod matbin;
 pub mod msb;
 pub mod param;
+pub mod path;
 pub mod tpf;

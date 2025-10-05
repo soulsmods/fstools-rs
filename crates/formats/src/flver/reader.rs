@@ -473,7 +473,9 @@ impl FLVERPartReader for FLVERFaceSet {
         assert!(r.read_u32::<LE>()? == 0x0);
 
         let current = r.stream_position()?;
-        r.seek(SeekFrom::Start(u64::from(index_offset) + u64::from(c.data_offset)))?;
+        r.seek(SeekFrom::Start(
+            u64::from(index_offset) + u64::from(c.data_offset),
+        ))?;
         let indices = match index_size {
             0 => FLVERFaceSetIndices::Byte0,
             8 => FLVERFaceSetIndices::Byte1(read_vec::<u8>(r, c, index_count as usize)?),

@@ -28,6 +28,8 @@ thiserror.workspace = true
 utf16string = { git = "https://github.com/tremwil/utf16string.git", tag = "0.2.1", "version" = "0.2" }
 zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
+typed-path = "0.12.3"
+tracing.workspace = true
 
 [lints]
 workspace = true

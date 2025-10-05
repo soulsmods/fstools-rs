@@ -5,6 +5,7 @@ use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
 #[derive(FromBytes, FromZeroes)]
 #[allow(unused)]
+#[repr(C, packed)]
 pub struct Texture<O: ByteOrder> {
     pub path_offset: U32<O>,
     pub type_offset: U32<O>,

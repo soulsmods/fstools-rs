@@ -5,7 +5,10 @@ use thiserror::Error;
 use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, Ref, F32, U32, U64};
 
-use crate::io_ext::{read_wide_cstring, zerocopy::Padding, ReadWidestringError};
+use crate::{
+    io_ext::{read_wide_cstring, zerocopy::Padding, ReadWidestringError},
+    path::WindowsPath,
+};
 
 #[derive(Debug, Error)]
 pub enum MatbinError {
@@ -122,6 +125,12 @@ pub struct ParameterIterElement<'a> {
 pub struct SamplerIterElement<'a> {
     pub name: &'a WStr<LE>,
     pub path: &'a WStr<LE>,
+}
+
+impl<'a> SamplerIterElement<'a> {
+    pub fn image_path(&self) -> WindowsPath<'a> {
+        WindowsPath::new(self.path.as_bytes())
+    }
 }
 
 pub enum ParameterValue<'a> {

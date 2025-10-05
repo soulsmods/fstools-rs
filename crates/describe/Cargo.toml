@@ -18,7 +18,7 @@ owo-colors = { version = "4", default-features = false, features = [
     "supports-colors",
 ] }
 supports-color = "3"
-byte-unit = "4"
+byte-unit = "5"
 
 [dev-dependencies]
 insta = { version = "1", features = ["yaml", "json"] }

@@ -222,7 +222,8 @@ impl SectionElement for UnkString {
                 break;
             }
 
-            string.push(char::from_u32(u32::from(c)).ok_or(io::Error::from(ErrorKind::InvalidData))?);
+            string
+                .push(char::from_u32(u32::from(c)).ok_or(io::Error::from(ErrorKind::InvalidData))?);
         }
 
         Ok(UnkString(string))

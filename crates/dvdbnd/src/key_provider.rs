@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, io, path::PathBuf};
 
 use fstools_formats::bhd::BhdKey;
 
@@ -15,6 +15,14 @@ impl FileKeyProvider {
         Self {
             key_dir: path.into(),
         }
+    }
+}
+
+impl ArchiveKeyProvider for HashMap<String, BhdKey> {
+    fn get_key(&self, name: &str) -> Result<BhdKey, std::io::Error> {
+        self.get(name)
+            .cloned()
+            .ok_or_else(|| io::Error::other(format!("missing key for archive {name}")))
     }
 }
 

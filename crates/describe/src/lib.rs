@@ -8,7 +8,7 @@ pub mod derive {
     pub use fstools_describe_derive::Describe;
 }
 
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use num_format::{Locale, ToFormattedString};
 use owo_colors::{
     colors::{BrightBlack, BrightBlue, Cyan, Green},
@@ -118,9 +118,9 @@ fn attribute(visitor: &FieldVisitor, value: String) -> FieldDescription {
 }
 
 pub fn format_byte_size(value: u64) -> String {
-    let byte = Byte::from_bytes(u128::from(value));
-    let adjusted = byte.get_appropriate_unit(true);
-    adjusted.format(1)
+    let byte = Byte::from_u64(value);
+    let adjusted = byte.get_appropriate_unit(UnitType::Both);
+    adjusted.to_string()
 }
 
 macro_rules! impl_display_field {
@@ -394,12 +394,10 @@ pub enum ColorChoice {
     Never,
 }
 
-#[derive(Debug, Clone, Copy)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PrintOptions {
     pub plain: PlainFormatterOptions,
 }
-
 
 impl PrintOptions {
     pub fn with_plain(mut self, options: PlainFormatterOptions) -> Self {

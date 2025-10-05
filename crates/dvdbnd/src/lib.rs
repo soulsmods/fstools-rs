@@ -11,11 +11,13 @@ use thiserror::Error;
 
 pub use self::{
     key_provider::{ArchiveKeyProvider, FileKeyProvider},
+    key_scanner::{recover_keys, KeyScanError},
     name::Name,
     reader::DvdBndEntryReader,
 };
 
 mod key_provider;
+mod key_scanner;
 mod name;
 mod reader;
 
