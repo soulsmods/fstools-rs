@@ -18,8 +18,8 @@ walkdir = "2"
 thiserror.workspace = true
 
 [build-dependencies.bindgen]
-version = "0.69"
-features = ["runtime", "which-rustfmt"]
+version = "0.72"
+features = ["runtime"]
 
 [build-dependencies]
 thiserror.workspace = true
