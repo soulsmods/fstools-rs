@@ -38,6 +38,7 @@ pub struct DvdBnd {
 }
 
 impl DvdBnd {
+    #[tracing::instrument(skip_all, fields(path = ?path.as_ref()))]
     fn load_archive<P: AsRef<Path>>(
         path: P,
         key_provider: &impl ArchiveKeyProvider,
@@ -190,9 +191,9 @@ pub struct VfsFileEntry {
 impl VfsFileEntry {
     pub fn file_size(&self) -> u64 {
         if self.file_size != 0 {
-            self.file_size as u64
+            u64::from(self.file_size)
         } else {
-            self.file_size_with_padding as u64
+            u64::from(self.file_size_with_padding)
         }
     }
 }

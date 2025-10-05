@@ -103,7 +103,7 @@ impl DvdBndFilesystem {
 
         Some(FileAttribute {
             size,
-            blocks: (size + BLOCK_SIZE as u64 - 1) / BLOCK_SIZE as u64,
+            blocks: size.div_ceil(u64::from(BLOCK_SIZE)),
             atime: UNIX_EPOCH,
             mtime: UNIX_EPOCH,
             ctime: UNIX_EPOCH,

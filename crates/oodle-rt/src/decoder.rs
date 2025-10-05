@@ -39,7 +39,7 @@ impl OodleDecoder {
         let result = unsafe {
             (func)(
                 self.ptr.as_ptr(),
-                &mut output as *mut _,
+                &raw mut output,
                 decode_buffer.as_mut_ptr().cast(),
                 decode_buffer_pos as isize,
                 self.uncompressed_size as isize,

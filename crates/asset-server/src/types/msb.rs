@@ -97,7 +97,7 @@ impl FastPathAssetLoader for MsbAssetLoader {
                     );
                 }
 
-                let model_name = format!("vfs://{}.flver", name);
+                let model_name = format!("vfs://{name}.flver");
 
                 load_context.load(model_name)
             })

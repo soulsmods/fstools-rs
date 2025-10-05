@@ -1,119 +1,99 @@
-//! Derive macros for fstools_describe.
+//! Derive macros for `fstools_describe`.
 
+use darling::{ast::Data, util::Flag, FromDeriveInput, FromField};
 use proc_macro::TokenStream;
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{
-    parse_macro_input, spanned::Spanned, Attribute, Data, DataStruct, DeriveInput, Fields, Ident,
-    LitStr, Result,
-};
+use syn::{parse_macro_input, DeriveInput, Ident, LitStr, Type};
 
 #[proc_macro_derive(Describe, attributes(describe))]
-pub fn output_node_derive(_input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(_input as DeriveInput);
+pub fn describe_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
 
-    match expand_output_node(input) {
+    let args = match DescribeInput::from_derive_input(&input) {
+        Ok(args) => args,
+        Err(err) => return err.write_errors().into(),
+    };
+
+    match expand_describe(args) {
         Ok(tokens) => tokens.into(),
-        Err(err) => err.to_compile_error().into(),
+        Err(err) => err.into_compile_error().into(),
     }
 }
 
-fn expand_output_node(input: DeriveInput) -> Result<proc_macro2::TokenStream> {
+#[derive(FromDeriveInput)]
+#[darling(attributes(describe))]
+struct DescribeInput {
+    ident: Ident,
+    data: Data<darling::util::Ignored, DescribeField>,
+    #[darling(default, rename = "name")]
+    node_name: Option<String>,
+}
+
+#[derive(FromField)]
+#[darling(attributes(describe))]
+struct DescribeField {
+    ident: Option<Ident>,
+    ty: Type,
+    #[darling(default)]
+    rename: Option<String>,
+    #[darling(default)]
+    skip: Flag,
+    #[darling(default)]
+    format: Option<String>,
+    #[darling(default)]
+    bytes: Flag,
+}
+
+fn expand_describe(input: DescribeInput) -> syn::Result<TokenStream2> {
     let ident = input.ident;
-    let name = parse_container_name(&ident, &input.attrs)?;
+    let node_name = input.node_name.unwrap_or_else(|| ident.to_string());
 
-    match input.data {
-        Data::Struct(data) => expand_struct(&ident, &name, data),
-        _ => Err(syn::Error::new(
-            ident.span(),
-            "Describe derive currently supports named structs only",
-        )),
-    }
-}
-
-fn expand_struct(
-    ident: &Ident,
-    node_name: &str,
-    data: DataStruct,
-) -> Result<proc_macro2::TokenStream> {
-    let fields = match data.fields {
-        Fields::Named(named) => named,
-        _ => {
+    let fields = match input.data {
+        Data::Struct(fields) => fields,
+        Data::Enum(_) => {
             return Err(syn::Error::new(
                 ident.span(),
-                "Describe derive currently supports named structs",
+                "Describe derive currently supports named structs only",
             ))
         }
     };
 
     let mut statements = Vec::new();
 
-    for field in fields.named {
-        let field_ident = field.ident.expect("named field");
-        let config = DescribeField::parse(&field.attrs)?;
-        let span = field_ident.span();
-
-        let Some(role) = config.role else {
-            continue;
+    for field in &fields.fields {
+        let Some(field_ident) = field.ident.clone() else {
+            return Err(syn::Error::new(
+                ident.span(),
+                "Describe derive requires named fields",
+            ));
         };
 
-        match role {
-            FieldRole::Attribute => {
-                let key = config.rename.unwrap_or_else(|| field_ident.to_string());
-                let key_lit = LitStr::new(&key, span);
-
-                let stmt = if config.optional {
-                    quote! {
-                        if let Some(value) = &self.#field_ident {
-                            node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, format!("{}", value)));
-                        }
-                    }
-                } else {
-                    quote! {
-                        node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, format!("{}", self.#field_ident)));
-                    }
-                };
-
-                statements.push(stmt);
-            }
-            FieldRole::Child => {
-                let stmt = if config.optional {
-                    quote! {
-                        if let Some(value) = &self.#field_ident {
-                            node.push_child(::fstools_describe::Describe::describe(value)?);
-                        }
-                    }
-                } else {
-                    quote! {
-                        node.push_child(::fstools_describe::Describe::describe(&self.#field_ident)?);
-                    }
-                };
-
-                statements.push(stmt);
-            }
-            FieldRole::Children => {
-                let stmt = if config.optional {
-                    quote! {
-                        if let Some(values) = &self.#field_ident {
-                            for value in values {
-                                node.push_child(::fstools_describe::Describe::describe(value)?);
-                            }
-                        }
-                    }
-                } else {
-                    quote! {
-                        for value in &self.#field_ident {
-                            node.push_child(::fstools_describe::Describe::describe(value)?);
-                        }
-                    }
-                };
-
-                statements.push(stmt);
-            }
+        if field.skip.is_present() {
+            continue;
         }
+
+        let span = field_ident.span();
+        let key = field
+            .rename
+            .clone()
+            .unwrap_or_else(|| field_ident.to_string());
+        let key_lit = LitStr::new(&key, span);
+
+        let field_format = attribute_format(field, span)?;
+
+        let stmt = match field_format {
+            FieldFormat::Default => default_field_statement(&field_ident, &key_lit),
+            FieldFormat::FormatString(format_lit) => {
+                formatted_field_statement(&field_ident, &key_lit, &field.ty, format_lit)
+            }
+            FieldFormat::ByteSize => byte_size_field_statement(&field_ident, &key_lit, &field.ty),
+        }?;
+
+        statements.push(stmt);
     }
 
-    let node_name_lit = LitStr::new(node_name, Span::call_site());
+    let node_name_lit = LitStr::new(&node_name, Span::call_site());
 
     Ok(quote! {
         impl ::fstools_describe::Describe for #ident {
@@ -126,74 +106,100 @@ fn expand_struct(
     })
 }
 
-fn parse_container_name(ident: &Ident, attrs: &[Attribute]) -> Result<String> {
-    let mut name = ident.to_string();
+enum FieldFormat {
+    Default,
+    FormatString(LitStr),
+    ByteSize,
+}
 
-    for attr in attrs.iter().filter(|attr| attr.path().is_ident("describe")) {
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("name") {
-                let value: LitStr = meta.value()?.parse()?;
-                name = value.value();
-                Ok(())
-            } else {
-                Err(meta.error("unsupported describe attribute"))
-            }
-        })?;
+fn attribute_format(field: &DescribeField, span: Span) -> syn::Result<FieldFormat> {
+    if field.bytes.is_present() && field.format.is_some() {
+        return Err(syn::Error::new(
+            span,
+            "`bytes` cannot be combined with an explicit format",
+        ));
     }
 
-    Ok(name)
+    if field.bytes.is_present() {
+        Ok(FieldFormat::ByteSize)
+    } else if let Some(format) = &field.format {
+        Ok(FieldFormat::FormatString(LitStr::new(format, span)))
+    } else {
+        Ok(FieldFormat::Default)
+    }
 }
 
-struct DescribeField {
-    role: Option<FieldRole>,
-    rename: Option<String>,
-    optional: bool,
-}
-
-impl DescribeField {
-    fn parse(attrs: &[Attribute]) -> Result<Self> {
-        let mut result = DescribeField {
-            role: None,
-            rename: None,
-            optional: false,
-        };
-
-        for attr in attrs.iter().filter(|attr| attr.path().is_ident("describe")) {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("attribute") {
-                    ensure_role(meta.path.span(), &mut result.role, FieldRole::Attribute)
-                } else if meta.path.is_ident("child") {
-                    ensure_role(meta.path.span(), &mut result.role, FieldRole::Child)
-                } else if meta.path.is_ident("children") {
-                    ensure_role(meta.path.span(), &mut result.role, FieldRole::Children)
-                } else if meta.path.is_ident("rename") {
-                    let value: LitStr = meta.value()?.parse()?;
-                    result.rename = Some(value.value());
-                    Ok(())
-                } else if meta.path.is_ident("optional") {
-                    result.optional = true;
-                    Ok(())
-                } else {
-                    Err(meta.error("unsupported describe attribute"))
+fn default_field_statement(field_ident: &Ident, key_lit: &LitStr) -> syn::Result<TokenStream2> {
+    Ok(quote! {
+        {
+            let visitor = ::fstools_describe::FieldVisitor::new(#key_lit);
+            match visitor.visit(&self.#field_ident)? {
+                ::fstools_describe::FieldDescription::Attribute(attribute) => {
+                    node.push_attribute(attribute);
                 }
-            })?;
+                ::fstools_describe::FieldDescription::Children(items) => {
+                    for item in items {
+                        node.push_child(item);
+                    }
+                }
+                ::fstools_describe::FieldDescription::Skip => {}
+            }
         }
+    })
+}
 
-        Ok(result)
+fn formatted_field_statement(
+    field_ident: &Ident,
+    key_lit: &LitStr,
+    field_ty: &Type,
+    format_lit: LitStr,
+) -> syn::Result<TokenStream2> {
+    if is_option_type(field_ty) {
+        Ok(quote! {
+            if let Some(value) = &self.#field_ident {
+                let formatted = format!(#format_lit, value);
+                node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, formatted));
+            }
+        })
+    } else {
+        Ok(quote! {
+            {
+                let value = &self.#field_ident;
+                let formatted = format!(#format_lit, value);
+                node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, formatted));
+            }
+        })
     }
 }
 
-fn ensure_role(span: Span, slot: &mut Option<FieldRole>, role: FieldRole) -> Result<()> {
-    if slot.is_some() {
-        return Err(syn::Error::new(span, "multiple describe roles specified"));
+fn byte_size_field_statement(
+    field_ident: &Ident,
+    key_lit: &LitStr,
+    field_ty: &Type,
+) -> syn::Result<TokenStream2> {
+    if is_option_type(field_ty) {
+        Ok(quote! {
+            if let Some(value) = &self.#field_ident {
+                let formatted = ::fstools_describe::format_byte_size((*value) as u64);
+                node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, formatted));
+            }
+        })
+    } else {
+        Ok(quote! {
+            {
+                let formatted = ::fstools_describe::format_byte_size(self.#field_ident as u64);
+                node.push_attribute(::fstools_describe::DescribedAttribute::new(#key_lit, formatted));
+            }
+        })
     }
-
-    *slot = Some(role);
-    Ok(())
 }
 
-enum FieldRole {
-    Attribute,
-    Child,
-    Children,
+fn is_option_type(ty: &Type) -> bool {
+    if let Type::Path(path) = ty {
+        if let Some(segment) = path.path.segments.last() {
+            return segment.ident == "Option";
+        }
+    }
+
+    false
 }

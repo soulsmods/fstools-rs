@@ -13,6 +13,7 @@ fstools_formats.workspace = true
 memmap2.workspace = true
 rayon.workspace = true
 thiserror.workspace = true
+tracing = "0.1.41"
 
 [lints]
 workspace = true

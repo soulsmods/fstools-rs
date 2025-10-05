@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Describe, Serialize, Deserialize)]
 pub struct BndFileDescription {
     #[serde(rename = "Name")]
     name: String,
@@ -9,7 +9,7 @@ pub struct BndFileDescription {
     size: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Describe, Serialize, Deserialize)]
 pub struct BndDescription {
     #[serde(rename = "Files")]
     files: Vec<BndFileDescription>,

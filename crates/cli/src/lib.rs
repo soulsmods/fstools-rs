@@ -1,8 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand, ValueEnum};
-use color_eyre::Result;
-use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
+use color_eyre::{
+    eyre::{Context, OptionExt},
+    Result,
+};
+use fstools_dvdbnd::DvdBnd;
 
 use crate::{
     describe::{describe_bnd, describe_entryfilelist, describe_matbin},
@@ -11,15 +14,64 @@ use crate::{
 
 mod describe;
 mod extract;
+mod keys;
 mod mount;
 mod repl;
+
+#[derive(Debug, ValueEnum, Clone)]
+
+pub enum Game {
+    #[clap(alias = "er")]
+    EldenRing,
+
+    #[clap(alias = "nr")]
+    EldenRingNightreign,
+}
+
+impl Game {
+    pub fn app_id(&self) -> u32 {
+        match self {
+            Game::EldenRing => 1245620,
+            Game::EldenRingNightreign => 2622380,
+        }
+    }
+}
+
+pub struct GameInstallation {
+    root: PathBuf,
+    exe: PathBuf,
+    bhds: Vec<PathBuf>,
+}
+
+pub fn find_installation_dir(game: Game) -> Option<PathBuf> {
+    let steam = steamlocate::SteamDir::locate().ok()?;
+    let (app, library) = steam.find_app(game.app_id()).ok().flatten()?;
+    let root = library.resolve_app_dir(&app);
+
+    Some(root)
+}
+
+pub fn find_game_installation(root: PathBuf) -> Option<GameInstallation> {
+    let exe = glob::glob(&format!("{}/Game/*.exe", root.display()))
+        .ok()?
+        .filter_map(std::result::Result::ok).find(|path| !path.ends_with("start_protected_game.exe"))?;
+    let bhds = glob::glob(&format!("{}/Game/*.bhd", root.display()))
+        .ok()?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    Some(GameInstallation { root, exe, bhds })
+}
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
+    #[arg(long, short, env("ER_PATH"))]
+    pub game: Game,
+
     #[arg(long, env("ER_PATH"))]
-    pub game_path: PathBuf,
+    pub game_path: Option<PathBuf>,
 
     #[command(subcommand)]
     pub command: Action,
@@ -104,21 +156,24 @@ impl Action {
     }
 }
 
+#[tracing::instrument(skip_all)]
 pub fn run(cli: Cli) -> Result<()> {
     let Cli {
+        game,
         game_path,
         command: action,
     } = cli;
-    let keys = FileKeyProvider::new("keys");
-    let archives = [
-        game_path.join("Data0"),
-        game_path.join("Data1"),
-        game_path.join("Data2"),
-        game_path.join("Data3"),
-        game_path.join("sd/sd"),
-    ];
+    let game_install_dir = game_path
+        .or_else(|| find_installation_dir(game))
+        .ok_or_eyre("couldn't find game installation directory")?;
+    let game_install =
+        find_game_installation(game_install_dir).ok_or_eyre("couldn't find archives/exe")?;
+    let key_provider = keys::ScannedArchiveKeyProvider::scan(&game_install)
+        .with_context(|| format!("scanning keys in {:?}", game_install.root))?;
 
-    let dvd_bnd = Arc::new(DvdBnd::create(archives, &keys)?);
+    let dvd_bnd = Arc::new(
+        DvdBnd::create(&game_install.bhds, &key_provider).with_context(|| "loading BHD/BDTs")?,
+    );
     action.run(&dvd_bnd)?;
 
     Ok(())

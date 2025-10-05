@@ -46,7 +46,7 @@ impl FastPathAssetLoader for FlverAssetLoader {
 
         for (index, flver_mesh) in flver.meshes.iter().enumerate() {
             let mesh_handle = load_context
-                .labeled_asset_scope(format!("mesh{}", index), |_| load_mesh(&flver, flver_mesh));
+                .labeled_asset_scope(format!("mesh{index}"), |_| load_mesh(&flver, flver_mesh));
 
             meshes.push(mesh_handle);
         }
@@ -75,7 +75,7 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh) -> Mesh {
     let layout_members = flver.vertex_attributes(layout);
 
     for member in layout_members {
-        use fstools_formats::flver::reader::VertexAttributeSemantic::*;
+        use fstools_formats::flver::reader::VertexAttributeSemantic::{Position, Normal, UV};
 
         let semantic = VertexAttributeSemantic::from(member.semantic_id.get());
         let Some(accessor) = flver.vertex_attribute_accessor(buffer, member) else {
@@ -109,7 +109,7 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh) -> Mesh {
 
     let indices = match flver.face_set_indices(face_set) {
         Some(FaceSetIndices::U8(data)) => {
-            Indices::U16(data.iter().map(|index| *index as u16).collect())
+            Indices::U16(data.iter().map(|index| u16::from(*index)).collect())
         }
         Some(FaceSetIndices::U16(data)) => Indices::U16(data.iter().map(|val| val.get()).collect()),
         Some(FaceSetIndices::U32(data)) => Indices::U32(data.iter().map(|val| val.get()).collect()),

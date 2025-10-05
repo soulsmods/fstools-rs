@@ -19,6 +19,7 @@ impl FileKeyProvider {
 }
 
 impl ArchiveKeyProvider for FileKeyProvider {
+    #[tracing::instrument(skip(self))]
     fn get_key(&self, name: &str) -> Result<BhdKey, std::io::Error> {
         fs::read_to_string(self.key_dir.join(name).with_extension("pem"))
             .and_then(|pem| BhdKey::from_pem(&pem).map_err(std::io::Error::other))

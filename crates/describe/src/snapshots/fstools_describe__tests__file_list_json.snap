@@ -3,7 +3,7 @@ source: crates/describe/src/lib.rs
 expression: root
 ---
 {
-  "version": 3,
+  "version": 12345,
   "files": [
     {
       "name": "a.bnd",

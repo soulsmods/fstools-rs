@@ -20,10 +20,8 @@ pub fn extract(
         .filter(|line| {
             filter
                 .as_ref()
-                .map(|filter| line.to_string_lossy().contains(filter))
-                .unwrap_or(true)
+                .is_none_or(|filter| line.to_string_lossy().contains(filter))
         })
-        .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
     let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")
@@ -38,7 +36,7 @@ pub fn extract(
                 match dvd_bnd.open(path.to_string_lossy().as_ref()) {
                     Ok(mut reader) => {
                         let is_archive = recursive && path.to_string_lossy().ends_with("bnd.dcx");
-                        let path = path.strip_prefix("/").unwrap_or_else(|_| path.as_path());
+                        let path = path.strip_prefix("/").unwrap_or(path.as_path());
                         let parent_path = if is_archive {
                             // twice to strip "bnd.dcx"
                             output_path.join(path.with_extension("").with_extension(""))

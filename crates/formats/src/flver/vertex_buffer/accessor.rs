@@ -70,12 +70,12 @@ impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization> VertexAttribut
     }
 }
 
-impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> ExactSizeIterator
-    for VertexAttributeIter<'a, T, L, N>
+impl<T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> ExactSizeIterator
+    for VertexAttributeIter<'_, T, L, N>
 {
 }
-impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> Iterator
-    for VertexAttributeIter<'a, T, L, N>
+impl<T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> Iterator
+    for VertexAttributeIter<'_, T, L, N>
 {
     type Item = [N::Output; L];
 

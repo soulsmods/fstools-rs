@@ -50,9 +50,9 @@ pub fn begin(dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
                 rl.add_history_entry(line.as_str())?;
 
                 match process_input(&line, dvd_bnd) {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(e) => {
-                        println!("{}", e);
+                        println!("{e}");
                     }
                 }
             }
@@ -65,7 +65,7 @@ pub fn begin(dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
                 break;
             }
             Err(err) => {
-                println!("Error: {:?}", err);
+                println!("Error: {err:?}");
                 break;
             }
         }

@@ -32,7 +32,7 @@ impl VfsWatcher {
                 match rx.recv() {
                     Ok(VfsEvent::Added(path)) => {
                         tx.send(AssetSourceEvent::AddedAsset(path.clone()))
-                            .and_then(|_| tx.send(AssetSourceEvent::ModifiedAsset(path.clone())))
+                            .and_then(|()| tx.send(AssetSourceEvent::ModifiedAsset(path.clone())))
                             .expect("failed to notify asset watcher");
                     }
                     _ => break,

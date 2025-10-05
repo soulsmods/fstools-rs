@@ -56,9 +56,9 @@ pub struct FlverInner<'a, O: ByteOrder> {
     pub vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
 }
 
-impl<'a, O: ByteOrder> FlverInner<'a, O> {}
+impl<O: ByteOrder> FlverInner<'_, O> {}
 
-impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
+impl<O: ByteOrder + 'static> Deref for FlverInner<'_, O> {
     type Target = FlverHeader<O>;
 
     fn deref(&self) -> &Self::Target {
@@ -127,7 +127,10 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
         let vertex_size = buffer.vertex_size.get() as usize;
         let vertex_offset = attribute.struct_offset.get() as usize;
 
-        use vertex_buffer::VertexFormat::*;
+        use vertex_buffer::VertexFormat::{
+            Float32x2, Float32x3, Float32x4, Sint16x4, Snorm16x4, Snorm8x4, Sscale16x2, Sscale16x4,
+            Uint8x4, Unorm8x4,
+        };
 
         #[allow(clippy::match_same_arms)]
         attribute.format().map(|format| match format {
@@ -197,7 +200,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
     }
 }
 
-impl<'a, O: ByteOrder + 'static> Debug for FlverInner<'a, O> {
+impl<O: ByteOrder + 'static> Debug for FlverInner<'_, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Flver")
             .field("version", &self.version.get())

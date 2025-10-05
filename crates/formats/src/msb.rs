@@ -122,7 +122,7 @@ impl<'a> Msb<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for Msb<'a> {
+impl std::fmt::Debug for Msb<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Msb").field("header", self.header).finish()
     }
@@ -137,7 +137,7 @@ pub trait MsbParam<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     magic: [u8; 4],
@@ -161,7 +161,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct SetHeader {
     /// Version of the param format.

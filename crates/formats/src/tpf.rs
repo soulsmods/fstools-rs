@@ -56,7 +56,7 @@ impl Texture {
         let _unk10 = r.read_u32::<LE>()?;
 
         let current = r.stream_position()?;
-        r.seek(SeekFrom::Start(name_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(name_offset)))?;
         let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current))?;
 
@@ -72,7 +72,7 @@ impl Texture {
 
     pub fn bytes(&self, r: &mut (impl io::Read + io::Seek)) -> Result<Vec<u8>, io::Error> {
         let mut buffer = vec![0x0u8; self.data_size as usize];
-        r.seek(SeekFrom::Start(self.data_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(self.data_offset)))?;
         r.read_exact(&mut buffer)?;
         Ok(buffer)
     }

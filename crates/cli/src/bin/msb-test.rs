@@ -32,7 +32,7 @@ fn main() -> Result<()> {
 
     let vfs = DvdBnd::create(archives.clone(), &keys)?;
 
-    for msb_path in MSBS.iter() {
+    for msb_path in &MSBS {
         let msbdcx = vfs.open(msb_path)?;
         let (_, mut decoder) = DcxHeader::read(msbdcx)?;
 
@@ -57,7 +57,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-const MSBS: [&str; 1409] = [
+static MSBS: [&str; 1409] = [
     "/map/mapstudio/m10_00_00_00.msb.dcx",
     "/map/mapstudio/m10_00_00_99.msb.dcx",
     "/map/mapstudio/m10_01_00_00.msb.dcx",

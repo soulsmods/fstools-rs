@@ -16,7 +16,7 @@ pub fn mount_filesystem(dvd_bnd: Arc<DvdBnd>, mount_point: &Path) -> Result<()> 
     println!("Mounting filesystem at {}", mount_point.display());
     println!("Use 'fusermount -u {}' to unmount", mount_point.display());
 
-    easy_fuser::mount(filesystem, mount_point, &options)
+    easy_fuser::mount(filesystem, mount_point, &options, num_cpus::get())
         .with_context(|| format!("failed to mount filesystem at {}", mount_point.display()))?;
 
     Ok(())

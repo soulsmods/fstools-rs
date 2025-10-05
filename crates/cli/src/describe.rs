@@ -1,23 +1,22 @@
-use std::io::{Cursor, Read};
+use std::io::{stdout, Cursor, Read};
 
 use color_eyre::eyre::{eyre, Result};
+use fstools_describe::{ColorChoice, OutputFormat, PlainFormatterOptions, PrintOptions};
 use fstools_dvdbnd::DvdBnd;
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader, entryfilelist::EntryFileList};
 
 pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<()> {
-    let (dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
+    let (_dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
 
     let mut data = vec![];
     reader.read_to_end(&mut data)?;
 
     let bnd = BND4::from_reader(&mut Cursor::new(data))?;
 
-    println!("Compression type: {:?}", dcx.compression_parameters());
-    println!("Files: {}", bnd.files.len());
+    let options = PrintOptions::default()
+        .with_plain(PlainFormatterOptions::default().with_color_choice(ColorChoice::Auto));
 
-    for idx in 0..bnd.files.len() {
-        println!("File[{idx}] {}", bnd.files[idx].path);
-    }
+    fstools_describe::print_with_options(&bnd, OutputFormat::Plain, stdout(), options)?;
 
     Ok(())
 }

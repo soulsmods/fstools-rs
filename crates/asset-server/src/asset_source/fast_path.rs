@@ -87,7 +87,7 @@ impl<T: FastPathAssetLoader + Send + Sync + 'static> AssetLoader
             let data = if source == &dvdbnd_asset_source_id || source == &vfs_asset_source_id {
                 // SAFETY: This invariant is upheld by the `dvdbnd` and `vfs` asset source
                 // implementations. They MUST return an implementation of FastPathReader.
-                let reader = unsafe { (reader as *mut Reader).cast::<FastPathReader>().as_mut() };
+                let reader = unsafe { std::ptr::from_mut::<Reader>(reader).cast::<FastPathReader>().as_mut() };
                 reader.and_then(|r| r.as_bytes())
             } else {
                 None
@@ -128,7 +128,7 @@ impl<'a> FastPathReader<'a> {
     }
 }
 
-impl<'a> AsyncRead for FastPathReader<'a> {
+impl AsyncRead for FastPathReader<'_> {
     fn poll_read(
         self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,

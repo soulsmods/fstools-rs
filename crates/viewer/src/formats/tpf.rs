@@ -50,7 +50,7 @@ impl AssetLoader for TPFAssetLoader {
             let mut cursor = Cursor::new(&buffer);
 
             let tpf = TPF::from_reader(&mut cursor)?;
-            for texture in tpf.textures.iter() {
+            for texture in &tpf.textures {
                 let bytes = texture.bytes(&mut cursor)?;
 
                 load_context.labeled_asset_scope(texture.name.clone(), |_| {
