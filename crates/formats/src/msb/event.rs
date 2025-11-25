@@ -66,6 +66,7 @@ pub enum EventData<'a> {
     Mount(&'a EventDataMount),
     SignPool(&'a EventDataSignPool),
     RetryPoint(&'a EventDataRetryPoint),
+    OnlinePseudoMultiplayer(&'a EventDataOnlinePseudoMultiplayer),
 }
 
 impl<'a> EventData<'a> {
@@ -102,6 +103,10 @@ impl<'a> EventData<'a> {
             ),
             24 => Self::RetryPoint(
                 EventDataRetryPoint::ref_from_prefix(data).ok_or(MsbError::UnalignedValue)?,
+            ),
+            25 => Self::OnlinePseudoMultiplayer(
+                EventDataOnlinePseudoMultiplayer::ref_from_prefix(data)
+                    .ok_or(MsbError::UnalignedValue)?,
             ),
 
             _ => return Err(MsbError::UnknownEventDataType(event_type)),
@@ -198,14 +203,36 @@ pub struct EventDataNavmesh {
 #[repr(packed)]
 #[allow(unused)]
 pub struct EventDataPseudoMultiplayer {
-    host_entity_id: I32<LE>,
-    event_flag_id: I32<LE>,
+    host_entity_id: U32<LE>,
+    event_flag_id: U32<LE>,
     activate_goods_id: I32<LE>,
-    unkc: I32<LE>,
-    unk10: I32<LE>, // Seems to be some event flag?
-    unk14: I32<LE>,
-    unk18: I32<LE>,
-    ceremony_param: I32<LE>,
+    ceremony_id: U32<LE>,
+    invasion_point_id: U32<LE>,
+    ceremony_type: u8,
+    network_msg_npc_type: i8,
+    padding16: Padding<2>,
+    event_text_for_map_id: I32<LE>,
+    ceremony_param_id: I32<LE>,
+    role_param_id_override: I32<LE>,
+}
+
+#[derive(FromZeroes, FromBytes, Debug)]
+#[repr(packed)]
+#[allow(unused)]
+pub struct EventDataOnlinePseudoMultiplayer {
+    host_entity_id: U32<LE>,
+    event_flag_id: U32<LE>,
+    activate_goods_id: I32<LE>,
+    ceremony_id: U32<LE>,
+    host_invasion_point_id: U32<LE>,
+    guest1_invasion_point_id: U32<LE>,
+    guest2_invasion_point_id: U32<LE>,
+    ceremony_type: u8,
+    network_msg_npc_type: i8,
+    padding1e: Padding<2>,
+    event_text_for_map_id: I32<LE>,
+    ceremony_param_id: I32<LE>,
+    role_param_id_override: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
