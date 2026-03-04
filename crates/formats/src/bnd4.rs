@@ -1,18 +1,25 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
 use byteorder::{ReadBytesExt, LE};
+use fstools_describe::{derive::Describe, serde::Serialize};
 
 use crate::io_ext::ReadFormatsExt;
 
 type BND4Reader = std::io::Cursor<Vec<u8>>;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Describe)]
 pub struct BND4 {
+    #[describe(skip)]
     pub unk04: u8,
+
+    #[describe(skip)]
     pub unk05: u8,
+
+    #[describe(skip)]
     pub unk0a: u8,
     pub file_count: u32,
     pub file_headers_offset: u64,
+    #[describe(format = "0x{:x}")]
     pub version: u64,
     pub file_header_size: u64,
     pub file_headers_end: u64,
@@ -21,7 +28,81 @@ pub struct BND4 {
     pub extended: u8,
     pub buckets_offset: u64,
     pub files: Vec<BND4Entry>,
+    #[describe(skip)]
+    #[serde(skip)]
     pub data: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Describe)]
+pub struct Bnd4Header {
+    #[describe(skip)]
+    pub unk04: u8,
+
+    #[describe(skip)]
+    pub unk05: u8,
+
+    #[describe(skip)]
+    pub unk0a: u8,
+    pub file_count: u32,
+    pub file_headers_offset: u64,
+    #[describe(format = "0x{:x}")]
+    pub version: u64,
+    pub file_header_size: u64,
+    pub file_headers_end: u64,
+    pub unicode: bool,
+    pub raw_format: u8,
+    pub extended: u8,
+    pub buckets_offset: u64,
+    pub files: Vec<BND4Entry>,
+}
+
+impl Bnd4Header {
+    pub fn from_reader<R: Read + Seek>(mut r: R) -> io::Result<Self> {
+        r.read_magic(b"BND4")?;
+
+        let unk04 = r.read_u8()?;
+        let unk05 = r.read_u8()?;
+        r.read_padding(3)?;
+
+        assert!(r.read_u8()? == 0x0, "BND4 is not little endian");
+
+        let unk0a = r.read_u8()?;
+        r.read_padding(1)?;
+        let file_count = r.read_u32::<LE>()?;
+
+        let file_headers_offset = r.read_u64::<LE>()?;
+        let version = r.read_u64::<LE>()?;
+        let file_header_size = r.read_u64::<LE>()?;
+        let file_headers_end = r.read_u64::<LE>()?;
+        let unicode = r.read_u8()? == 0x1;
+        let raw_format = r.read_u8()?;
+        let extended = r.read_u8()?;
+
+        r.read_padding(5)?;
+
+        let buckets_offset = r.read_u64::<LE>()?;
+
+        let mut files = vec![];
+        for _ in 0..file_count {
+            files.push(BND4Entry::from_reader(&mut r)?);
+        }
+
+        Ok(Self {
+            unk04,
+            unk05,
+            unk0a,
+            file_count,
+            file_headers_offset,
+            version,
+            file_header_size,
+            file_headers_end,
+            unicode,
+            raw_format,
+            extended,
+            buckets_offset,
+            files,
+        })
+    }
 }
 
 impl BND4 {
@@ -99,11 +180,14 @@ impl BND4 {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, fstools_describe::derive::Describe)]
 pub struct BND4Entry {
     pub flags: u8,
+    #[describe(skip)]
     pub unk4: i32,
+    #[describe(bytes)]
     pub compressed_size: u64,
+    #[describe(bytes)]
     pub uncompressed_size: u64,
     pub data_offset: u32,
     pub id: u32,
@@ -123,7 +207,7 @@ impl BND4Entry {
         let name_offset = r.read_u32::<LE>()?;
 
         let current = r.stream_position()?;
-        r.seek(SeekFrom::Start(name_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(name_offset)))?;
         let path = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current))?;
 
@@ -145,7 +229,7 @@ impl BND4Entry {
 
     pub fn bytes(&self, r: &mut BND4Reader) -> Result<Vec<u8>, io::Error> {
         let mut buffer = vec![0x0u8; self.compressed_size as usize];
-        r.seek(SeekFrom::Start(self.data_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(self.data_offset)))?;
         r.read_exact(&mut buffer)?;
 
         Ok(buffer)

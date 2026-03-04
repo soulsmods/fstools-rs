@@ -1,127 +1,120 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
+mod reader;
+mod state;
+
+use std::sync::{atomic::Ordering, Arc};
 
 use bevy::{
-    asset::{
-        io::{AssetReader, AssetReaderError, PathStream, Reader},
-        BoxedFuture,
-    },
-    log::info,
-    prelude::{Deref, DerefMut, Resource},
+    asset::{io::AssetSourceBuilder, AssetPath},
+    ecs::system::SystemParam,
+    prelude::*,
 };
-use crossbeam_channel::Sender;
-use memmap2::{Mmap, MmapOptions};
-use typed_path::Utf8WindowsPathBuf;
+use typed_path::Utf8WindowsPath;
 
-use crate::asset_source::fast_path::FastPathReader;
+use crate::{
+    asset_source::vfs::{reader::VfsAssetReader, state::VfsState},
+    types::binder::{Archive, ArchiveEntry},
+};
 
-pub mod watcher;
-
-#[derive(Clone, Resource)]
-pub struct Vfs {
-    inner: Arc<RwLock<VfsInner>>,
-    event_sender: Sender<VfsEvent>,
+#[derive(Resource)]
+pub struct VfsStore {
+    pub(crate) state: Arc<VfsState>,
+    pending: Vec<PendingMount>,
 }
 
-pub enum VfsEvent {
-    Added(PathBuf),
+struct PendingMount {
+    prefix: String,
+    handle: Handle<Archive>,
 }
 
-#[derive(Default)]
-pub struct VfsInner {
-    entries: HashMap<String, Mmap>,
+#[derive(SystemParam)]
+pub struct Vfs<'w> {
+    store: ResMut<'w, VfsStore>,
+    asset_server: Res<'w, AssetServer>,
 }
 
-impl Vfs {
-    pub fn new(event_sender: Sender<VfsEvent>) -> Self {
-        Self {
-            event_sender,
-            inner: Default::default(),
-        }
+impl Vfs<'_> {
+    pub fn mount_by_handle(&mut self, prefix: impl Into<String>, handle: Handle<Archive>) {
+        self.store.pending.push(PendingMount {
+            prefix: prefix.into(),
+            handle,
+        });
+
+        self.store
+            .state
+            .pending_mounts
+            .fetch_add(1, Ordering::AcqRel);
     }
 
-    pub fn mount_file(&mut self, name: String, data: Vec<u8>) {
-        let mut inner = self.inner.write().expect("vfs_write_lock");
+    pub fn mount<'a>(&mut self, prefix: impl Into<String>, path: impl Into<AssetPath<'a>>) {
+        let path = path.into();
+        let handle = self.asset_server.load::<Archive>(path);
 
-        // TODO: this is specific to Elden Ring
-        let path = Utf8WindowsPathBuf::from(&name);
-        let normalized_path = path
-            .strip_prefix("N:/GR/data/INTERROOT_win64")
-            .map(|path| path.with_unix_encoding().into_string())
-            .expect("path_not_expected");
+        self.mount_by_handle(prefix, handle);
+    }
 
-        info!("Mounting {normalized_path} into vfs");
+    pub fn load<A: Asset>(&self, path: impl Into<String>) -> Handle<A> {
+        self.asset_server.load(format!("vfs://{}", path.into()))
+    }
+}
 
-        let _ = self
-            .event_sender
-            .send(VfsEvent::Added(PathBuf::from(&normalized_path)));
+pub struct VfsAssetSourcePlugin;
 
-        let mut mmap = MmapOptions::default()
-            .len(data.len())
-            .map_anon()
-            .expect("failed to allocate memory");
-        mmap.copy_from_slice(&data[..]);
+impl Plugin for VfsAssetSourcePlugin {
+    fn build(&self, app: &mut App) {
+        let state = VfsState::new();
+        let reader_state = state.clone();
 
-        inner.entries.insert(
-            normalized_path,
-            mmap.make_read_only()
-                .expect("failed to make memory read-only"),
+        app.insert_resource(VfsStore {
+            state,
+            pending: Vec::new(),
+        })
+        .add_systems(PreUpdate, bind_archives)
+        .register_asset_source(
+            "vfs",
+            AssetSourceBuilder::new(move || Box::new(VfsAssetReader::new(reader_state.clone()))),
         );
     }
-
-    pub fn entry_bytes<P: AsRef<str>>(&self, name: P) -> Option<&[u8]> {
-        let inner = self.inner.read().expect("vfs_read_lock");
-
-        inner.entries.get(name.as_ref()).map(|item| {
-            let ptr = item.as_ptr();
-            let len = item.len();
-
-            // SAFETY: Pointer cannot be moved and is placed on the heap for the lifetime of
-            // `self`.
-            unsafe { std::slice::from_raw_parts(ptr, len) }
-        })
-    }
 }
 
-#[derive(Deref, DerefMut)]
-pub struct VfsAssetSource(pub(crate) Vfs);
-
-impl AssetReader for VfsAssetSource {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move {
-            let bytes = self.entry_bytes(path.to_str().expect("invalid path"));
-
-            match bytes {
-                Some(data) => Ok(Box::new(FastPathReader::Slice(data)) as Box<Reader>),
-                None => Err(AssetReaderError::NotFound(path.to_path_buf())),
-            }
-        })
+fn bind_archives(
+    mut store: ResMut<VfsStore>,
+    mut assets: ResMut<Assets<Archive>>,
+    mut entries: ResMut<Assets<ArchiveEntry>>,
+) {
+    if store.pending.is_empty() {
+        return;
     }
 
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
-    }
+    let state = store.state.clone();
+    let mut inner = state.inner.blocking_write();
 
-    fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
-    }
+    store.pending.retain(|mount| {
+        let Some(archive) = assets.remove(mount.handle.id()) else {
+            return true;
+        };
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        Box::pin(async move { Err(AssetReaderError::NotFound(path.to_path_buf())) })
-    }
+        trace!("mounting {:?}", mount.handle.path());
+
+        for (name, handle) in archive.files {
+            let Some(entry) = entries.remove(handle.id()) else {
+                continue;
+            };
+
+            let windows_path = Utf8WindowsPath::new(&name);
+            let path = format!(
+                "{}/{}",
+                mount.prefix,
+                windows_path.file_name().expect("no name")
+            );
+            trace!("mounted {path}");
+            inner.insert_entry(path, entry.data);
+        }
+
+        let prev = state.pending_mounts.fetch_sub(1, Ordering::AcqRel);
+        if prev == 1 {
+            inner.drain_waiters();
+        }
+
+        false
+    });
 }

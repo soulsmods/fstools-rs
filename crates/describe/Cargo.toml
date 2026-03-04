@@ -1,0 +1,24 @@
+[package]
+name = "fstools_describe"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Structured describe output helpers for fstools"
+
+[dependencies]
+serde = { workspace = true, features = ["derive", "rc"] }
+thiserror.workspace = true
+color-eyre.workspace = true
+serde_json = { version = "1", features = ["preserve_order"] }
+fstools_describe_derive = { path = "../describe-derive" }
+num-format = "0.4"
+owo-colors = { version = "4", default-features = false, features = [
+    "supports-colors",
+] }
+supports-color = "3"
+byte-unit = "5"
+
+[dev-dependencies]
+insta = { version = "1", features = ["yaml", "json"] }

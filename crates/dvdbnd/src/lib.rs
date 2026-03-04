@@ -11,11 +11,13 @@ use thiserror::Error;
 
 pub use self::{
     key_provider::{ArchiveKeyProvider, FileKeyProvider},
+    key_scanner::{recover_keys, KeyScanError},
     name::Name,
     reader::DvdBndEntryReader,
 };
 
 mod key_provider;
+mod key_scanner;
 mod name;
 mod reader;
 
@@ -38,6 +40,7 @@ pub struct DvdBnd {
 }
 
 impl DvdBnd {
+    #[tracing::instrument(skip_all, fields(path = ?path.as_ref()))]
     fn load_archive<P: AsRef<Path>>(
         path: P,
         key_provider: &impl ArchiveKeyProvider,
@@ -169,6 +172,11 @@ impl DvdBnd {
             None => Err(DvdBndEntryError::NotFound),
         }
     }
+
+    pub fn entry<N: Into<Name>>(&self, name: N) -> Option<&VfsFileEntry> {
+        let name = name.into();
+        self.entries.get(&name)
+    }
 }
 
 #[derive(Debug)]
@@ -180,4 +188,14 @@ pub struct VfsFileEntry {
     file_offset: u64,
     aes_key: [u8; 16],
     aes_ranges: Vec<Range<u64>>,
+}
+
+impl VfsFileEntry {
+    pub fn file_size(&self) -> u64 {
+        if self.file_size != 0 {
+            u64::from(self.file_size)
+        } else {
+            u64::from(self.file_size_with_padding)
+        }
+    }
 }

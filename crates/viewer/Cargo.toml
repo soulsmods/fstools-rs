@@ -12,13 +12,17 @@ authors.workspace = true
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 byteorder = "1"
-bevy = { version = "0.13", features = ["dds"] }
-bevy_basic_camera = { git = "https://github.com/DGriffin91/bevy_basic_camera" }
-bevy-inspector-egui = "0.23"
+bevy = { workspace = true, features = ["3d", "bevy_camera_controller", "free_camera", "dds"] }
+image = { version = "0.25", default-features = false, features = ["dds"] }
+bevy-inspector-egui = "0.36"
 fstools_asset_server.workspace = true
-fstools_formats.workspace = true
 fstools_dvdbnd.workspace = true
+fstools_formats.workspace = true
+fstools_game_id.workspace = true
+fstools_game_installation.workspace = true
 thiserror.workspace = true
+tokio = "1.49.0"
+bevy_infinite_grid = "0.18.0"
 
 [lints]
 workspace = true

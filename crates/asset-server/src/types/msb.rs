@@ -1,10 +1,13 @@
-use bevy::{asset::LoadContext, prelude::*};
+use bevy::{
+    asset::{io::Reader, AssetLoader, LoadContext},
+    prelude::*,
+};
 use fstools_formats::msb::{parts::PartData, Msb, MsbError};
 use thiserror::Error;
 
-use crate::{asset_source::fast_path::FastPathAssetLoader, types::flver::FlverAsset};
+use crate::types::flver::FlverAsset;
 
-#[derive(Asset, TypePath, Debug)]
+#[derive(Asset, Reflect, Debug)]
 pub struct MsbAsset {
     pub points: Vec<Handle<MsbPointAsset>>,
     pub parts: Vec<Handle<MsbPartAsset>>,
@@ -32,7 +35,7 @@ pub enum MsbAssetLoaderError {
     Parser(#[from] MsbError),
 }
 
-#[derive(Default)]
+#[derive(Clone, TypePath)]
 pub struct MsbAssetLoader;
 
 impl MsbAssetLoader {
@@ -40,45 +43,41 @@ impl MsbAssetLoader {
     // TODO: it seems for models the orientation is inverted on some axis still?
     fn make_msb_transform(
         translation: Vec3,
-        rotation: Option<Vec3>,
-        scale: Option<Vec3>,
+        rotation: impl Into<Option<Vec3>>,
+        _scale: impl Into<Option<Vec3>>,
     ) -> Transform {
-        let translation = Mat4::from_translation(translation);
-        let scale = Mat4::from_scale(scale.unwrap_or(Vec3::new(1.0, 1.0, 1.0)));
+        let translation = Vec3::new(translation.x, translation.y, -translation.z);
 
-        let rotation = rotation.unwrap_or_default();
-        let rotation = Mat4::from_euler(
-            EulerRot::ZYX,
-            rotation[0].to_radians(),
-            rotation[1].to_radians(),
-            rotation[2].to_radians(),
-        );
+        // 2. Convert to Radians
+        let rot = rotation.into().unwrap_or_default();
+        let rx = rot.x.to_radians();
+        let ry = rot.y.to_radians();
+        let rz = rot.y.to_radians();
+        let rotation = Quat::from_euler(EulerRot::YXZ, -ry, -rx, -rz);
 
-        // TODO: can be const?
-        let scene_transform = {
-            let mut identity = Mat4::IDENTITY;
-
-            // Invert Z
-            identity.z_axis.z = -1.0;
-
-            identity
-        };
-
-        Transform::from_matrix(scene_transform * translation * rotation * scale)
+        Transform {
+            translation,
+            rotation,
+            scale: Vec3::ONE,
+        }
     }
 }
 
-impl FastPathAssetLoader for MsbAssetLoader {
+impl AssetLoader for MsbAssetLoader {
     type Asset = MsbAsset;
     type Settings = ();
     type Error = MsbAssetLoaderError;
 
-    async fn load_from_bytes<'a>(
-        reader: &'a [u8],
-        _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
-        let msb = Msb::parse(reader)?;
+        let mut data = vec![];
+        reader.read_to_end(&mut data).await?;
+
+        let msb = Msb::parse(&data)?;
 
         let models = msb
             .models()
@@ -89,7 +88,7 @@ impl FastPathAssetLoader for MsbAssetLoader {
                     .name
                     .to_string();
                 if name.starts_with('m') {
-                    let msb_name = load_context.asset_path().to_string();
+                    let msb_name = load_context.path().to_string();
                     name = format!(
                         "{}_{}",
                         &msb_name[21..33], // Lets fucking pray
@@ -97,7 +96,7 @@ impl FastPathAssetLoader for MsbAssetLoader {
                     );
                 }
 
-                let model_name = format!("vfs://{}.flver", name);
+                let model_name = format!("vfs://{name}.flver");
 
                 load_context.load(model_name)
             })
@@ -107,15 +106,17 @@ impl FastPathAssetLoader for MsbAssetLoader {
             points: msb
                 .points()
                 .expect("Could not get point set from MSB")
-                .map(|p| {
+                .flat_map(|p| {
                     let point = p.as_ref().expect("Could not get point entry from MSB");
-                    load_context.labeled_asset_scope(point.name.to_string(), |_| MsbPointAsset {
-                        name: point.name.to_string(),
-                        position: Vec3::new(
-                            point.position[0].get(),
-                            point.position[1].get(),
-                            point.position[2].get(),
-                        ),
+                    load_context.labeled_asset_scope(point.name.to_string(), |_| {
+                        Ok::<_, MsbAssetLoaderError>(MsbPointAsset {
+                            name: point.name.to_string(),
+                            position: Vec3::new(
+                                point.position[0].get(),
+                                point.position[1].get(),
+                                point.position[2].get(),
+                            ),
+                        })
                     })
                 })
                 .collect(),
@@ -131,29 +132,32 @@ impl FastPathAssetLoader for MsbAssetLoader {
                     }
 
                     Some(
-                        load_context.labeled_asset_scope(part.name.to_string(), |_| MsbPartAsset {
-                            name: part.name.to_string(),
-                            transform: MsbAssetLoader::make_msb_transform(
-                                Vec3::new(
-                                    part.position[0].get(),
-                                    part.position[1].get(),
-                                    part.position[2].get(),
+                        load_context.labeled_asset_scope(part.name.to_string(), |_| {
+                            Ok::<_, MsbAssetLoaderError>(MsbPartAsset {
+                                name: part.name.to_string(),
+                                transform: MsbAssetLoader::make_msb_transform(
+                                    Vec3::new(
+                                        part.position[0].get(),
+                                        part.position[1].get(),
+                                        part.position[2].get(),
+                                    ),
+                                    Vec3::new(
+                                        part.rotation[0].get(),
+                                        part.rotation[1].get(),
+                                        part.rotation[2].get(),
+                                    ),
+                                    Vec3::new(
+                                        part.scale[0].get(),
+                                        part.scale[1].get(),
+                                        part.scale[2].get(),
+                                    ),
                                 ),
-                                Some(Vec3::new(
-                                    part.rotation[0].get(),
-                                    part.rotation[1].get(),
-                                    part.rotation[2].get(),
-                                )),
-                                Some(Vec3::new(
-                                    part.scale[0].get(),
-                                    part.scale[1].get(),
-                                    part.scale[2].get(),
-                                )),
-                            ),
-                            model: models[part.model_index.get() as usize].clone(),
+                                model: models[part.model_index.get() as usize].clone(),
+                            })
                         }),
                     )
                 })
+                .flatten()
                 .collect(),
         })
     }

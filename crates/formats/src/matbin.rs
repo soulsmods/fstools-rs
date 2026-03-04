@@ -5,7 +5,10 @@ use thiserror::Error;
 use utf16string::WStr;
 use zerocopy::{FromBytes, FromZeroes, Ref, F32, U32, U64};
 
-use crate::io_ext::{read_wide_cstring, zerocopy::Padding, ReadWidestringError};
+use crate::{
+    io_ext::{read_wide_cstring, zerocopy::Padding, ReadWidestringError},
+    path::WindowsPath,
+};
 
 #[derive(Debug, Error)]
 pub enum MatbinError {
@@ -66,7 +69,7 @@ impl<'a> Matbin<'a> {
         Ok(read_wide_cstring(bytes)?)
     }
 
-    pub fn samplers(&self) -> impl Iterator<Item = Result<SamplerIterElement, MatbinError>> {
+    pub fn samplers(&self) -> impl Iterator<Item = Result<SamplerIterElement<'_>, MatbinError>> {
         self.samplers.iter().map(|e| {
             let name = {
                 let offset = e.name_offset.get() as usize;
@@ -84,7 +87,9 @@ impl<'a> Matbin<'a> {
         })
     }
 
-    pub fn parameters(&self) -> impl Iterator<Item = Result<ParameterIterElement, MatbinError>> {
+    pub fn parameters(
+        &self,
+    ) -> impl Iterator<Item = Result<ParameterIterElement<'_>, MatbinError>> {
         self.parameters.iter().map(|e| {
             let name = {
                 let offset = e.name_offset.get() as usize;
@@ -100,7 +105,7 @@ impl<'a> Matbin<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for Matbin<'a> {
+impl std::fmt::Debug for Matbin<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Matbin")
             .field("shader_path", &self.shader_path())
@@ -120,6 +125,12 @@ pub struct ParameterIterElement<'a> {
 pub struct SamplerIterElement<'a> {
     pub name: &'a WStr<LE>,
     pub path: &'a WStr<LE>,
+}
+
+impl<'a> SamplerIterElement<'a> {
+    pub fn image_path(&self) -> WindowsPath<'a> {
+        WindowsPath::new(self.path.as_bytes())
+    }
 }
 
 pub enum ParameterValue<'a> {
@@ -176,10 +187,10 @@ impl<'a> ParameterValue<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for ParameterValue<'a> {
+impl std::fmt::Debug for ParameterValue<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&match self {
-            ParameterValue::Bool(v) => format!("Bool({})", v),
+            ParameterValue::Bool(v) => format!("Bool({v})"),
             ParameterValue::Int(v) => format!("Int({})", v.get()),
             ParameterValue::IntVec2(v) => format!("IntVec2([{}, {}])", v[0].get(), v[1].get(),),
             ParameterValue::Float(v) => format!("Float({})", v.get()),
@@ -210,7 +221,7 @@ impl<'a> std::fmt::Debug for ParameterValue<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     chunk_magic: [u8; 4],
@@ -239,7 +250,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Parameter {
     /// Offset to name of the parameter
@@ -258,7 +269,7 @@ pub struct Parameter {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Sampler {
     /// Offset to the samplers name

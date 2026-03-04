@@ -6,10 +6,10 @@ pub struct Name(pub u64);
 impl<S: AsRef<Path>> From<S> for Name {
     fn from(value: S) -> Self {
         let value = value.as_ref();
-        let prefix = if !value.starts_with("/") {
-            Some('/')
-        } else {
+        let prefix = if value.starts_with("/") {
             None
+        } else {
+            Some('/')
         };
 
         let hash = prefix

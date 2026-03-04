@@ -67,7 +67,7 @@ impl<'a> MsbParam<'a> for PARTS_PARAM_ST<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     name_offset: U64<LE>,
@@ -96,7 +96,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 // Seems to be very oriented around masking behavior. Just called "PartUnk1" in
 // soulstemplates.
@@ -113,7 +113,7 @@ pub struct MaskingBehavior {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Entity {
     entity_id: U32<LE>,
@@ -186,7 +186,7 @@ impl<'a> PartData<'a> {
 }
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataEnemy {
     unk0: U32<LE>,
@@ -244,7 +244,7 @@ impl std::fmt::Debug for PartDataEnemy {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataDummyEnemyUnk88 {
     unk0: I32<LE>,
@@ -253,14 +253,14 @@ pub struct PartDataDummyEnemyUnk88 {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataPlayer {
     unk0: U32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataCollision {
     unk0: u8,
@@ -295,7 +295,7 @@ pub struct PartDataCollision {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataDummyAsset {
     unk0: I32<LE>,
@@ -309,7 +309,7 @@ pub struct PartDataDummyAsset {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataConnectCollision {
     collision_index: U32<LE>,
@@ -335,7 +335,7 @@ impl PartDataAsset {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PartDataAssetHeader {
     unk0: U16<LE>,
@@ -374,7 +374,7 @@ pub struct PartDataAssetHeader {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Gparam {
     light_set: I32<LE>,

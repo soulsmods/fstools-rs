@@ -29,7 +29,7 @@ pub mod traits {
 
     impl GenericStr for str {
         fn len_bytes(&self) -> usize {
-            self.as_bytes().len()
+            self.len()
         }
 
         fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {

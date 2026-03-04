@@ -6,6 +6,7 @@ use std::{
 
 use byteorder::{ByteOrder, LE};
 use header::FlverHeader;
+use utf16string::WStr;
 use vertex_buffer::accessor::{
     VertexAttributeAccessor as Accessor, VertexAttributeAccessor, VertexAttributeIter as Iter,
 };
@@ -22,7 +23,8 @@ use crate::{
         texture::Texture,
         vertex_buffer::{VertexBuffer, VertexBufferAttribute, VertexBufferLayout},
     },
-    io_ext::ReadFormatsExt,
+    io_ext::{read_wide_cstring, ReadFormatsExt},
+    path::WindowsPath,
 };
 
 pub mod bone;
@@ -51,14 +53,18 @@ pub struct FlverInner<'a, O: ByteOrder> {
     pub face_sets: &'a [FaceSet<O>],
     materials: &'a [Material<O>],
     pub meshes: &'a [Mesh<O>],
-    textures: &'a [Texture<O>],
+    pub textures: &'a [Texture<O>],
     pub vertex_buffers: &'a [VertexBuffer<O>],
     pub vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
 }
 
-impl<'a, O: ByteOrder> FlverInner<'a, O> {}
+impl<O: ByteOrder> FlverInner<'_, O> {
+    pub fn material(&self, flver_mesh: &Mesh) -> &Material<O> {
+        &self.materials[flver_mesh.material_index.get() as usize]
+    }
+}
 
-impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
+impl<O: ByteOrder + 'static> Deref for FlverInner<'_, O> {
     type Target = FlverHeader<O>;
 
     fn deref(&self) -> &Self::Target {
@@ -81,6 +87,21 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
         })
     }
 
+    pub fn material_name(&self, material: &'a Material<O>) -> Option<&'_ WStr<O>> {
+        let offset = material.name_offset.get() as usize;
+        let bytes = &self.bytes[offset..];
+
+        read_wide_cstring(bytes).ok()
+    }
+
+    pub fn material_mtd_path(&self, material: &'a Material<O>) -> Option<WindowsPath<'a>> {
+        let offset = material.mtd_path_offset.get() as usize;
+        let bytes = &self.bytes[offset..];
+        let length = bytes.chunks_exact(2).position(|bytes| bytes == [0, 0])?;
+
+        Some(WindowsPath::new(&bytes[..length * 2]))
+    }
+
     pub fn mesh_buffers(&self, mesh: &'a Mesh<O>) -> impl Iterator<Item = &'a VertexBuffer<O>> {
         VertexBuffer::from_indices_at::<U32<O>>(
             self.vertex_buffers,
@@ -97,6 +118,21 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
             mesh.face_set_offset.get() as usize,
             mesh.face_set_count.get() as usize,
         )
+    }
+
+    pub fn texture_type(&self, texture: &'a Texture<O>) -> Option<&'_ WStr<O>> {
+        let offset = texture.type_offset.get() as usize;
+        let bytes = &self.bytes[offset..];
+
+        read_wide_cstring(bytes).ok()
+    }
+
+    pub fn texture_path(&self, texture: &'a Texture<O>) -> Option<WindowsPath<'a>> {
+        let offset = texture.path_offset.get() as usize;
+        let bytes = &self.bytes[offset..];
+        let length = bytes.chunks_exact(2).position(|bytes| bytes == [0, 0])?;
+
+        Some(WindowsPath::new(&bytes[..length * 2]))
     }
 
     pub fn vertex_attributes(
@@ -127,7 +163,10 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
         let vertex_size = buffer.vertex_size.get() as usize;
         let vertex_offset = attribute.struct_offset.get() as usize;
 
-        use vertex_buffer::VertexFormat::*;
+        use vertex_buffer::VertexFormat::{
+            Float32x2, Float32x3, Float32x4, Sint16x4, Snorm16x4, Snorm8x4, Sscale16x2, Sscale16x4,
+            Uint8x4, Unorm8x4,
+        };
 
         #[allow(clippy::match_same_arms)]
         attribute.format().map(|format| match format {
@@ -197,7 +236,7 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
     }
 }
 
-impl<'a, O: ByteOrder + 'static> Debug for FlverInner<'a, O> {
+impl<O: ByteOrder + 'static> Debug for FlverInner<'_, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Flver")
             .field("version", &self.version.get())

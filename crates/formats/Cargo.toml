@@ -17,6 +17,8 @@ byteorder = "1"
 dashu = "0.4"
 flate2 = "1.0"
 fstools_oodle_rt.workspace = true
+fstools_describe.workspace = true
+serde.workspace = true
 num-modular = "0.6"
 rayon.workspace = true
 rsa = "0.9"
@@ -26,6 +28,8 @@ thiserror.workspace = true
 utf16string = { git = "https://github.com/tremwil/utf16string.git", tag = "0.2.1", "version" = "0.2" }
 zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
+typed-path = "0.12.3"
+tracing.workspace = true
 
 [lints]
 workspace = true

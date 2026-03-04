@@ -1,7 +1,13 @@
-use std::{error::Error, path::PathBuf};
+use std::{path::PathBuf, sync::Arc};
 
-use clap::{Parser, Subcommand, ValueEnum};
-use fstools_dvdbnd::{DvdBnd, FileKeyProvider};
+use clap::{builder::PossibleValue, Parser, Subcommand, ValueEnum};
+use color_eyre::{
+    eyre::{Context, OptionExt},
+    Result,
+};
+use fstools_dvdbnd::{recover_keys, DvdBnd};
+use fstools_game_id::GameId;
+use fstools_game_installation::GameInstallation;
 
 use crate::{
     describe::{describe_bnd, describe_entryfilelist, describe_matbin},
@@ -10,14 +16,42 @@ use crate::{
 
 mod describe;
 mod extract;
+mod mount;
 mod repl;
+
+#[derive(Clone, Debug)]
+pub struct Game(GameId);
+
+impl Game {
+    pub fn id(&self) -> GameId {
+        self.0.clone()
+    }
+}
+
+impl ValueEnum for Game {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Game(GameId::ELDEN_RING), Game(GameId::NIGHTREIGN)]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        match self.0 {
+            GameId::ELDEN_RING => {
+                Some(PossibleValue::new("elden-ring").aliases(["eldenring", "er"]))
+            }
+            GameId::NIGHTREIGN => {
+                Some(PossibleValue::new("nightreign").aliases(["nightrein", "nr"]))
+            }
+            _ => unreachable!(),
+        }
+    }
+}
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    #[arg(long, env("ER_PATH"))]
-    pub game_path: PathBuf,
+    #[arg(long, short)]
+    pub game: Game,
 
     #[command(subcommand)]
     pub command: Action,
@@ -53,11 +87,17 @@ pub enum Action {
         output_path: PathBuf,
     },
 
+    /// Mount the DVDBND as a virtual filesystem
+    Mount {
+        /// Path to the mount point directory.
+        mount_point: PathBuf,
+    },
+
     Repl,
 }
 
 impl Action {
-    pub fn run(self, dvd_bnd: &DvdBnd) -> Result<(), Box<dyn Error>> {
+    pub fn run(self, dvd_bnd: &Arc<DvdBnd>) -> Result<()> {
         match self {
             Action::Describe {
                 ty: AssetType::Bnd,
@@ -84,6 +124,9 @@ impl Action {
             } => {
                 extract(dvd_bnd, recursive, filter, output_path)?;
             }
+            Action::Mount { mount_point } => {
+                mount::mount_filesystem(Arc::clone(dvd_bnd), &mount_point)?;
+            }
             Action::Repl => {
                 repl::begin(dvd_bnd)?;
             }
@@ -93,21 +136,20 @@ impl Action {
     }
 }
 
-pub fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
+#[tracing::instrument(skip_all)]
+pub fn run(cli: Cli) -> Result<()> {
     let Cli {
-        game_path,
+        game,
         command: action,
+        ..
     } = cli;
-    let keys = FileKeyProvider::new("keys");
-    let archives = [
-        game_path.join("Data0"),
-        game_path.join("Data1"),
-        game_path.join("Data2"),
-        game_path.join("Data3"),
-        game_path.join("sd/sd"),
-    ];
 
-    let dvd_bnd = DvdBnd::create(archives, &keys)?;
+    let installation = GameInstallation::find(game.id())
+        .ok_or_eyre("couldn't find game installation directory")?;
+    let keys = recover_keys(&installation.exe, &installation.bhds).context("scanning keys")?;
+
+    let dvd_bnd =
+        Arc::new(DvdBnd::create(&installation.bhds, &keys).with_context(|| "loading BHD/BDTs")?);
     action.run(&dvd_bnd)?;
 
     Ok(())

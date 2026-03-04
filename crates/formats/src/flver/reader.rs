@@ -278,9 +278,9 @@ impl FLVERPartReader for FLVERMaterial {
         let mtd_offset = r.read_u32::<LE>()?;
 
         let current_pos = r.stream_position()?;
-        r.seek(SeekFrom::Start(name_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(name_offset)))?;
         let name = r.read_utf16::<LE>()?;
-        r.seek(SeekFrom::Start(mtd_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(mtd_offset)))?;
         let mtd = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
@@ -341,7 +341,7 @@ impl FLVERPartReader for FLVERBone {
         r.seek(SeekFrom::Current(0x34))?;
 
         let current_pos = r.stream_position()?;
-        r.seek(SeekFrom::Start(name_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(name_offset)))?;
         let name = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 
@@ -396,13 +396,13 @@ impl FLVERPartReader for FLVERMesh {
 
         let current = r.stream_position()?;
 
-        r.seek(SeekFrom::Start(bone_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(bone_offset)))?;
         let bone_indices = read_vec::<u32>(r, c, bone_count as usize)?;
 
-        r.seek(SeekFrom::Start(face_set_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(face_set_offset)))?;
         let face_set_indices = read_vec::<u32>(r, c, face_set_count as usize)?;
 
-        r.seek(SeekFrom::Start(vertex_buffer_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(vertex_buffer_offset)))?;
         let vertex_buffer_indices = read_vec::<u32>(r, c, vertex_buffer_count as usize)?;
 
         r.seek(SeekFrom::Start(current))?;
@@ -473,13 +473,15 @@ impl FLVERPartReader for FLVERFaceSet {
         assert!(r.read_u32::<LE>()? == 0x0);
 
         let current = r.stream_position()?;
-        r.seek(SeekFrom::Start(index_offset as u64 + c.data_offset as u64))?;
+        r.seek(SeekFrom::Start(
+            u64::from(index_offset) + u64::from(c.data_offset),
+        ))?;
         let indices = match index_size {
             0 => FLVERFaceSetIndices::Byte0,
             8 => FLVERFaceSetIndices::Byte1(read_vec::<u8>(r, c, index_count as usize)?),
             16 => FLVERFaceSetIndices::Byte2(read_vec::<u16>(r, c, index_count as usize)?),
             32 => FLVERFaceSetIndices::Byte4(read_vec::<u32>(r, c, index_count as usize)?),
-            _ => panic!("Unhandled index size {}", index_size),
+            _ => panic!("Unhandled index size {index_size}"),
         };
         r.seek(SeekFrom::Start(current))?;
 
@@ -546,7 +548,7 @@ impl FLVERPartReader for VertexBufferLayout {
 
         let current = r.stream_position()?;
 
-        r.seek(SeekFrom::Start(member_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(member_offset)))?;
         let members = read_vec::<FLVERBufferLayoutMember>(r, c, member_count as usize)?;
 
         r.seek(SeekFrom::Start(current))?;
@@ -611,7 +613,7 @@ impl From<u32> for VertexAttributeSemantic {
             0x6 => Self::Tangent,
             0x7 => Self::Bitangent,
             0xA => Self::VertexColor,
-            _ => panic!("Unknown member type {}", value),
+            _ => panic!("Unknown member type {value}"),
         }
     }
 }
@@ -670,9 +672,9 @@ impl FLVERPartReader for FLVERTexture {
         let unk1c = r.read_f32::<LE>()?;
 
         let current_pos = r.stream_position()?;
-        r.seek(SeekFrom::Start(path_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(path_offset)))?;
         let path = r.read_utf16::<LE>()?;
-        r.seek(SeekFrom::Start(type_offset as u64))?;
+        r.seek(SeekFrom::Start(u64::from(type_offset)))?;
         let r#type = r.read_utf16::<LE>()?;
         r.seek(SeekFrom::Start(current_pos))?;
 

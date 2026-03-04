@@ -8,6 +8,7 @@ use rsa::{pkcs1::DecodeRsaPublicKey, traits::PublicKeyParts, RsaPublicKey};
 
 use crate::io_ext::ReadFormatsExt;
 
+#[derive(Clone, Debug)]
 pub struct BhdKey {
     exponent: UBig,
     modulus: UBig,
@@ -31,6 +32,24 @@ impl BhdKey {
             input_size,
             output_size,
         })
+    }
+
+    pub fn input_size(&self) -> usize {
+        self.input_size
+    }
+
+    pub fn decrypt_block(&self, block: &[u8]) -> Vec<u8> {
+        assert!((block.len() == self.input_size),);
+
+        let divisor = ConstDivisor::new(self.modulus.clone());
+        let decrypted = divisor.pow(UBig::from_be_bytes(block), &self.exponent);
+        let decrypted_data = decrypted.to_be_bytes();
+
+        let mut output = vec![0u8; self.output_size];
+        let copy_len = decrypted_data.len().min(self.output_size);
+        output[self.output_size - copy_len..]
+            .copy_from_slice(&decrypted_data[decrypted_data.len() - copy_len..]);
+        output
     }
 }
 
@@ -144,7 +163,7 @@ pub fn read_toc<R: Read + Seek, O: ByteOrder>(
         let entry_data_offset = reader.read_u32::<O>()?;
 
         let next_bucket_pos = reader.stream_position()?;
-        reader.seek(SeekFrom::Start(entry_data_offset as u64))?;
+        reader.seek(SeekFrom::Start(u64::from(entry_data_offset)))?;
 
         for _ in 0..entry_count {
             let hash = reader.read_u64::<O>()?;

@@ -1,33 +1,36 @@
-use std::path::PathBuf;
+use criterion::{criterion_group, criterion_main, Criterion};
+use fstools::{
+    dvdbnd::recover_keys,
+    game::{GameId, GameInstallation},
+    Assets,
+};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use fstools::dvdbnd::DvdBnd;
-use fstools_dvdbnd::FileKeyProvider;
-
-pub fn vfs_open_benchmark(c: &mut Criterion) {
+pub fn open_assets_benchmark(c: &mut Criterion) {
     c.bench_function("er_vfs_open", |b| {
-        b.iter_with_large_drop(|| {
-            let er_path = PathBuf::from(std::env::var("ER_PATH").expect("er_path"));
-            let keys_path = PathBuf::from(std::env::var("ER_KEYS_PATH").expect("er_keys_path"));
-            let keys = FileKeyProvider::new(keys_path);
-            let archives = [
-                er_path.join("Data0"),
-                er_path.join("Data1"),
-                er_path.join("Data2"),
-                er_path.join("Data3"),
-                er_path.join("sd/sd"),
-            ];
+        let install = GameInstallation::find(GameId::ELDEN_RING).unwrap();
+        let keys = recover_keys(&install.exe, &install.bhds).unwrap();
 
-            let vfs = DvdBnd::create(archives.clone(), &keys).expect("unable to create dvdbnd");
+        b.iter_with_large_drop(move || {
+            std::hint::black_box(Assets::open_with(install.clone(), &keys))
+        });
+    });
+}
 
-            black_box(vfs)
-        })
+pub fn index_assets_benchmark(c: &mut Criterion) {
+    c.bench_function("er_vfs_index", |b| {
+        let install = GameInstallation::find(GameId::ELDEN_RING).unwrap();
+        let keys = recover_keys(&install.exe, &install.bhds).unwrap();
+        let assets = Assets::open_with(install.clone(), &keys)
+            .unwrap()
+            .with_dictionary(fstools_elden_ring_support::dictionary());
+
+        b.iter_with_large_drop(move || std::hint::black_box(assets.index()));
     });
 }
 
 criterion_group!(
     name = benches;
-    config = Criterion::default().sample_size(20);
-    targets = vfs_open_benchmark
+    config = Criterion::default().sample_size(10);
+    targets = open_assets_benchmark, index_assets_benchmark
 );
 criterion_main!(benches);

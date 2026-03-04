@@ -33,7 +33,7 @@ pub struct EntryFileList<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 struct ContainerHeader {
     magic: [u8; 4],
@@ -85,7 +85,7 @@ impl<'a> EntryFileList<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for EntryFileList<'a> {
+impl std::fmt::Debug for EntryFileList<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EntryFileList")
             .field("unk04", &self.container_header._unk04.get())
@@ -222,7 +222,8 @@ impl SectionElement for UnkString {
                 break;
             }
 
-            string.push(char::from_u32(c as u32).ok_or(io::Error::from(ErrorKind::InvalidData))?);
+            string
+                .push(char::from_u32(u32::from(c)).ok_or(io::Error::from(ErrorKind::InvalidData))?);
         }
 
         Ok(UnkString(string))

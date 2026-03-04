@@ -6,6 +6,7 @@ use crate::flver::vertex_buffer::normalization::{
     NoNormalization, SNorm, UNorm, VertexAttributeNormalization,
 };
 
+#[derive(Debug)]
 pub enum VertexAttributeAccessor<'a> {
     Float2(VertexAttributeIter<'a, f32, 2>),
     Float3(VertexAttributeIter<'a, f32, 3>),
@@ -38,8 +39,22 @@ pub struct VertexAttributeIter<
     _normalization: PhantomData<N>,
 }
 
+impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization> std::fmt::Debug
+    for VertexAttributeIter<'a, T, L, N>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VertexAttributeIter")
+            .field("attribute_data_offset", &self.attribute_data_offset)
+            .field("attribute_data_end", &self.attribute_data_end)
+            .field("vertex_size", &self.vertex_size)
+            .finish()
+    }
+}
+
 // TODO: this doesn't support endian sensitive reading like the rest of the FLVER parser.
-impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization> VertexAttributeIter<'a, T, L, N> {
+impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>>
+    VertexAttributeIter<'a, T, L, N>
+{
     pub fn new(
         buffer: &'a [u8],
         vertex_size: usize,
@@ -70,12 +85,12 @@ impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization> VertexAttribut
     }
 }
 
-impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> ExactSizeIterator
-    for VertexAttributeIter<'a, T, L, N>
+impl<T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> ExactSizeIterator
+    for VertexAttributeIter<'_, T, L, N>
 {
 }
-impl<'a, T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> Iterator
-    for VertexAttributeIter<'a, T, L, N>
+impl<T: Pod, const L: usize, N: VertexAttributeNormalization<Input = T>> Iterator
+    for VertexAttributeIter<'_, T, L, N>
 {
     type Item = [N::Output; L];
 

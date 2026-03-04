@@ -1,31 +1,28 @@
-use std::{
-    error::Error,
-    io::{Cursor, Read},
-};
+use std::io::{stdout, Cursor, Read};
 
+use color_eyre::eyre::{eyre, Result};
+use fstools_describe::{ColorChoice, OutputFormat, PlainFormatterOptions, PrintOptions};
 use fstools_dvdbnd::DvdBnd;
 use fstools_formats::{bnd4::BND4, dcx::DcxHeader, entryfilelist::EntryFileList};
 
-pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
-    let (dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
+pub fn describe_bnd(dvd_bnd: &DvdBnd, name: &str) -> Result<()> {
+    let (_dcx, mut reader) = DcxHeader::read(dvd_bnd.open(name)?)?;
 
     let mut data = vec![];
     reader.read_to_end(&mut data)?;
 
     let bnd = BND4::from_reader(&mut Cursor::new(data))?;
 
-    println!("Compression type: {:?}", dcx.compression_parameters());
-    println!("Files: {}", bnd.files.len());
+    let options = PrintOptions::default()
+        .with_plain(PlainFormatterOptions::default().with_color_choice(ColorChoice::Auto));
 
-    for idx in 0..bnd.files.len() {
-        println!("File[{idx}] {}", bnd.files[idx].path);
-    }
+    fstools_describe::print_with_options(&bnd, OutputFormat::Plain, stdout(), options)?;
 
     Ok(())
 }
 
-pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dyn Error>> {
-    let reader = dvd_bnd.open(name).expect("Could not open dvdbnd entry");
+pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<()> {
+    let reader = dvd_bnd.open(name)?;
     let container = EntryFileList::from_bytes(reader.data())?;
 
     println!("Container: {container:#?}");
@@ -47,6 +44,6 @@ pub fn describe_entryfilelist(dvd_bnd: &DvdBnd, name: &str) -> Result<(), Box<dy
     Ok(())
 }
 
-pub fn describe_matbin(_dvd_bnd: &DvdBnd, _name: &str) -> Result<(), Box<dyn Error>> {
-    todo!()
+pub fn describe_matbin(_dvd_bnd: &DvdBnd, _name: &str) -> Result<()> {
+    Err(eyre!("matbin description not yet implemented"))
 }

@@ -45,7 +45,7 @@ pub enum DecompressionError {
 }
 
 #[derive(FromBytes, FromZeroes)]
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct DcxHeader {
     metadata: Metadata,
     sizes: Sizes,
@@ -188,6 +188,16 @@ pub struct Sizes {
     compressed_size: U32<BE>,
 }
 
+impl Sizes {
+    pub fn decompressed(&self) -> u32 {
+        self.uncompressed_size.get()
+    }
+
+    pub fn compressed(&self) -> u32 {
+        self.compressed_size.get()
+    }
+}
+
 impl Debug for Sizes {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sizes")
@@ -198,7 +208,7 @@ impl Debug for Sizes {
 }
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 /// The DCP chunk. Describes parameters used for compression/decompression.
 pub struct CompressionParameters {
