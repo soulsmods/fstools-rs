@@ -4,7 +4,7 @@ use zerocopy::{FromBytes, FromZeroes, F32, U16};
 use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Dummy<O: ByteOrder> {
     position: [F32<O>; 3],

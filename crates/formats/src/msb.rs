@@ -137,7 +137,7 @@ pub trait MsbParam<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     magic: [u8; 4],
@@ -161,7 +161,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct SetHeader {
     /// Version of the param format.

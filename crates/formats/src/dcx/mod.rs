@@ -45,7 +45,7 @@ pub enum DecompressionError {
 }
 
 #[derive(FromBytes, FromZeroes)]
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct DcxHeader {
     metadata: Metadata,
     sizes: Sizes,
@@ -198,7 +198,7 @@ impl Debug for Sizes {
 }
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 /// The DCP chunk. Describes parameters used for compression/decompression.
 pub struct CompressionParameters {
