@@ -84,7 +84,9 @@ impl<'a> Matbin<'a> {
         })
     }
 
-    pub fn parameters(&self) -> impl Iterator<Item = Result<ParameterIterElement<'_>, MatbinError>> {
+    pub fn parameters(
+        &self,
+    ) -> impl Iterator<Item = Result<ParameterIterElement<'_>, MatbinError>> {
         self.parameters.iter().map(|e| {
             let name = {
                 let offset = e.name_offset.get() as usize;
