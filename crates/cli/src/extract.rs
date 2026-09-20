@@ -22,7 +22,8 @@ pub fn extract(
                 .as_ref()
                 .map(|filter| line.to_string_lossy().contains(filter))
                 .unwrap_or(true)
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")
         .expect("Could not create progress bar style");
