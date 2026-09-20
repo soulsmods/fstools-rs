@@ -4,7 +4,7 @@ use byteorder::{ReadBytesExt, LE};
 
 use crate::io_ext::ReadFormatsExt;
 
-type BND4Reader = std::io::Cursor<Vec<u8>>;
+type BND4Reader<'a> = std::io::Cursor<&'a [u8]>;
 
 #[derive(Debug)]
 pub struct BND4 {
