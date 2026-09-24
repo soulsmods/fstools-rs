@@ -34,7 +34,7 @@ impl<'a> MsbParam<'a> for ROUTE_PARAM_ST<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 struct Inner {
     name_offset: U64<LE>,

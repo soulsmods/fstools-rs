@@ -4,7 +4,7 @@ use zerocopy::{FromBytes, FromZeroes, U32};
 use crate::{flver::header::FlverHeaderPart, io_ext::zerocopy::Padding};
 
 #[derive(Debug, FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Mesh<O: ByteOrder = LE> {
     pub(crate) dynamic: u8,

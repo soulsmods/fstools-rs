@@ -29,7 +29,7 @@ pub mod traits {
 
     impl GenericStr for str {
         fn len_bytes(&self) -> usize {
-            self.as_bytes().len()
+            self.len()
         }
 
         fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {
@@ -48,7 +48,7 @@ pub mod traits {
         }
 
         fn read_cstr(bytes: &[u8]) -> Option<&'_ Self> {
-            let nt_pos = bytes.chunks_exact(2).position(|b| b == [0, 0])?;
+            let nt_pos = bytes.as_chunks::<2>().0.iter().position(|b| b == &[0, 0])?;
             WStr::from_utf16(&bytes[..2 * nt_pos]).ok()
         }
 

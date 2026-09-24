@@ -4,7 +4,7 @@ use zerocopy::{FromBytes, FromZeroes, U32};
 use crate::flver::header::FlverHeaderPart;
 
 #[derive(FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Material<O: ByteOrder> {
     name_offset: U32<O>,
