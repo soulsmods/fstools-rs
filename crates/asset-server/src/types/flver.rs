@@ -91,11 +91,15 @@ fn load_mesh(flver: &Flver, flver_mesh: &FlverMesh) -> Mesh {
                 Mesh::ATTRIBUTE_NORMAL,
                 VertexAttributeValues::Float32x3(it.collect()),
             ),
-            (Normal, VertexAttributeAccessor::SNorm8x4(it)) => (
+            // Packed normals are biased bytes: (b - 127) / 127.
+            (Normal, VertexAttributeAccessor::Uint8x4(it)) => (
                 Mesh::ATTRIBUTE_NORMAL,
-                VertexAttributeValues::Float32x3(it.map(|f| [f[0], f[1], f[2]]).collect()),
+                VertexAttributeValues::Float32x3(
+                    it.map(|b| [b[0], b[1], b[2]].map(|b| (b as f32 - 127.0) / 127.0))
+                        .collect(),
+                ),
             ),
-            (UV, VertexAttributeAccessor::UV(it)) => (
+            (UV, VertexAttributeAccessor::Float2(it)) => (
                 Mesh::ATTRIBUTE_UV_0,
                 VertexAttributeValues::Float32x2(it.collect()),
             ),
