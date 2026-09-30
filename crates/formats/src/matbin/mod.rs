@@ -80,7 +80,11 @@ impl<'a> Matbin<'a> {
                 read_wide_cstring(bytes)
             }?;
 
-            Ok(SamplerIterElement { name, path })
+            Ok(SamplerIterElement {
+                name,
+                path,
+                uv_scale: e.uv_scale.map(|v| v.get()),
+            })
         })
     }
 
@@ -97,7 +101,11 @@ impl<'a> Matbin<'a> {
             let value_slice = &self.bytes[e.value_offset.get() as usize..];
             let value = ParameterValue::from_type_and_slice(e.value_type.get(), value_slice)?;
 
-            Ok(ParameterIterElement { name, value })
+            Ok(ParameterIterElement {
+                name,
+                name_hash: e.name_hash.get(),
+                value,
+            })
         })
     }
 }
@@ -116,12 +124,16 @@ impl<'a> std::fmt::Debug for Matbin<'a> {
 
 pub struct ParameterIterElement<'a> {
     pub name: &'a WStr<LE>,
+    /// Adler-32 of the name in UTF-16 LE, without the terminator.
+    pub name_hash: u32,
     pub value: ParameterValue<'a>,
 }
 
 pub struct SamplerIterElement<'a> {
     pub name: &'a WStr<LE>,
     pub path: &'a WStr<LE>,
+    /// UV scale for this sampler's texture, overriding its UV group's when non-zero.
+    pub uv_scale: [f32; 2],
 }
 
 pub enum ParameterValue<'a> {
@@ -272,8 +284,9 @@ pub struct Sampler {
     /// Adler32 hash of the name string without the string terminator
     name_hash: U32<LE>,
 
-    /// ???
-    unkxy: [F32<LE>; 2],
+    /// UV scale for this sampler's texture, overriding its UV group's
+    /// (`<group>_CommonUV-UVParam`) when non-zero.
+    uv_scale: [F32<LE>; 2],
 
     _padding1c: Padding<20>,
 }
