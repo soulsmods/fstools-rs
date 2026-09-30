@@ -7,7 +7,6 @@ use crate::{
 };
 
 pub mod accessor;
-mod normalization;
 
 #[derive(Debug, FromBytes, FromZeroes)]
 #[allow(unused)]
@@ -46,60 +45,63 @@ pub struct VertexBufferAttribute<O: ByteOrder> {
     pub index: U32<O>,
 }
 
+/// The raw data layout of a vertex attribute as stored on disk.
+///
+/// This enum represents **only** the byte-level encoding, the specific interpretation is up
+/// to the shader that processes these attributes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VertexFormat {
+    Float32x2,
+    Float32x3,
+    Float32x4,
+    Uint8x4,
+    Uint8x4WFirst,
+    Sint16x2,
+    Sint16x4,
+    Uint16x4,
+    Uint16x4Biased,
+}
+
 impl<O: ByteOrder> VertexBufferAttribute<O> {
+    /// Determine the raw data format for this attribute based on the
+    /// combination of semantic and format-id.
     #[allow(clippy::match_same_arms)]
     pub fn format(&self) -> Option<VertexFormat> {
         use VertexAttributeSemantic::*;
         use VertexFormat::*;
 
-        let format = match (
-            VertexAttributeSemantic::from(self.semantic_id.get()),
-            self.format_id.get(),
-        ) {
-            (Position | UV, 0x02) => Float32x3,
-            (Position | UV, 0x03) => Float32x4,
+        let semantic = VertexAttributeSemantic::from(self.semantic_id.get());
+        let fmt = self.format_id.get();
+
+        let result = match (semantic, fmt) {
+            (Position, 0x02) => Float32x3,
+            (Position, 0x03) => Float32x4,
+            (Normal, 0x02) => Float32x3,
+            (Normal, 0x03 | 0x04) => Float32x4,
+            (Normal, 0x10 | 0x11 | 0x13 | 0x2F) => Uint8x4,
+            (Normal, 0x12) => Uint8x4WFirst,
+            (Normal, 0x1A) => Sint16x4,
+            (Normal, 0x2E) => Uint16x4Biased,
+            (Tangent, 0x03 | 0x04) => Float32x4,
+            (Tangent, 0x10 | 0x11 | 0x13 | 0x2F) => Uint8x4,
+            (Tangent, 0x1A) => Sint16x4,
             (UV, 0x01) => Float32x2,
-            (UV, 0x10 | 0x11 | 0x12 | 0x13 | 0x15) => Sscale16x2,
-            (UV, 0x16) => Sscale16x4,
-            (UV, 0x11A | 0x2E) => Sscale16x4,
-            (Normal, 0x04) => Float32x4,
-            (Normal, 0x10 | 0x11 | 0x13 | 0x2F) => Snorm8x4,
-            (Normal, 0x12) => Snorm8x4, // soulstruct says unorm clamped to 127
-            (Normal, 0x1A) => Snorm16x4,
-            (Normal, 0x2E) => Snorm16x4, // soulstruct says unorm clamped to 127,
-            (BoneWeights, 0x10) => Snorm8x4,
-            (BoneWeights, 0x13) => Unorm8x4,
-            (BoneWeights, 0x16 | 0x1A) => Snorm16x4,
-            (BoneIndices, 0x11 | 0x24) => Uint8x4,
-            (BoneIndices, 0x18) => Sint16x4,
-            (Tangent, 0x10 | 0x11 | 0x13 | 0x2F) => Snorm8x4,
+            (UV, 0x02  | 0x03) => Float32x3,
+            (UV, 0x10 | 0x11 | 0x12 | 0x13 | 0x15) => Sint16x2,
+            (UV, 0x16 | 0x1A | 0x2E) => Sint16x4,
+            (BoneIndices, 0x11 | 0x13 | 0x24 | 0x2F) => Uint8x4,
+            (BoneIndices, 0x18) => Uint16x4,
+            (BoneWeights, 0x10 | 0x13) => Uint8x4,
+            (BoneWeights, 0x16 | 0x1A) => Sint16x4,
+            (Bitangent, 0x10 | 0x11 | 0x13 | 0x2F) => Uint8x4,
+            (VertexColor, 0x03 | 0x04) => Float32x4,
+            (VertexColor, 0x10 | 0x13) => Uint8x4,
+
             _ => return None,
         };
 
-        Some(format)
+        Some(result)
     }
 }
 
-pub enum VertexFormat {
-    Float32x2,
-    Float32x3,
-    Float32x4,
-    Unorm8x4,
-    Snorm8x4,
-    Snorm16x4,
-    Uint8x4,
-    Sint16x4,
-    Sscale16x2,
-    Sscale16x4,
-}
-
-// UVs:
-//
-// 0x01: 2 floats
-// 0x02: 3 floats (only 2 components used)
-// 0x03: 2 floats, 2 floats
-// 0x10, 0x11, 0x12, 0x13, 0x15: 2 signed shorts -> float (cast to float, take UV factor into
-// account) 0x16: 4 signed shorts -> float (cast to float, take UV factor into account)
-// 0x1A, 0x2E: 4 signed shorts -> float (cast to float, take UV factor into account) (only 2
-// components used)
 impl<O: ByteOrder> FlverHeaderPart for VertexBufferAttribute<O> {}

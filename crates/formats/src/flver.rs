@@ -6,6 +6,7 @@ use std::{
 
 use byteorder::{ByteOrder, LE};
 use header::FlverHeader;
+use utf16string::WStr;
 use vertex_buffer::accessor::{
     VertexAttributeAccessor as Accessor, VertexAttributeAccessor, VertexAttributeIter as Iter,
 };
@@ -22,7 +23,7 @@ use crate::{
         texture::Texture,
         vertex_buffer::{VertexBuffer, VertexBufferAttribute, VertexBufferLayout},
     },
-    io_ext::ReadFormatsExt,
+    io_ext::{read_wide_cstring, ReadFormatsExt},
 };
 
 pub mod bone;
@@ -56,7 +57,30 @@ pub struct FlverInner<'a, O: ByteOrder> {
     pub vertex_buffer_layouts: &'a [VertexBufferLayout<O>],
 }
 
-impl<'a, O: ByteOrder> FlverInner<'a, O> {}
+impl<'a, O: ByteOrder> FlverInner<'a, O> {
+    /// The material `flver_mesh` is drawn with.
+    pub fn material(&self, flver_mesh: &Mesh<O>) -> &Material<O> {
+        &self.materials[flver_mesh.material_index.get() as usize]
+    }
+
+    /// All materials in this FLVER, in index order.
+    pub fn materials(&self) -> &[Material<O>] {
+        self.materials
+    }
+
+    pub fn material_name(&self, material: &Material<O>) -> Option<&'a WStr<O>> {
+        let bytes = self.bytes.get(material.name_offset.get() as usize..)?;
+
+        read_wide_cstring(bytes).ok()
+    }
+
+    /// The path of the MTD (or MATBIN, by its stem) the material uses.
+    pub fn material_mtd_path(&self, material: &Material<O>) -> Option<&'a WStr<O>> {
+        let bytes = self.bytes.get(material.mtd_name_offset.get() as usize..)?;
+
+        read_wide_cstring(bytes).ok()
+    }
+}
 
 impl<'a, O: ByteOrder + 'static> Deref for FlverInner<'a, O> {
     type Target = FlverHeader<O>;
@@ -127,20 +151,31 @@ impl<'a, O: ByteOrder + 'static> FlverInner<'a, O> {
         let vertex_size = buffer.vertex_size.get() as usize;
         let vertex_offset = attribute.struct_offset.get() as usize;
 
-        use vertex_buffer::VertexFormat::*;
+        use vertex_buffer::VertexFormat;
 
-        #[allow(clippy::match_same_arms)]
         attribute.format().map(|format| match format {
-            Float32x3 => Accessor::Float3(Iter::new(data, vertex_size, vertex_offset)),
-            Float32x2 => Accessor::Float2(Iter::new(data, vertex_size, vertex_offset)),
-            Float32x4 => Accessor::Float4(Iter::new(data, vertex_size, vertex_offset)),
-            Unorm8x4 => Accessor::UNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
-            Snorm8x4 => Accessor::SNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
-            Snorm16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
-            Uint8x4 => Accessor::UNorm8x4(Iter::new(data, vertex_size, vertex_offset)),
-            Sint16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
-            Sscale16x2 => Accessor::SNorm16x2(Iter::new(data, vertex_size, vertex_offset)),
-            Sscale16x4 => Accessor::SNorm16x4(Iter::new(data, vertex_size, vertex_offset)),
+            VertexFormat::Float32x2 => {
+                Accessor::Float2(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Float32x3 => {
+                Accessor::Float3(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Float32x4 => {
+                Accessor::Float4(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Uint8x4 => Accessor::Uint8x4(Iter::new(data, vertex_size, vertex_offset)),
+            VertexFormat::Uint8x4WFirst => {
+                Accessor::Uint8x4WFirst(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Sint16x2 => {
+                Accessor::Uint16x2(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Sint16x4 | VertexFormat::Uint16x4 => {
+                Accessor::Uint16x4(Iter::new(data, vertex_size, vertex_offset))
+            }
+            VertexFormat::Uint16x4Biased => {
+                Accessor::Uint16x4Biased(Iter::new(data, vertex_size, vertex_offset))
+            }
         })
     }
 
