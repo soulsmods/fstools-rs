@@ -5,6 +5,7 @@ pub mod entryfilelist;
 pub mod flver;
 pub mod io_ext;
 pub mod matbin;
+pub mod metaparam;
 pub mod msb;
 pub mod param;
 pub mod tpf;
