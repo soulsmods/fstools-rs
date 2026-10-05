@@ -23,7 +23,6 @@ pub fn extract(
                 .map(|filter| line.to_string_lossy().contains(filter))
                 .unwrap_or(true)
         })
-        .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
     let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40} {pos:>7}/{len:7} {msg}")

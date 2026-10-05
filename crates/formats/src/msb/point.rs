@@ -41,7 +41,7 @@ impl<'a> MsbParam<'a> for POINT_PARAM_ST<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     name_offset: U64<LE>,
@@ -223,14 +223,14 @@ impl<'a> PointData<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataInvasionPoint {
     priority: U32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataEnvironmentMapPoint {
     unk0: F32<LE>,
@@ -254,7 +254,7 @@ pub struct PointDataEnvironmentMapPoint {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataSound {
     sound_type: U32<LE>,
@@ -267,7 +267,7 @@ pub struct PointDataSound {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataSfx {
     effect_id: U32<LE>,
@@ -275,7 +275,7 @@ pub struct PointDataSfx {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataWindSfx {
     effect_id: U32<LE>,
@@ -285,14 +285,14 @@ pub struct PointDataWindSfx {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataSpawnPoint {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMessage {
     pub message_id: I16<LE>,
@@ -309,7 +309,7 @@ pub struct PointDataMessage {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataEnvironmentMapEffectBox {
     unk00: F32<LE>,
@@ -337,7 +337,7 @@ pub struct PointDataEnvironmentMapEffectBox {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataConnection {
     map_id: [u8; 4],
@@ -347,14 +347,14 @@ pub struct PointDataConnection {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataHitset {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataPatrolRoute22 {
     unk0: I32<LE>,
@@ -362,7 +362,7 @@ pub struct PointDataPatrolRoute22 {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataBuddySummonPoint {
     unk0: I32<LE>,
@@ -373,7 +373,7 @@ pub struct PointDataBuddySummonPoint {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMufflingBox {
     unk0: I32<LE>,
@@ -397,7 +397,7 @@ pub struct PointDataMufflingBox {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMufflingPortal {
     unk0: I32<LE>,
@@ -417,7 +417,7 @@ pub struct PointDataMufflingPortal {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataSoundRegion {
     unk0: i8,
@@ -438,14 +438,14 @@ pub struct PointDataSoundRegion {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataPatrolRoute {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMapPoint {
     world_map_point_param: I32<LE>,
@@ -459,7 +459,7 @@ pub struct PointDataMapPoint {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataWeatherOverride {
     weather_lot_param: I32<LE>,
@@ -473,14 +473,14 @@ pub struct PointDataWeatherOverride {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataAutoDrawGroupPoint {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataGroupDefeatReward {
     unk0: I32<LE>,
@@ -503,7 +503,7 @@ pub struct PointDataGroupDefeatReward {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataNpcArea {
     unk0: I32<LE>,
@@ -511,14 +511,14 @@ pub struct PointDataNpcArea {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataWeatherCreateAssetPoint {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataPlayArea {
     unk0: I32<LE>,
@@ -526,14 +526,14 @@ pub struct PointDataPlayArea {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataEnvironmentMapOutput {
     unk0: I32<LE>,
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMountJump {
     unk0: I32<LE>,
@@ -541,7 +541,7 @@ pub struct PointDataMountJump {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataDummy {
     unk0: I32<LE>,
@@ -549,7 +549,7 @@ pub struct PointDataDummy {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataFallPreventionRemoval {
     unk0: I32<LE>,
@@ -557,7 +557,7 @@ pub struct PointDataFallPreventionRemoval {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataNavmeshCutting {
     unk0: I32<LE>,
@@ -565,7 +565,7 @@ pub struct PointDataNavmeshCutting {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMapNameOverride {
     unk0: I32<LE>,
@@ -573,7 +573,7 @@ pub struct PointDataMapNameOverride {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataMountJumpFall {
     unk0: I32<LE>,
@@ -581,7 +581,7 @@ pub struct PointDataMountJumpFall {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct PointDataHorseProhibition {
     unk0: I32<LE>,

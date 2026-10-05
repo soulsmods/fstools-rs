@@ -58,31 +58,31 @@ impl<'a> Msb<'a> {
 
     pub fn models(
         &self,
-    ) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST, MsbError>>, MsbError> {
+    ) -> Result<impl Iterator<Item = Result<MODEL_PARAM_ST<'_>, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
     pub fn events(
         &self,
-    ) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST, MsbError>>, MsbError> {
+    ) -> Result<impl Iterator<Item = Result<EVENT_PARAM_ST<'_>, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
     pub fn points(
         &self,
-    ) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST, MsbError>>, MsbError> {
+    ) -> Result<impl Iterator<Item = Result<POINT_PARAM_ST<'_>, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
     pub fn routes(
         &self,
-    ) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST, MsbError>>, MsbError> {
+    ) -> Result<impl Iterator<Item = Result<ROUTE_PARAM_ST<'_>, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
     pub fn parts(
         &self,
-    ) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST, MsbError>>, MsbError> {
+    ) -> Result<impl Iterator<Item = Result<PARTS_PARAM_ST<'_>, MsbError>>, MsbError> {
         self.param_set::<_>()
     }
 
@@ -137,7 +137,7 @@ pub trait MsbParam<'a> {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct Header {
     magic: [u8; 4],
@@ -161,7 +161,7 @@ pub struct Header {
 }
 
 #[derive(FromZeroes, FromBytes, Debug)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct SetHeader {
     /// Version of the param format.

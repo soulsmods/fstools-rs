@@ -18,8 +18,10 @@ pub fn read_wide_cstring<BO: ByteOrder>(input: &[u8]) -> Result<&WStr<BO>, ReadW
     // known as U16Str seems to behave inconsistently (sometimes yields garble
     // at the end of a read string) when the slice doesn't end at the terminator.
     let length = input
-        .chunks_exact(2)
-        .position(|bytes| bytes == [0, 0])
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .position(|bytes| bytes == &[0, 0])
         .ok_or(ReadWidestringError::NoEndFound)?;
 
     // Create a view that has a proper end

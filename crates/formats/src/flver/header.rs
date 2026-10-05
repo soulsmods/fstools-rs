@@ -6,7 +6,7 @@ use zerocopy::{AsBytes, FromBytes, FromZeroes, F32, U32};
 use crate::io_ext::zerocopy::Padding;
 
 #[derive(AsBytes, FromZeroes, FromBytes)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[allow(unused)]
 pub struct FlverHeader<O: ByteOrder> {
     #[doc(hidden)]

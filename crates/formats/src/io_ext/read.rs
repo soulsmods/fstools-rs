@@ -30,7 +30,7 @@ impl<R: Read> ReadFormatsExt for R {
                     String::from_utf8_lossy(expected),
                     expected,
                     String::from_utf8_lossy(&buffer),
-                    &buffer
+                    buffer
                 ),
             ))
         }
